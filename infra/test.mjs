@@ -41,7 +41,7 @@ test('supports legacy Code Server payloads and current-project host paths', () =
 test('browser choice, content, controls, modified clicks and disposal', async () => {
  const browser = await chromium.launch({ headless:true, args:['--no-sandbox'] });
  try {
- const page = await browser.newPage();
+ const page = await browser.newPage({ viewport: { width:Number(process.env.SCRATCH_TAB_WIDTH || 1280), height:720 } });
  await page.route('https://remote.test/**', route => {
   const path = new URL(route.request().url()).pathname;
   if (path.endsWith('/main.js')) return route.fulfill({ contentType:'text/javascript', body:source });
@@ -49,6 +49,8 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
   return route.fulfill({ contentType:'text/html', body:'<div id="host"></div><a href="/api/chats/a/ide-open?path=%2Fworkspace%2Fnotes.txt">notes</a>' });
  });
  await page.goto('https://remote.test/');
+ const dark = process.env.SCRATCH_TAB_THEME === 'dark';
+ await page.addStyleTag({ content: `:root { --bg-surface-rgb:${dark ? '20 21 25' : '244 245 248'}; --bg-raised-rgb:${dark ? '27 28 33' : '255 255 255'}; --fg:${dark ? '227 227 231' : '31 36 44'}; --accent-blue:${dark ? '138 180 255' : '47 111 235'}; --line:${dark ? 'rgba(255,255,255,.07)' : 'rgba(15,20,28,.1)'}; } body { background:${dark ? '#101114' : '#fff'}; color:rgb(var(--fg)); font:13px system-ui; } a {color:rgb(var(--accent-blue));}` });
  await page.addStyleTag({ content:await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8') });
  await page.evaluate(async () => {
   const { default:activate } = await import('/main.js');
@@ -69,8 +71,23 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
   window.mount();
  });
  await page.getByText('notes', {exact:true}).click();
- await page.getByText('Scratch Tab · lightweight editor').click();
+ const choices = page.locator('.scratch-tab-choice');
+ assert.equal(await choices.getByRole('button').count(), 2);
+ const left = await choices.getByRole('button', {name:'Scratch Tab',exact:true}).boundingBox();
+ const right = await choices.getByRole('button', {name:'Code Server',exact:true}).boundingBox();
+ assert.equal(left.y, right.y); assert.ok(right.x > left.x);
+ await choices.getByRole('button', {name:'Scratch Tab',exact:true}).press('ArrowRight');
+ assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Code Server');
+ await choices.getByRole('button', {name:'Scratch Tab',exact:true}).press('Escape');
+ assert.equal(await choices.count(), 0);
+ await page.getByText('notes', {exact:true}).click();
+ await page.mouse.click(Number(process.env.SCRATCH_TAB_WIDTH || 1280) - 8, 700);
+ assert.equal(await choices.count(), 0);
+ await page.getByText('notes', {exact:true}).click();
+ if (process.env.SCRATCH_TAB_SCREENSHOTS) await page.screenshot({ path: process.env.SCRATCH_TAB_SCREENSHOTS + '-chooser.png' });
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
  await page.waitForFunction(() => document.querySelector('textarea')?.value.includes('A small file'));
+ if (process.env.SCRATCH_TAB_SCREENSHOTS) await page.screenshot({ path: process.env.SCRATCH_TAB_SCREENSHOTS + '-editor.png' });
  assert.equal(await page.locator('script').count(), 0);
  await page.locator('textarea').fill('Edited text');
  await page.getByRole('button', {name:'Save',exact:true}).click();
@@ -87,16 +104,20 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  await page.evaluate(() => { window.failSave = false; });
  await page.getByRole('button', {name:'Save',exact:true}).click();
  await page.waitForFunction(() => window.disk === 'Unsaved conflict');
- await page.getByRole('button', {name:'Minimize file',exact:true}).click();
- assert.equal(await page.locator('textarea').isVisible(), false);
- await page.getByRole('button', {name:'Restore file',exact:true}).click();
- await page.getByRole('button', {name:'Toggle maximize'}).click();
- assert.equal(await page.locator('.scratch-tab-maximized').count(), 1);
+ assert.equal(await page.locator('.scratch-tab-controls button').count(), 1);
+ assert.equal(await page.getByRole('button', {name:'Close file',exact:true}).textContent(), '');
+ assert.equal(await page.getByRole('button', {name:'Save',exact:true}).evaluate(node => !!node.closest('header')), true);
+ assert.equal(await page.getByRole('button', {name:'Open in Code Server',exact:true}).evaluate(node => !!node.closest('header')), true);
+ const header = page.locator('.scratch-tab-header');
+ const before = await page.locator('.scratch-tab-window').boundingBox();
+ await header.focus(); await header.press('ArrowRight');
+ const after = await page.locator('.scratch-tab-window').boundingBox();
+ assert.equal(after.x, before.x + 20);
  await page.getByRole('button', {name:'Close file'}).click();
  assert.equal(await page.locator('.scratch-tab-window').count(), 0);
  await page.getByText('notes', {exact:true}).click();
- assert.equal(await page.locator('#chooser').count(), 1);
- await page.getByText('Scratch Tab · lightweight editor').click();
+ assert.equal(await page.locator('.scratch-tab-choice').count(), 1);
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
  await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
  await page.locator('textarea').fill('Draft survives chat change');
  await page.evaluate(() => window.dispose());
@@ -104,14 +125,14 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  assert.equal(await page.evaluate(() => { const a=document.querySelector('a'); const event=new MouseEvent('click',{bubbles:true,cancelable:true,ctrlKey:true}); a.dispatchEvent(event); return event.defaultPrevented; }), false);
  await page.evaluate(() => { document.querySelector('#host').replaceChildren(); window.mount(); });
  await page.getByText('notes', {exact:true}).click();
- await page.getByText('Scratch Tab · lightweight editor').click();
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
  await page.waitForFunction(() => document.querySelector('textarea')?.value === 'Draft survives chat change');
  await page.getByRole('button', {name:'Save',exact:true}).click();
  await page.waitForFunction(() => window.disk === 'Draft survives chat change');
  await page.getByRole('button', {name:'Close file',exact:true}).click();
  await page.evaluate(() => { window.disk = ''; });
  await page.getByText('notes', {exact:true}).click();
- await page.getByText('Scratch Tab · lightweight editor').click();
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
  await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
  assert.equal(await page.locator('textarea').inputValue(), '');
  await page.locator('textarea').fill('Write an empty file');
@@ -123,16 +144,19 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
    window.open = (...args) => { window.opened = args; return null; };
  });
  await page.getByText('notes', {exact:true}).click();
- assert.equal(await page.locator('#chooser').count(), 1);
- await page.getByText('Scratch Tab · lightweight editor').click();
+ assert.equal(await page.locator('.scratch-tab-choice').count(), 1);
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
  await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
  assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'README.md');
- await page.getByRole('button', {name:'Open in Code Server ↗'}).click();
+ await page.getByRole('button', {name:'Open in Code Server'}).click();
  assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
  await page.getByRole('button', {name:'Close file',exact:true}).click();
  await page.getByText('notes', {exact:true}).click();
- await page.getByText('Code Server · full editor').click();
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Code Server',exact:true}).click();
  assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
+ await page.getByText('notes', {exact:true}).click();
+ assert.equal(await page.locator('.scratch-tab-choice').count(), 1);
  await page.evaluate(() => window.dispose());
+ assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
  } finally { await browser.close(); }
 });

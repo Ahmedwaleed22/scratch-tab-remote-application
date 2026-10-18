@@ -78,36 +78,31 @@ export default function activate(remote) {
         if (force) remember(); else drafts.delete(draftKey);
         request.abort(); panel.remove(); windows.delete(target.path); previous?.focus();
       };
-      const red = button('×', () => close(), controls); red.setAttribute('aria-label', 'Close file');
-      const yellow = button('−', () => { panel.classList.toggle('scratch-tab-minimized'); yellow.setAttribute('aria-label', panel.classList.contains('scratch-tab-minimized') ? 'Restore file' : 'Minimize file'); }, controls);
-      yellow.setAttribute('aria-label', 'Minimize file');
-      const green = button('↗', () => panel.classList.toggle('scratch-tab-maximized'), controls); green.setAttribute('aria-label', 'Toggle maximize');
+      const red = button('', () => close(), controls); red.setAttribute('aria-label', 'Close file'); red.title = 'Close file';
       const title = document.createElement('strong'); title.textContent = target.name; title.title = target.path; header.append(title);
-      const move = button('Move', () => {}, header);
-      move.title = 'Focus and use arrow keys to move window';
-      move.addEventListener('keydown', event => {
+      header.tabIndex = 0; header.setAttribute('role', 'group');
+      header.setAttribute('aria-label', 'File window title bar. Use arrow keys to reposition.');
+      header.addEventListener('keydown', event => {
+        if (event.target !== header) return;
         const delta = { ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] }[event.key];
         if (delta) { event.preventDefault(); position(panel.offsetLeft + delta[0], panel.offsetTop + delta[1]); }
       });
-      const toolbar = document.createElement('div'); toolbar.className = 'scratch-tab-toolbar';
-      const saveButton = button('Save', () => void save(), toolbar);
+      const actions = document.createElement('div'); actions.className = 'scratch-tab-actions';
+      header.append(actions);
+      const saveButton = button('Save', () => void save(), actions);
       saveButton.disabled = true;
-      button('Open in Code Server ↗', () => launchIde(target), toolbar);
-      button('About', () => {
-        chooser?.close();
-        chooser = remote.ui.openPopup({ title: 'About Scratch Tab', html: '<p>Copyright © 2026 Futrx. Licensed under AGPL-3.0-or-later. Provided without warranty.</p><p><a href="https://github.com/Ahmedwaleed22/Scratch-tab-remote-application" target="_blank" rel="noopener noreferrer">Source code</a> · <a href="https://github.com/Ahmedwaleed22/Scratch-tab-remote-application/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a></p>' });
-      }, toolbar);
+      button('Open in Code Server', () => launchIde(target), actions);
       const content = document.createElement('textarea'); content.readOnly = true; content.spellcheck = false;
       content.setAttribute('aria-label', `${target.name} file content`);
       const status = document.createElement('footer'); status.textContent = 'Loading…'; status.setAttribute('role', 'status');
-      panel.append(header, toolbar, content, status); document.body.append(panel);
+      panel.append(header, content, status); document.body.append(panel);
       function position(x, y) {
         panel.style.left = `${Math.max(0, Math.min(x, innerWidth - Math.min(panel.offsetWidth, 180)))}px`;
         panel.style.top = `${Math.max(0, Math.min(y, innerHeight - 48))}px`;
       }
       let drag;
       header.addEventListener('pointerdown', event => {
-        if (event.button !== 0 || event.target.closest('button') || panel.classList.contains('scratch-tab-maximized')) return;
+        if (event.button !== 0 || event.target.closest('button')) return;
         drag = { x: event.clientX - panel.offsetLeft, y: event.clientY - panel.offsetTop };
         header.setPointerCapture(event.pointerId);
       });
@@ -139,7 +134,7 @@ export default function activate(remote) {
       });
       window.addEventListener('beforeunload', event => { if (dirty()) { event.preventDefault(); event.returnValue = ''; } }, { signal: request.signal });
       window.addEventListener('resize', () => position(panel.offsetLeft, panel.offsetTop), { signal: request.signal });
-      windows.set(target.path, { close, dirty, restore() { panel.classList.remove('scratch-tab-minimized'); panel.style.zIndex = String(++layer); content.focus(); } });
+      windows.set(target.path, { close, dirty, restore() { panel.style.zIndex = String(++layer); content.focus(); } });
       content.focus();
       callFile({ path: target.path }).then(result => {
         if (request.signal.aborted) return;
@@ -159,12 +154,36 @@ export default function activate(remote) {
       if (!target) return;
       event.preventDefault(); event.stopImmediatePropagation();
       chooser?.close();
-      chooser = remote.ui.openPopup({ title: `Open ${target.name}`, width: 360, mount(body) {
-        body.classList.add('scratch-tab-choice');
-        const description = document.createElement('p'); description.textContent = 'Choose how to open this file.'; body.append(description);
-        button('Scratch Tab · lightweight editor', () => { chooser.close(); open(target); }, body);
-        button('Code Server · full editor', () => { chooser.close(); launchIde(target); }, body);
-      } });
+      const menu = document.createElement('div');
+      menu.className = 'scratch-tab-choice';
+      menu.setAttribute('role', 'dialog');
+      menu.setAttribute('aria-label', `Open ${target.name} with`);
+      const dismissal = new AbortController();
+      let closed = false;
+      const handle = { close(restoreFocus = true) {
+        if (closed) return;
+        closed = true; dismissal.abort(); menu.remove();
+        if (restoreFocus && anchor.isConnected) anchor.focus({ preventScroll: true });
+      } };
+      chooser = handle;
+      const scratch = button('Scratch Tab', () => { handle.close(); open(target); }, menu);
+      const code = button('Code Server', () => { handle.close(); launchIde(target); }, menu);
+      document.body.append(menu);
+      const bounds = anchor.getBoundingClientRect();
+      menu.style.left = `${Math.max(8, Math.min(bounds.left, innerWidth - menu.offsetWidth - 8))}px`;
+      menu.style.top = `${bounds.bottom + 8 + menu.offsetHeight <= innerHeight - 8 ? bounds.bottom + 8 : Math.max(8, bounds.top - menu.offsetHeight - 8)}px`;
+      menu.style.zIndex = String(++layer);
+      menu.addEventListener('keydown', event => {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); handle.close(); }
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault(); (document.activeElement === scratch ? code : scratch).focus();
+        }
+      });
+      menu.addEventListener('focusout', event => { if (event.relatedTarget && !menu.contains(event.relatedTarget)) handle.close(false); });
+      document.addEventListener('pointerdown', event => { if (!menu.contains(event.target)) handle.close(false); }, { capture: true, signal: dismissal.signal });
+      window.addEventListener('scroll', () => handle.close(false), { capture: true, signal: dismissal.signal });
+      window.addEventListener('resize', () => handle.close(false), { signal: dismissal.signal });
+      scratch.focus({ preventScroll: true });
     }
     document.addEventListener('click', intercept, { capture: true, signal: lifetime.signal });
     const mark = button('Scratch Tab', () => {

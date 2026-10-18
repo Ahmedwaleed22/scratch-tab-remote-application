@@ -6,15 +6,15 @@ A lightweight text editor for [Remote](https://github.com/futrx-com/remote.futrx
 
 ## Install or upgrade
 
-Download `scratch-tab-0.2.3.zip` from Releases. Upload it through **Settings → Applications**, then install and start Scratch Tab in the desired project. Uploading a newer version updates existing installations and provisions the file command. If upgrading a UI-only 0.1.0 installation leaves no project container attached, uninstall and reinstall Scratch Tab in that project; workspace files are retained.
+Download `scratch-tab-0.2.4.zip` from Releases. Upload it through **Settings → Applications**, then install and start Scratch Tab in the desired project. Uploading a newer version updates existing installations and provisions the file command. If upgrading a UI-only 0.1.0 installation leaves no project container attached, uninstall and reinstall Scratch Tab in that project; workspace files are retained.
 
 Scratch Tab requires Remote's application-backend and container-Go capabilities and a working LXD project container. It adds no core changes, listening ports, credentials, third-party services, or always-running container process. Remote builds the application-owned Go backend and installs the file command automatically.
 
 ## Use
 
-Click a `/workspace/...` file link in an agent message. Choose **Scratch Tab** or **Code Server** every time. Edit the text, then press **Save** or **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open in Code Server** opens the same file, preserving any line reference.
+Click a `/workspace/...` file link in an agent message. A compact popover beside the link offers **Scratch Tab** and **Code Server** side by side. Use the arrow keys to choose, Escape to dismiss, or click outside it. Edit the text, then press **Save** or **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open in Code Server** opens the same file, preserving any line reference.
 
-The macOS-style buttons close, minimize, and maximize the window. Drag its title bar or resize its corner. Focus **Move** and use arrow keys for keyboard movement; Escape closes the focused window. The chat header's Scratch Tab button restores the most recently opened window. Several files can stay open; reopening one focuses its existing window.
+The title bar has one small red close dot, the filename, **Save**, and **Open in Code Server**. Drag the title bar or resize the window’s corner. Focus the title bar and use arrow keys for keyboard movement; Escape closes the focused window. The chat header's Scratch Tab button restores the most recently opened window. Several files can stay open; reopening one focuses its existing window.
 
 Closing a dirty file asks before discarding changes. Leaving the chat or stopping the extension keeps unsaved drafts in browser memory, restored when you reopen the file in that project. Refreshing or closing the browser loses these drafts; a browser leave warning protects open dirty windows. Drafts are not disk saves, and drafts hidden by a chat change have no browser leave warning. Save before leaving if the changes matter.
 
@@ -47,13 +47,13 @@ The container file command supports Go 1.24.7 and later, matching Remote's insta
 Update `application.json`, run the checks, commit, and push a matching `vX.Y.Z` tag. The release workflow follows Connectly's convention: validate the version, test, build a runtime-only ZIP containing the license, and attach it to a GitHub Release. Pushes to main run checks without publishing. To retry an existing tag, use Actions → Release installable ZIP → Run workflow and enter the tag. Source archives remain available from GitHub. To build locally:
 
 ```sh
-python3 -B infra/package.py --tag v0.2.3 --output-dir dist
+python3 -B infra/package.py --tag v0.2.4 --output-dir dist
 ```
 
-Version 0.2.3 adds the editor choice for direct Code Server app links and legacy editor payloads, with regression tests for both editor choices and project isolation. Version 0.2.2 fixes installation with Remote’s Go 1.24.7 container toolchain and tests releases against both Go 1.24.7 and 1.25. Version 0.2.1 adds editing and saving, revision conflict checks, unsaved draft protection, the project-scoped file backend, AGPL licensing and tagged release packaging. Version 0.1.0 was the initial read-only UI.
+Version 0.2.4 simplifies the editor chooser and combines document actions into one compact title bar with a single red close dot. Version 0.2.3 adds the editor choice for direct Code Server app links and legacy editor payloads, with regression tests for both editor choices and project isolation. Version 0.2.2 fixes installation with Remote’s Go 1.24.7 container toolchain and tests releases against both Go 1.24.7 and 1.25. Version 0.2.1 adds editing and saving, revision conflict checks, unsaved draft protection, the project-scoped file backend, AGPL licensing and tagged release packaging. Version 0.1.0 was the initial read-only UI.
 
 Stopping or uninstalling removes the UI/backend. Project workspace files are kept. The provisioned `/usr/local/bin/scratch-tab` command remains inert in the shared project container until it is replaced or the container is rebuilt.
 
 ## License
 
-Copyright © 2026 Futrx. Licensed under **AGPL-3.0-or-later**, matching Connectly. See [LICENSE](LICENSE) for the complete text. Provided without warranty. The editor's About button links to the license and source code.
+Copyright © 2026 Futrx. Licensed under **AGPL-3.0-or-later**, matching Connectly. See [LICENSE](LICENSE) for the complete text. Provided without warranty. The license is included in each release ZIP; the source is available in this repository.

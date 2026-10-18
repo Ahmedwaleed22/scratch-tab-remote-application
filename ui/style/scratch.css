@@ -1,22 +1,24 @@
-.scratch-tab-window { position:fixed; width:620px; height:420px; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); min-width:280px; min-height:180px; resize:both; overflow:hidden; display:flex; flex-direction:column; background:rgb(var(--bg-surface-rgb, 250 250 250)); color:rgb(var(--fg, 32 32 36)); border:1px solid var(--line, #bbb); border-radius:12px; box-shadow:0 18px 65px #0004; font:13px system-ui; }
-.scratch-tab-header { display:flex; align-items:center; gap:12px; padding:8px 10px; min-height:36px; cursor:grab; touch-action:none; background:rgb(var(--bg-raised-rgb, 240 240 242)); user-select:none; }
-.scratch-tab-header strong { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
-.scratch-tab-controls { display:flex; gap:6px; }
-.scratch-tab-controls button { border:0; border-radius:50%; width:24px; height:24px; color:#211f20; font-size:17px; background:#ff6058; cursor:pointer; padding:0; }
-.scratch-tab-controls button:nth-child(2) { background:#ffbd2e; }
-.scratch-tab-controls button:nth-child(3) { background:#28c840; }
-.scratch-tab-toolbar { padding:8px 12px; border-bottom:1px solid var(--line, #ddd); }
-.scratch-tab-toolbar button,.scratch-tab-header>button,.scratch-tab-choice button,.scratch-tab-launcher { color:inherit; background:transparent; border:1px solid var(--line, #aaa); border-radius:6px; padding:7px 10px; cursor:pointer; font:inherit; }
+.scratch-tab-window { position:fixed; width:620px; height:420px; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); min-width:280px; min-height:180px; resize:both; overflow:hidden; display:flex; flex-direction:column; background:rgb(var(--bg-surface-rgb, 250 250 250)); color:rgb(var(--fg, 32 32 36)); border:1px solid var(--line, #bbb); border-radius:10px; box-shadow:0 18px 65px #0004; font:13px system-ui; }
+.scratch-tab-header { display:flex; align-items:center; gap:8px; padding:6px 8px; min-height:32px; flex-shrink:0; cursor:grab; touch-action:none; background:rgb(var(--bg-raised-rgb, 240 240 242)); border-bottom:1px solid var(--line, #ddd); user-select:none; }
+.scratch-tab-header:active { cursor:grabbing; }
+.scratch-tab-header strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600; }
+.scratch-tab-controls { display:flex; flex-shrink:0; }
+.scratch-tab-controls button { display:grid; place-items:center; border:0; border-radius:6px; width:28px; height:28px; background:transparent; cursor:pointer; padding:0; }
+.scratch-tab-controls button::before { content:""; display:block; width:12px; height:12px; border-radius:50%; background:#ff5f57; box-shadow:inset 0 0 0 1px #0002; }
+.scratch-tab-controls button:hover::before { background:#e84c45; }
+.scratch-tab-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.scratch-tab-actions button,.scratch-tab-launcher { color:inherit; background:transparent; border:1px solid var(--line, #aaa); border-radius:6px; padding:5px 8px; cursor:pointer; font:inherit; }
+.scratch-tab-actions button { min-height:28px; white-space:nowrap; font-size:12px; }
+.scratch-tab-actions button:first-child:not(:disabled) { color:rgb(var(--accent-blue, 45 100 215)); background:rgb(var(--accent-blue, 45 100 215) / .1); }
 .scratch-tab-launcher { padding:4px; font-size:11px; }
 .scratch-tab-window textarea { flex:1; min-height:0; width:100%; box-sizing:border-box; border:0; resize:none; background:transparent; color:inherit; padding:16px; font:13px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size:4; }
+.scratch-tab-window textarea:focus-visible { outline:2px solid rgb(var(--accent-blue, 45 100 215) / .45); outline-offset:-2px; }
 .scratch-tab-window footer { padding:8px 12px; border-top:1px solid var(--line, #ddd); font-size:12px; }
 .scratch-tab-window .scratch-tab-error { color:rgb(var(--accent-red, 180 35 35)); }
-.scratch-tab-window button:focus-visible,.scratch-tab-choice button:focus-visible,.scratch-tab-launcher:focus-visible { outline:2px solid rgb(var(--accent-blue, 45 100 215)); outline-offset:2px; }
-.scratch-tab-window button:hover,.scratch-tab-choice button:hover { filter:brightness(.9); }
-.scratch-tab-window.scratch-tab-minimized { height:auto!important; min-height:0; resize:none; }
-.scratch-tab-minimized>:not(header) { display:none; }
-.scratch-tab-window.scratch-tab-maximized { left:8px!important; top:8px!important; width:calc(100vw - 16px)!important; height:calc(100dvh - 16px)!important; resize:none; }
-.scratch-tab-choice button { display:block; width:100%; margin:10px 0; text-align:left; min-height:44px; }
-@media(max-width:480px) { .scratch-tab-window { min-width:0; width:calc(100vw - 16px); } .scratch-tab-header { gap:6px; } }
-.scratch-tab-toolbar { display:flex; gap:8px; }
+.scratch-tab-window button:focus-visible,.scratch-tab-header:focus-visible,.scratch-tab-choice button:focus-visible,.scratch-tab-launcher:focus-visible { outline:2px solid rgb(var(--accent-blue, 45 100 215)); outline-offset:2px; }
+.scratch-tab-actions button:not(:disabled):hover,.scratch-tab-choice button:hover { background:rgb(var(--accent-blue, 45 100 215) / .1); }
 .scratch-tab-window button:disabled { opacity:.5; cursor:default; }
+.scratch-tab-choice { position:fixed; display:flex; gap:6px; box-sizing:border-box; padding:6px; max-width:calc(100vw - 16px); border:1px solid var(--line, #bbb); border-radius:10px; background:rgb(var(--bg-surface-rgb, 250 250 250)); color:rgb(var(--fg, 32 32 36)); box-shadow:0 8px 28px #0003; font:13px system-ui; }
+.scratch-tab-choice button { flex:1; min-height:36px; padding:8px 14px; border:0; border-radius:5px; background:transparent; color:inherit; font:inherit; white-space:nowrap; cursor:pointer; }
+@media(max-width:480px) { .scratch-tab-window { min-width:0; width:calc(100vw - 16px); } .scratch-tab-header { gap:4px; padding:6px; } .scratch-tab-actions { gap:4px; } .scratch-tab-actions button { padding:5px 6px; font-size:11px; } }
+@media(pointer:coarse) { .scratch-tab-controls button { width:44px; height:44px; } .scratch-tab-actions button,.scratch-tab-choice button { min-height:44px; } }
