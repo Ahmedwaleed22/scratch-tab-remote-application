@@ -39,14 +39,15 @@ export function fileTarget(href, origin, chatId, cwd = '') {
 }
 
 export default function activate(remote) {
-  remote.ui.register(remote.slots.chatHeaderActions, (host, context) => {
+  remote.ui.register(remote.slots.chatHeaderActions, (_host, context) => {
     if (!context.chatId) return;
     const lifetime = new AbortController();
     const windows = new Map();
     let chooser;
     let layer = 200;
+    let openingOriginal = false;
     const callFile = body => remote.backend.call('file', { projectId: context.projectId, method: 'POST', body });
-    const launchIde = target => window.open(target.ide, '_blank', 'noopener,noreferrer');
+    const launchIde = target => target.openIde ? target.openIde() : window.open(target.ide, '_blank', 'noopener,noreferrer');
     function button(label, action, parent) {
       const node = document.createElement('button');
       node.type = 'button'; node.textContent = label;
@@ -147,10 +148,32 @@ export default function activate(remote) {
       }).catch(error => { if (!request.signal.aborted) { status.textContent = error.message; status.className = 'scratch-tab-error'; } });
     }
     function intercept(event) {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
-      if (!anchor) return;
-      const target = fileTarget(anchor.href, location.origin, context.chatId, context.cwd);
+      if (openingOriginal || event.defaultPrevented || (event.type === 'click' && event.button !== 0) || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const element = event.target instanceof Element ? event.target : null;
+      if (!element) return;
+      let anchor = element.closest('a[href]');
+      let target = anchor && event.type === 'click' ? fileTarget(anchor.href, location.origin, context.chatId, context.cwd) : null;
+      if (!anchor && !element.closest('button,input,textarea,select')) {
+        const row = element.closest('[role="button"]');
+        if (row?.closest('#workspace-files-pane')) {
+          const download = row.querySelector('a[download][href]');
+          if (download) {
+            const url = new URL(download.href, location.origin);
+            const relative = url.searchParams.get('path');
+            const mediaOrArchive = /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico|heic|tiff?|mp4|mov|webm|mkv|avi|m4v|mp3|wav|flac|ogg|m4a|aac|pdf|zip|tar|gz|tgz|rar|7z)$/i;
+            if (url.origin === location.origin && url.pathname === `/api/chats/${encodeURIComponent(context.chatId)}/files/download` && relative && !relative.startsWith('/') && !mediaOrArchive.test(relative) && !row.title.startsWith('View ')) {
+              target = fileTarget(`/api/chats/${encodeURIComponent(context.chatId)}/ide-open?path=${encodeURIComponent('/workspace/' + relative)}`, location.origin, context.chatId, context.cwd);
+              if (target) {
+                anchor = row;
+                target.openIde = () => {
+                  openingOriginal = true;
+                  try { row.click(); } finally { openingOriginal = false; }
+                };
+              }
+            }
+          }
+        }
+      }
       if (!target) return;
       event.preventDefault(); event.stopImmediatePropagation();
       chooser?.close();
@@ -186,12 +209,9 @@ export default function activate(remote) {
       scratch.focus({ preventScroll: true });
     }
     document.addEventListener('click', intercept, { capture: true, signal: lifetime.signal });
-    const mark = button('Scratch Tab', () => {
-      const recent = [...windows.values()].at(-1);
-      if (recent) recent.restore();
-      else chooser = remote.ui.openPopup({ title: 'Scratch Tab', html: '<p>Click a workspace file link in this chat, then choose Scratch Tab.</p>' });
-    }, host);
-    mark.title = 'Restore Scratch Tab or show help'; mark.className = 'scratch-tab-launcher';
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') intercept(event);
+    }, { capture: true, signal: lifetime.signal });
     return () => { lifetime.abort(); chooser?.close(); for (const item of [...windows.values()]) item.close(true); };
   });
 }
