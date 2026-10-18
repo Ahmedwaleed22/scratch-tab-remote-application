@@ -15,7 +15,7 @@ func TestScopedFileCall(t *testing.T) {
 			t.Fatal(container, string(body))
 		}
 		return []byte(`{"status":200,"revision":"abc"}`), nil
-	})
+	}, nil)
 	if err := b.Init(applications.Instance{Scope: "project", ProjectID: "p1", ContainerName: "project-one"}); err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestScopedFileCall(t *testing.T) {
 	}
 }
 func TestUnavailableAndInvalidScope(t *testing.T) {
-	b := New(func(context.Context, string, []byte) ([]byte, error) { return nil, errors.New("failed") })
+	b := New(func(context.Context, string, []byte) ([]byte, error) { return nil, errors.New("failed") }, nil)
 	if err := b.Init(applications.Instance{Scope: "global"}); err == nil {
 		t.Fatal("global accepted")
 	}
@@ -37,5 +37,32 @@ func TestUnavailableAndInvalidScope(t *testing.T) {
 	response, _ := b.Handle(applications.Request{Method: "POST", Path: "file", Caller: applications.Caller{Email: "user"}})
 	if response.Status != 503 {
 		t.Fatal(response)
+	}
+}
+
+func TestUpdatesRequireAdministrator(t *testing.T) {
+	b := New(nil, nil)
+	for _, path := range []string{"updates", "updates/archive"} {
+		r, _ := b.Handle(applications.Request{Method: "GET", Path: path, Caller: applications.Caller{Email: "member@example.com"}})
+		if r.Status != 403 {
+			t.Fatal(path, r)
+		}
+	}
+}
+
+func TestInvalidUpdateRequests(t *testing.T) {
+	b := New(nil, nil)
+	for _, tt := range []struct {
+		method, path, body string
+		status             int
+	}{
+		{"DELETE", "updates", "", 405},
+		{"POST", "updates/archive", "{}", 400},
+		{"POST", "updates/archive", "broken", 400},
+	} {
+		r, _ := b.Handle(applications.Request{Method: tt.method, Path: tt.path, Body: []byte(tt.body), Caller: applications.Caller{Email: "admin@example.com", IsAdmin: true}})
+		if r.Status != tt.status {
+			t.Fatal(tt, r)
+		}
 	}
 }
