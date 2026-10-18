@@ -74,9 +74,40 @@ export function mountChat({ context, drafts, files, launchIde }) {
     activate(item);
     editor.start();
   }
-  captureFileOpenings(context, lifetime.signal, (anchor, target) => {
+  let capture;
+  function suspend() {
+    capture?.abort();
     chooser?.close();
-    chooser = openChooser({ anchor, target, button, nextLayer, onScratch: open, onCode: launchIde });
-  });
-  return () => { lifetime.abort(); chooser?.close(); for (const item of [...windows.values()]) item.editor.close(true); };
+    chooser = null;
+    for (const item of windows.values()) item.view.setVisible(false);
+  }
+  function setContext(next) {
+    suspend();
+    if (next.chatId !== context.chatId) {
+      for (const item of windows.values()) {
+        const relative = item.target.path.slice('/workspace/'.length);
+        item.target.download = `/api/chats/${encodeURIComponent(next.chatId)}/files/download?path=${encodeURIComponent(relative)}`;
+        const ide = new URL(item.target.ide, location.origin);
+        if (ide.origin === location.origin && ide.pathname === `/api/chats/${encodeURIComponent(context.chatId)}/ide-open`) {
+          ide.pathname = `/api/chats/${encodeURIComponent(next.chatId)}/ide-open`;
+          item.target.ide = ide.href;
+        }
+        // File-manager row callbacks belong to the old chat's DOM.
+        delete item.target.openIde;
+        item.view.refreshLinks();
+      }
+    }
+    context = next;
+    for (const item of windows.values()) item.view.setVisible(item.group.active === item.target.path);
+    capture = new AbortController();
+    captureFileOpenings(context, capture.signal, (anchor, target) => {
+      chooser?.close();
+      chooser = openChooser({ anchor, target, button, nextLayer, onScratch: open, onCode: launchIde });
+    });
+  }
+  setContext(context);
+  const dispose = () => { suspend(); lifetime.abort(); for (const item of [...windows.values()]) item.editor.close(true); };
+  dispose.setContext = setContext;
+  dispose.suspend = suspend;
+  return dispose;
 }

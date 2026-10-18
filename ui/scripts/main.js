@@ -21,13 +21,23 @@ export default function activate(remote) {
     }, host, lifetime.signal);
     return () => { lifetime.abort(); popup?.close(); host.replaceChildren(); host.classList.remove('scratch-tab-card-actions'); };
   }, { when: context => context.instance?.applicationId === remote.application.id });
+  let session, projectId;
+  // The sidebar survives keyed chat remounts; its scope owns final cleanup.
+  remote.ui.register(remote.slots.sidebarHeaderActions, () => () => { session?.(); session = null; });
   remote.ui.register(remote.slots.chatHeaderActions, (_host, context) => {
-    if (!context.chatId) return;
-    return mountChat({
+    if (!context.chatId || !context.projectId || projectId !== context.projectId) {
+      session?.();
+      session = null;
+    }
+    if (!context.chatId || !context.projectId) return;
+    projectId = context.projectId;
+    if (session) session.setContext(context);
+    else session = mountChat({
       context,
       drafts,
       files: createFiles(remote.backend, context.projectId),
       launchIde: target => target.openIde ? target.openIde() : window.open(target.ide, '_blank', 'noopener,noreferrer'),
     });
+    return () => session?.suspend();
   });
 }
