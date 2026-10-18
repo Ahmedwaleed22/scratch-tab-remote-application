@@ -1,0 +1,10 @@
+{
+  "id": "scratch-tab",
+  "name": "Scratch Tab",
+  "description": "Read small workspace text files in movable windows, or open them in Code Server.",
+  "category": "development",
+  "version": "0.1.0",
+  "icon": "code",
+  "scopes": ["project"],
+  "ui": { "entry": "scripts/main.js", "styles": ["style/scratch.css"] }
+}
