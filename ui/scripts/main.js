@@ -1,4 +1,5 @@
 import { mountChat } from './app/chat.js';
+import { createFiles } from './api/files.js';
 
 const drafts = new Map();
 
@@ -8,7 +9,7 @@ export default function activate(remote) {
     return mountChat({
       context,
       drafts,
-      callFile: body => remote.backend.call('file', { projectId: context.projectId, method: 'POST', body }),
+      files: createFiles(remote.backend, context.projectId),
       launchIde: target => target.openIde ? target.openIde() : window.open(target.ide, '_blank', 'noopener,noreferrer'),
     });
   });
