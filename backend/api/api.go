@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"futrx.local/catalog/applications/scratch-tab/backend/config"
+	"futrx.local/catalog/applications/scratch-tab/backend/updates"
 	"github.com/futrx-com/remote.futrx.com/pkg/applications"
 )
 
@@ -13,9 +15,12 @@ type Runner func(context.Context, string, []byte) ([]byte, error)
 type backend struct {
 	instance applications.Instance
 	run      Runner
+	updates  *updates.Client
 }
 
-func New(run Runner) applications.Backend { return &backend{run: run} }
+func New(run Runner, updater *updates.Client) applications.Backend {
+	return &backend{run: run, updates: updater}
+}
 func (b *backend) Init(instance applications.Instance) error {
 	if instance.Scope != "project" || instance.ProjectID == "" || instance.ContainerName == "" {
 		return errors.New("Scratch Tab requires a project container; reinstall the application")
@@ -24,11 +29,40 @@ func (b *backend) Init(instance applications.Instance) error {
 	return nil
 }
 func (b *backend) Describe() (applications.Descriptor, error) {
-	return applications.Descriptor{APIVersion: applications.APIVersion, Routes: []applications.Route{{Method: "POST", Path: "file", Description: "Read or save a project workspace text file"}}}, nil
+	return applications.Descriptor{APIVersion: applications.APIVersion, Routes: []applications.Route{{Method: "GET", Path: "updates", Description: "Check stable Scratch Tab releases (admin only)"}, {Method: "POST", Path: "updates/archive", Description: "Download verified Scratch Tab ZIP (admin only)"}, {Method: "POST", Path: "file", Description: "Read or save a project workspace text file"}}}, nil
 }
 func (b *backend) Handle(request applications.Request) (applications.Response, error) {
 	if request.Caller.Email == "" {
 		return applications.Errorf(401, "Sign in to access files."), nil
+	}
+	if request.Path == "updates" || request.Path == "updates/archive" {
+		if !request.Caller.IsAdmin {
+			return applications.Errorf(403, "Only administrators can manage Scratch Tab updates."), nil
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if request.Path == "updates" && request.Method == "GET" {
+			release, err := b.updates.Latest(ctx)
+			if err != nil {
+				return applications.Errorf(502, "%s", err.Error()), nil
+			}
+			body, _ := json.Marshal(release)
+			return applications.Response{Status: 200, Headers: map[string][]string{"Content-Type": {"application/json"}}, Body: body}, nil
+		}
+		if request.Path == "updates/archive" && request.Method == "POST" {
+			var input struct {
+				Version string `json:"version"`
+			}
+			if len(request.Body) > 1024 || json.Unmarshal(request.Body, &input) != nil || input.Version == "" {
+				return applications.Errorf(400, "A release version is required."), nil
+			}
+			data, err := b.updates.Archive(ctx, input.Version)
+			if err != nil {
+				return applications.Errorf(502, "%s", err.Error()), nil
+			}
+			return applications.Response{Status: 200, Headers: map[string][]string{"Content-Type": {"application/zip"}}, Body: data}, nil
+		}
+		return applications.Errorf(405, "Method not allowed."), nil
 	}
 	if request.Path != "file" || request.Method != "POST" {
 		return applications.Errorf(404, "Route not found."), nil

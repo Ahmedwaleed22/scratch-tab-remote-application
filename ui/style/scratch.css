@@ -32,3 +32,10 @@
   .scratch-tab-choice button { min-height:44px; }
 }
 @media(pointer:coarse) { .scratch-tab-controls button { width:44px; height:44px; } .scratch-tab-actions button,.scratch-tab-choice button { min-height:44px; } }
+
+.scratch-tab-updates { padding:12px; color:rgb(var(--fg, 32 32 36)); font:13px/1.5 system-ui; }
+.scratch-tab-updates p { margin:8px 0; overflow-wrap:anywhere; }
+.scratch-tab-updates > div { display:flex; flex-wrap:wrap; gap:8px; }
+.scratch-tab-updates button { min-height:44px; padding:6px 12px; border:1px solid var(--line, #aaa); border-radius:6px; color:inherit; background:transparent; font:inherit; cursor:pointer; }
+.scratch-tab-updates button:disabled { opacity:.5; cursor:default; }
+.scratch-tab-updates button:focus-visible { outline:2px solid rgb(var(--accent-blue, 45 100 215)); outline-offset:2px; }
