@@ -46,3 +46,8 @@
 .scratch-tab-unsupported a { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-height:44px; flex-shrink:0; padding:8px 16px; border:1px solid currentColor; border-radius:8px; color:rgb(var(--accent-blue, 45 100 215)); font-size:14px; font-weight:500; text-decoration:none; }
 .scratch-tab-unsupported a:hover { background:rgb(var(--accent-blue, 45 100 215) / .1); }
 .scratch-tab-unsupported a:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+
+.scratch-tab-card-actions button { min-height:28px; padding:4px 8px; border:1px solid var(--line, #aaa); border-radius:6px; color:rgb(var(--fg, 32 32 36)); background:transparent; font:11px system-ui; cursor:pointer; }
+.scratch-tab-card-actions button:hover { background:rgb(var(--accent-blue, 45 100 215) / .1); }
+.scratch-tab-card-actions button:focus-visible { outline:2px solid rgb(var(--accent-blue, 45 100 215)); outline-offset:2px; }
+@media(pointer:coarse) { .scratch-tab-card-actions button { min-height:44px; } }
