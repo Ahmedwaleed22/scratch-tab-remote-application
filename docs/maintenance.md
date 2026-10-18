@@ -96,3 +96,15 @@ The work was split into independently checked commits:
 | `f4657b6` | Separate container command transport, file policy, and rooted storage | Worker tests, vet, installer-style build and 12-case executable comparison |
 
 Deliberately excluded: feature additions, visual changes, fixes to the existing save-race window, persistent drafts, new opener APIs, Remote core changes, and live installation/deployment. The Go-version adjustment belongs only to the verification harness; runtime requirements and behavior are unchanged.
+
+## GitHub updater
+
+Project settings owns the updater lifetime; disposing its slot aborts pending checks/downloads and clears its six-hour timer. The host caches valid release metadata for one hour per instance. It does not poll while settings are closed or run unattended installations. This feature requires one manual installation before it can update future releases.
+
+Only Remote-resolved administrator callers can access `GET updates` or `POST updates/archive`. Downloads use the fixed public repository and stable `vX.Y.Z` tags, exact versioned ZIP names, bounded HTTPS redirects, a 512 KiB archive cap, GitHub's SHA-256 asset digest, and a matching root `application.json`. This verifies integrity against GitHub metadata, not an independent publisher signature. Larger or digest-less releases require a manual upload.
+
+The browser checks administrator access and the current package version, downloads through its project backend, then sends multipart `package` to Remote's existing package API. Remote remains responsible for validation, package storage, backend replacement, and per-project upgrades. The backend never writes its own installed files or receives administrator cookies. An upload already submitted is allowed to finish if settings close. A network failure during upload may leave a completed server update; the UI asks users to inspect Applications before retrying.
+
+The drafts map blocks installation before and after download and blocks refresh if edits appear during upload. Other tabs and other projects' editors cannot be inspected; the confirmation explicitly asks users to save them. Partial upgrades keep their errors visible and offer a manual refresh. Concurrent administrators can still race package uploads because Remote has no conditional replacement API. No core code changes or automatic rollback are included.
+
+Validation includes host release/ZIP tests, non-admin route denial, browser version comparison, draft blocking, download errors, multipart upload, partial failures, successful refresh, and slot disposal. Live package installation remains a server integration check.

@@ -1,6 +1,8 @@
 name: Release installable ZIP
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -43,8 +45,26 @@ jobs:
           go test ./backend/container
           go vet ./backend/container
           go build -trimpath -ldflags '-s -w -X main.version=ci' -o "$RUNNER_TEMP/scratch-tab" ./backend/container
+  host-backend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/checkout@v7
+        with:
+          repository: futrx-com/remote.futrx
+          path: remote-core
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: remote-core/backend/go.mod
+          cache: false
+      - name: Validate generated host backend, tests and vet
+        run: python3 -B infra/test_backend.py --remote-root "$GITHUB_WORKSPACE/remote-core"
   release:
-    needs: container-compatibility
+    needs: [container-compatibility, host-backend]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
