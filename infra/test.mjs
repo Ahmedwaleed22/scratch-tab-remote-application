@@ -13,6 +13,31 @@ test('matches current chat workspace links and preserves IDE line reference', ()
 test('ignores external, other chat, media, traversal and host links', () => {
  for (const href of ['https://other.test/api/chats/a/ide-open?path=/workspace/a', '/api/chats/b/ide-open?path=/workspace/a', '/api/chats/a/media-open?path=/workspace/a.png', '/api/chats/a/ide-open?path=/workspace/../etc/passwd', '/api/chats/a/ide-open?path=/etc/passwd']) assert.equal(fileTarget(href, 'https://remote.test', 'a'), null);
 });
+test('recognizes Code Server app links in the active project', () => {
+ const origin = 'https://remote.test';
+ const cwd = '/var/lib/remote/projects/alpha/workspace';
+ const href = 'https://code--alpha.remote.test/_static/remote-open.html?folder=%2Fworkspace&file=%2Fworkspace%2FREADME.md&line=3';
+ const target = fileTarget(href, origin, 'a', cwd);
+ assert.equal(target?.path, '/workspace/README.md');
+ assert.equal(target?.ide, href);
+});
+test('does not intercept Code Server links for other projects or domains', () => {
+ const cwd = '/var/lib/remote/projects/alpha/workspace';
+ for (const href of ['https://code--beta.remote.test/_static/remote-open.html?file=/workspace/README.md', 'https://code--alpha.evil.test/_static/remote-open.html?file=/workspace/README.md']) {
+  assert.equal(fileTarget(href, 'https://remote.test', 'a', cwd), null);
+ }
+});
+test('supports legacy Code Server payloads and current-project host paths', () => {
+ const origin = 'https://remote.test';
+ const cwd = '/var/lib/remote/projects/alpha/workspace/docs';
+ const url = new URL('https://code.remote.test/alpha/');
+ url.searchParams.set('payload', JSON.stringify([['openFile', 'vscode-remote://code.remote.test/workspace/a%20b.txt:4:2']]));
+ assert.equal(fileTarget(url.href, origin, 'a', cwd)?.path, '/workspace/a b.txt');
+ assert.equal(fileTarget('/api/chats/a/ide-open?path=/var/lib/remote/projects/alpha/workspace/README.md', origin, 'a', cwd)?.path, '/workspace/README.md');
+ assert.equal(fileTarget('/api/chats/a/ide-open?path=/var/lib/remote/projects/beta/workspace/README.md', origin, 'a', cwd), null);
+ url.searchParams.set('payload', '{bad');
+ assert.equal(fileTarget(url.href, origin, 'a', cwd), null);
+});
 test('browser choice, content, controls, modified clicks and disposal', async () => {
  const browser = await chromium.launch({ headless:true, args:['--no-sandbox'] });
  try {
@@ -39,7 +64,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
     }
     return { content: window.disk, revision: window.revision };
   } };
-  const remote = { backend, slots:{chatHeaderActions:'header'}, ui:{ register(slot, render) { window.dispose = render(document.querySelector('#host'), {chatId:'a',projectId:'p1'}); }, openPopup(options) { const body=document.createElement('div'); body.id='chooser'; document.body.append(body); options.mount?.(body); return {close:()=>body.remove()}; } } };
+  const remote = { backend, slots:{chatHeaderActions:'header'}, ui:{ register(slot, render) { window.dispose = render(document.querySelector('#host'), {chatId:'a',projectId:'p1',cwd:'/var/lib/remote/projects/alpha/workspace'}); }, openPopup(options) { const body=document.createElement('div'); body.id='chooser'; document.body.append(body); options.mount?.(body); return {close:()=>body.remove()}; } } };
   window.mount = () => activate(remote);
   window.mount();
  });
@@ -92,6 +117,22 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  await page.locator('textarea').fill('Write an empty file');
  await page.getByRole('button', {name:'Save',exact:true}).click();
  await page.waitForFunction(() => window.disk === 'Write an empty file');
+ await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.evaluate(() => {
+   document.querySelector('a').href = 'https://code--alpha.remote.test/_static/remote-open.html?folder=%2Fworkspace&file=%2Fworkspace%2FREADME.md&line=3';
+   window.open = (...args) => { window.opened = args; return null; };
+ });
+ await page.getByText('notes', {exact:true}).click();
+ assert.equal(await page.locator('#chooser').count(), 1);
+ await page.getByText('Scratch Tab · lightweight editor').click();
+ await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+ assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'README.md');
+ await page.getByRole('button', {name:'Open in Code Server ↗'}).click();
+ assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
+ await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.getByText('notes', {exact:true}).click();
+ await page.getByText('Code Server · full editor').click();
+ assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
  await page.evaluate(() => window.dispose());
  } finally { await browser.close(); }
 });
