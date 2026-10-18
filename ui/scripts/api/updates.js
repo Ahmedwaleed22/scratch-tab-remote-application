@@ -20,7 +20,7 @@ export function createUpdates(backend, projectId, signal) {
       const form = new FormData();
       form.append('package', await response.blob(), `scratch-tab-${version}.zip`);
       beforeUpload();
-      // Once submitted, allow Remote to finish even if settings are closed.
+      // Once submitted, allow Remote to finish even if the update popup is closed.
       return request('/api/applications/packages', { method: 'POST', body: form });
     },
   };
