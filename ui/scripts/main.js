@@ -1,4 +1,5 @@
-const LIMIT = 1024 * 1024;
+const LIMIT = 128 * 1024;
+const drafts = new Map();
 
 export function fileTarget(href, origin, chatId) {
   const url = new URL(href, origin);
@@ -13,29 +14,6 @@ export function fileTarget(href, origin, chatId) {
     download: `/api/chats/${encodeURIComponent(chatId)}/files/download?path=${encodeURIComponent(relative)}` };
 }
 
-export async function readText(response) {
-  if (!response.ok) throw new Error(`Cannot read file (HTTP ${response.status}).`);
-  if (Number(response.headers.get('content-length')) > LIMIT) throw new Error('This file exceeds the 1 MiB limit. Open it in Code Server.');
-  const reader = response.body.getReader();
-  const chunks = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.length;
-      if (size > LIMIT) throw new Error('This file exceeds the 1 MiB limit. Open it in Code Server.');
-      chunks.push(value);
-    }
-  } finally { await reader.cancel(); }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  if (bytes.includes(0)) throw new Error('This looks like a binary file. Open it in Code Server.');
-  try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
-  catch { throw new Error('This file is not UTF-8 text. Open it in Code Server.'); }
-}
-
 export default function activate(remote) {
   remote.ui.register(remote.slots.chatHeaderActions, (host, context) => {
     if (!context.chatId) return;
@@ -43,6 +21,7 @@ export default function activate(remote) {
     const windows = new Map();
     let chooser;
     let layer = 200;
+    const callFile = body => remote.backend.call('file', { projectId: context.projectId, method: 'POST', body });
     const launchIde = target => window.open(target.ide, '_blank', 'noopener,noreferrer');
     function button(label, action, parent) {
       const node = document.createElement('button');
@@ -66,8 +45,16 @@ export default function activate(remote) {
       header.className = 'scratch-tab-header';
       const controls = document.createElement('div'); controls.className = 'scratch-tab-controls';
       header.append(controls);
-      const close = () => { request.abort(); panel.remove(); windows.delete(target.path); previous?.focus(); };
-      const red = button('×', close, controls); red.setAttribute('aria-label', 'Close file');
+      const draftKey = `${context.projectId}:${target.path}`;
+      let baseline = '', revision = '', saving = false, loaded = false, crlf = false;
+      const dirty = () => loaded && content.value !== baseline;
+      const remember = () => { if (!loaded) return; if (dirty()) drafts.set(draftKey, { content: content.value, baseline, revision, crlf }); else drafts.delete(draftKey); };
+      const close = (force = false) => {
+        if (!force && dirty() && !confirm('Discard unsaved changes to this file?')) return;
+        if (force) remember(); else drafts.delete(draftKey);
+        request.abort(); panel.remove(); windows.delete(target.path); previous?.focus();
+      };
+      const red = button('×', () => close(), controls); red.setAttribute('aria-label', 'Close file');
       const yellow = button('−', () => { panel.classList.toggle('scratch-tab-minimized'); yellow.setAttribute('aria-label', panel.classList.contains('scratch-tab-minimized') ? 'Restore file' : 'Minimize file'); }, controls);
       yellow.setAttribute('aria-label', 'Minimize file');
       const green = button('↗', () => panel.classList.toggle('scratch-tab-maximized'), controls); green.setAttribute('aria-label', 'Toggle maximize');
@@ -79,7 +66,13 @@ export default function activate(remote) {
         if (delta) { event.preventDefault(); position(panel.offsetLeft + delta[0], panel.offsetTop + delta[1]); }
       });
       const toolbar = document.createElement('div'); toolbar.className = 'scratch-tab-toolbar';
+      const saveButton = button('Save', () => void save(), toolbar);
+      saveButton.disabled = true;
       button('Open in Code Server ↗', () => launchIde(target), toolbar);
+      button('About', () => {
+        chooser?.close();
+        chooser = remote.ui.openPopup({ title: 'About Scratch Tab', html: '<p>Copyright © 2026 Pixlotech. Licensed under AGPL-3.0-or-later. Provided without warranty.</p><p><a href="https://github.com/Ahmedwaleed22/Scratch-tab-remote-application" target="_blank" rel="noopener noreferrer">Source code</a> · <a href="https://github.com/Ahmedwaleed22/Scratch-tab-remote-application/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a></p>' });
+      }, toolbar);
       const content = document.createElement('textarea'); content.readOnly = true; content.spellcheck = false;
       content.setAttribute('aria-label', `${target.name} file content`);
       const status = document.createElement('footer'); status.textContent = 'Loading…'; status.setAttribute('role', 'status');
@@ -99,11 +92,39 @@ export default function activate(remote) {
       header.addEventListener('pointercancel', () => { drag = null; });
       panel.addEventListener('pointerdown', () => { panel.style.zIndex = String(++layer); });
       panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } });
+      function refresh() {
+        saveButton.disabled = !loaded || saving || !dirty();
+        title.textContent = `${dirty() ? '● ' : ''}${target.name}`;
+      }
+      async function save() {
+        if (!loaded || saving || !dirty()) return;
+        const snapshot = content.value;
+        const diskText = crlf ? snapshot.replace(/\n/g, '\r\n') : snapshot;
+        if (new TextEncoder().encode(diskText).length > LIMIT) { status.textContent = 'File exceeds the 128 KiB save limit.'; return; }
+        saving = true; refresh(); status.textContent = 'Saving…';
+        try {
+          const result = await callFile({ path: target.path, content: diskText, revision, save: true });
+          revision = result.revision; baseline = snapshot; remember();
+          status.textContent = dirty() ? 'Saved earlier changes · Unsaved edits remain' : 'Saved · UTF-8'; status.className = '';
+        } catch (error) { status.textContent = error.message; status.className = 'scratch-tab-error'; }
+        finally { saving = false; refresh(); }
+      }
+      content.addEventListener('input', () => { refresh(); remember(); status.textContent = dirty() ? 'Unsaved changes' : 'No changes'; });
+      panel.addEventListener('keydown', event => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); void save(); }
+      });
+      window.addEventListener('beforeunload', event => { if (dirty()) { event.preventDefault(); event.returnValue = ''; } }, { signal: request.signal });
       window.addEventListener('resize', () => position(panel.offsetLeft, panel.offsetTop), { signal: request.signal });
-      windows.set(target.path, { close, restore() { panel.classList.remove('scratch-tab-minimized'); panel.style.zIndex = String(++layer); content.focus(); } });
+      windows.set(target.path, { close, dirty, restore() { panel.classList.remove('scratch-tab-minimized'); panel.style.zIndex = String(++layer); content.focus(); } });
       content.focus();
-      fetch(target.download, { signal: request.signal, credentials: 'same-origin' }).then(readText).then(text => {
-        content.value = text; status.textContent = `Read only · UTF-8 · ${text.split('\n').length} lines`;
+      callFile({ path: target.path }).then(result => {
+        if (request.signal.aborted) return;
+        crlf = result.content.includes('\r\n');
+        content.value = result.content; baseline = content.value; revision = result.revision;
+        const draft = drafts.get(draftKey);
+        if (draft) { content.value = draft.content; baseline = draft.baseline; revision = draft.revision; crlf = draft.crlf; }
+        loaded = true; content.readOnly = false; refresh();
+        status.textContent = draft ? 'Restored unsaved draft · Save to write to disk' : 'UTF-8 · Ctrl/Cmd+S to save';
       }).catch(error => { if (!request.signal.aborted) { status.textContent = error.message; status.className = 'scratch-tab-error'; } });
     }
     function intercept(event) {
@@ -117,7 +138,7 @@ export default function activate(remote) {
       chooser = remote.ui.openPopup({ title: `Open ${target.name}`, width: 360, mount(body) {
         body.classList.add('scratch-tab-choice');
         const description = document.createElement('p'); description.textContent = 'Choose how to open this file.'; body.append(description);
-        button('Scratch Tab · quick look', () => { chooser.close(); open(target); }, body);
+        button('Scratch Tab · lightweight editor', () => { chooser.close(); open(target); }, body);
         button('Code Server · full editor', () => { chooser.close(); launchIde(target); }, body);
       } });
     }
@@ -128,6 +149,6 @@ export default function activate(remote) {
       else chooser = remote.ui.openPopup({ title: 'Scratch Tab', html: '<p>Click a workspace file link in this chat, then choose Scratch Tab.</p>' });
     }, host);
     mark.title = 'Restore Scratch Tab or show help'; mark.className = 'scratch-tab-launcher';
-    return () => { lifetime.abort(); chooser?.close(); for (const item of [...windows.values()]) item.close(); };
+    return () => { lifetime.abort(); chooser?.close(); for (const item of [...windows.values()]) item.close(true); };
   });
 }

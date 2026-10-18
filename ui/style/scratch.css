@@ -18,3 +18,5 @@
 .scratch-tab-window.scratch-tab-maximized { left:8px!important; top:8px!important; width:calc(100vw - 16px)!important; height:calc(100dvh - 16px)!important; resize:none; }
 .scratch-tab-choice button { display:block; width:100%; margin:10px 0; text-align:left; min-height:44px; }
 @media(max-width:480px) { .scratch-tab-window { min-width:0; width:calc(100vw - 16px); } .scratch-tab-header { gap:6px; } }
+.scratch-tab-toolbar { display:flex; gap:8px; }
+.scratch-tab-window button:disabled { opacity:.5; cursor:default; }
