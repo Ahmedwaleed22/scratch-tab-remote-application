@@ -1,0 +1,47 @@
+name: Open requested updater PR
+on:
+  push:
+    branches: [feat/github-updates]
+    paths: [.github/workflows/open-updates-pr.yml]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  open-pr:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Open updater pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > "$RUNNER_TEMP/pr.md" <<'BODY'
+          ## Summary
+
+          Administrators can check stable GitHub releases in project settings and install updates using Remote's existing package-upload API. No core changes or unattended installations.
+
+          ```text
+          Settings → check GitHub → Update → verify ZIP → Remote package upload
+                   → report project failures, or refresh when drafts are saved
+          ```
+
+          Checks run when settings opens and every six hours while open. Installation replaces Scratch Tab across projects. The first updater-enabled version requires a manual ZIP install. Prepared as v0.4.0; no release published.
+
+          ## Evidence
+
+          - **Before:** Every update required a manual download and ZIP upload.
+            **After:** Eight Chromium tests pass, including draft blocking, download errors, administrator denial, multipart upload, partial failures, successful refresh and existing desktop/mobile editor behavior.
+          - Host tests/vet, catalog validation, generated-module build, container tests, package tests and ZIP build passed locally. PR CI covers browser, container and host checks.
+          - Host tests reject tampered ZIPs, invalid releases, version mismatches and rate limits. Downloads require GitHub's SHA-256 and matching Scratch Tab manifest.
+
+          ## Merge Danger
+
+          **Door:** Two-way
+
+          Changes can be reverted. Live package installation remains untested.
+
+          **Blast Radius:** Application
+
+          Updates affect all Scratch Tab projects. This tab's drafts block installation and refresh; other tabs must be saved manually. Partial project failures stay visible. ZIPs are capped at 512 KiB. Concurrent administrators can race uploads because Remote has no conditional replacement API.
+          BODY
+          gh pr create --base main --head feat/github-updates --title "Add GitHub update checks and administrator-controlled installation" --body-file "$RUNNER_TEMP/pr.md"
