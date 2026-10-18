@@ -26,7 +26,7 @@ For keyboard navigation, use the arrow keys in the editor-choice menu. Focus a w
 
 ## Files and drafts
 
-- Supports existing UTF-8 text files up to **128 KiB** inside `/workspace`.
+- Supports existing UTF-8 text files up to **128 KiB** inside `/workspace`. Word documents and files rejected by the text reader show **File not supported** with a **Download file** action.
 - Folders, downloads, images, audio, video, PDFs and archives keep Remote’s usual behavior.
 - Save is explicit; there is no autosave or automatic backup. Creating, renaming and deleting files stays in Remote or Code Server.
 - If a file changed on disk since you opened it, saving reports a conflict. Copy your edits before reopening the file.

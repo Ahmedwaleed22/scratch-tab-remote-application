@@ -1,3 +1,5 @@
+import { UNSUPPORTED_DOCUMENT } from '../config/editor.js';
+
 // Connects document intent/state to a view without owning save policy or DOM layout.
 export function mountEditor({ documentModel, createView, onClosed, launchIde, target }) {
   const previous = document.activeElement;
@@ -48,6 +50,7 @@ export function mountEditor({ documentModel, createView, onClosed, launchIde, ta
     close,
     restore: () => view.restore(),
     start() {
+      if (UNSUPPORTED_DOCUMENT.test(target.name)) { view.showUnsupported(); return; }
       view.focus();
       documentModel.read().then(result => {
         if (request.signal.aborted) return;
@@ -58,7 +61,10 @@ export function mountEditor({ documentModel, createView, onClosed, launchIde, ta
         refresh();
         view.setStatus(restored ? 'Restored unsaved draft · Save to write to disk' : 'UTF-8 · Ctrl/Cmd+S to save');
       }).catch(error => {
-        if (!request.signal.aborted) { view.setStatus(error.message); view.setError(true); }
+        if (request.signal.aborted) return;
+        if (error.message === 'Only UTF-8 text files up to 128 KiB are supported.') {
+          view.showUnsupported();
+        } else { view.setStatus(error.message); view.setError(true); }
       });
     },
   };
