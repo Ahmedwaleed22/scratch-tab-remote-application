@@ -109,7 +109,14 @@ func operate(workspace string, request Request) Result {
 	if err != nil || digest(current) != revision {
 		return fail(409, "File changed during save. Copy your edits and reopen it.")
 	}
-	if err = root.Rename(temporary, name); err != nil {
+	// Pin the validated parent directory and rename only basenames within it.
+	// os.Root.Rename is unavailable in Remote's Go 1.24 container toolchain.
+	directory, err := root.Open(filepath.Dir(name))
+	if err != nil {
+		return fail(500, "Cannot open save directory. Original file was kept.")
+	}
+	defer directory.Close()
+	if err = syscall.Renameat(int(directory.Fd()), filepath.Base(temporary), int(directory.Fd()), filepath.Base(name)); err != nil {
 		return fail(500, "Cannot replace file. Original file was kept.")
 	}
 	return Result{Status: 200, Revision: digest([]byte(request.Content))}

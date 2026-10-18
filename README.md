@@ -6,7 +6,7 @@ A lightweight text editor app for [Remote](https://github.com/futrx-com/remote.f
 
 ## Install or upgrade
 
-Download `scratch-tab-0.2.1.zip` from Releases. Upload it through **Settings → Applications**, then install and start Scratch Tab in the desired project. Uploading a newer version updates existing installations and provisions the file command. If upgrading a UI-only 0.1.0 installation leaves no project container attached, uninstall and reinstall Scratch Tab in that project; workspace files are retained.
+Download `scratch-tab-0.2.2.zip` from Releases. Upload it through **Settings → Applications**, then install and start Scratch Tab in the desired project. Uploading a newer version updates existing installations and provisions the file command. If upgrading a UI-only 0.1.0 installation leaves no project container attached, uninstall and reinstall Scratch Tab in that project; workspace files are retained.
 
 Scratch Tab requires Remote's application-backend and container-Go capabilities and a working LXD project container. It adds no core changes, listening ports, credentials, third-party services, or always-running container process. Remote builds the application-owned Go backend and installs the file command automatically.
 
@@ -40,17 +40,17 @@ python3 -B infra/test_package.py
 python3 -B infra/test_backend.py --remote-root /path/to/remote.futrx
 ```
 
-Use Go 1.25 or later. Set `PLAYWRIGHT_BROWSERS_PATH` if Chromium is already installed in a custom cache. Tests cover editing, saving, save failure, close protection and window lifecycle in Chromium; container tests cover real file writes, stale revisions, traversal, symlinks and unsupported files. The backend check validates the package, compiles it through Remote's generated-module builder, and tests/vets its host API. Browser tests mock the extension API; live installation and actual LXD execution require a Remote server.
+The container file command supports Go 1.24.7 and later, matching Remote's installer. The host-backend check uses the Go version required by your Remote checkout. Set `PLAYWRIGHT_BROWSERS_PATH` if Chromium is already installed in a custom cache. Tests cover editing, saving, save failure, close protection and window lifecycle in Chromium; container tests cover real file writes, stale revisions, traversal, symlinks and unsupported files. The backend check validates the package, compiles it through Remote's generated-module builder, and tests/vets its host API. Browser tests mock the extension API; live installation and actual LXD execution require a Remote server.
 
 ## Releases
 
 Update `application.json`, run the checks, commit, and push a matching `vX.Y.Z` tag. The release workflow follows Connectly's convention: validate the version, test, build a runtime-only ZIP containing the license, and attach it to a GitHub Release. Pushes to main run checks without publishing. To retry an existing tag, use Actions → Release installable ZIP → Run workflow and enter the tag. Source archives remain available from GitHub. To build locally:
 
 ```sh
-python3 -B infra/package.py --tag v0.2.1 --output-dir dist
+python3 -B infra/package.py --tag v0.2.2 --output-dir dist
 ```
 
-Version 0.2.1 adds editing and saving, revision conflict checks, unsaved draft protection, the project-scoped file backend, AGPL licensing and tagged release packaging. Version 0.1.0 was the initial read-only UI.
+Version 0.2.2 fixes installation with Remote’s Go 1.24.7 container toolchain and tests releases against both Go 1.24.7 and 1.25. Version 0.2.1 adds editing and saving, revision conflict checks, unsaved draft protection, the project-scoped file backend, AGPL licensing and tagged release packaging. Version 0.1.0 was the initial read-only UI.
 
 Stopping or uninstalling removes the UI/backend. Project workspace files are kept. The provisioned `/usr/local/bin/scratch-tab` command remains inert in the shared project container until it is replaced or the container is rebuilt.
 

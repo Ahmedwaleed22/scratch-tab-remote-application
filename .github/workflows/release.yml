@@ -20,7 +20,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  container-compatibility:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        go: ['1.24.7', '1.25.x']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - name: Build and test with the container toolchain
+        env:
+          GO111MODULE: 'off'
+          CGO_ENABLED: '0'
+        run: |
+          go version
+          go test ./backend/container
+          go vet ./backend/container
+          go build -trimpath -ldflags '-s -w -X main.version=ci' -o "$RUNNER_TEMP/scratch-tab" ./backend/container
   release:
+    needs: container-compatibility
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
