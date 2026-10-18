@@ -11,6 +11,7 @@ parser.add_argument('--remote-root', type=Path, required=True)
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 remote = args.remote_root.resolve() / 'backend'
+go_version = next(line.split()[1] for line in (remote / 'go.mod').read_text().splitlines() if line.startswith('go '))
 go = shutil.which('go') or '/usr/local/go/bin/go'
 with tempfile.TemporaryDirectory(prefix='scratch-validation-', dir=remote) as temporary:
     helper = Path(temporary)
@@ -41,7 +42,7 @@ func main() {
 with tempfile.TemporaryDirectory(prefix='scratch-host-tests-') as temporary:
     target = Path(temporary)
     shutil.copytree(root / 'backend', target, dirs_exist_ok=True, ignore=shutil.ignore_patterns('container'))
-    (target / 'go.mod').write_text(f'module futrx.local/catalog/applications/scratch-tab/backend\n\ngo 1.25.0\n\nrequire github.com/futrx-com/remote.futrx.com v0.0.0\nreplace github.com/futrx-com/remote.futrx.com => {remote}\n')
+    (target / 'go.mod').write_text(f'module futrx.local/catalog/applications/scratch-tab/backend\n\ngo {go_version}\n\nrequire github.com/futrx-com/remote.futrx.com v0.0.0\nreplace github.com/futrx-com/remote.futrx.com => {remote}\n')
     environment = dict(os.environ, GOFLAGS='-mod=mod')
     subprocess.run([go, 'test', './...'], cwd=target, env=environment, check=True)
     subprocess.run([go, 'vet', './...'], cwd=target, env=environment, check=True)
