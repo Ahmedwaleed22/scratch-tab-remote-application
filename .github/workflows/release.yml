@@ -50,6 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          path: scratch-tab
           persist-credentials: false
           ref: ${{ inputs.tag || github.ref }}
       - uses: actions/checkout@v7
@@ -62,7 +63,7 @@ jobs:
           go-version-file: remote-core/backend/go.mod
           cache: false
       - name: Validate generated host backend, tests and vet
-        run: python3 -B infra/test_backend.py --remote-root "$GITHUB_WORKSPACE/remote-core"
+        run: python3 -B scratch-tab/infra/test_backend.py --remote-root "$GITHUB_WORKSPACE/remote-core"
   release:
     needs: [container-compatibility, host-backend]
     runs-on: ubuntu-24.04
