@@ -6,7 +6,7 @@ A lightweight text editor for [Remote](https://github.com/futrx-com/remote.futrx
 
 ## Install or upgrade
 
-Download `scratch-tab-0.2.2.zip` from Releases. Upload it through **Settings → Applications**, then install and start Scratch Tab in the desired project. Uploading a newer version updates existing installations and provisions the file command. If upgrading a UI-only 0.1.0 installation leaves no project container attached, uninstall and reinstall Scratch Tab in that project; workspace files are retained.
+Download `scratch-tab-0.2.3.zip` from Releases. Upload it through **Settings → Applications**, then install and start Scratch Tab in the desired project. Uploading a newer version updates existing installations and provisions the file command. If upgrading a UI-only 0.1.0 installation leaves no project container attached, uninstall and reinstall Scratch Tab in that project; workspace files are retained.
 
 Scratch Tab requires Remote's application-backend and container-Go capabilities and a working LXD project container. It adds no core changes, listening ports, credentials, third-party services, or always-running container process. Remote builds the application-owned Go backend and installs the file command automatically.
 
@@ -26,7 +26,7 @@ Closing a dirty file asks before discarding changes. Leaving the chat or stoppin
 - Saving writes a temporary file in the same directory, syncs it, preserves Unix ownership and permission bits, then replaces the original. This changes the inode, so hard links, ACLs and extended attributes are not preserved. No automatic backups or undo history across windows.
 - CRLF files retain CRLF on save. Mixed line endings normalize to CRLF when any CRLF exists; otherwise they normalize to LF. No autosave, create, rename or delete operation.
 
-The document click handler recognizes only same-origin chat `ide-open` links for the currently active chat. File-browser buttons that directly call `window.open`, host paths, folders, media, external Code Server links and modified clicks keep their existing behavior. This uses DOM interception by design and depends on Remote's current file-link URL format. Link line numbers are used by Code Server; Scratch Tab opens at the beginning.
+The document click handler recognizes the active chat’s `ide-open` links, direct Code Server app links (`code--<project>.<Remote host>/_static/remote-open.html?file=...`), and legacy Code Server payload links (`code.<Remote host>/<project>/?payload=...`). Direct editor links must match the project slug supplied by the active chat’s working directory. Host paths within that same project workspace are translated to `/workspace`. File-browser buttons that directly call `window.open`, other projects, unrelated domains, folders, media links and modified clicks keep their existing behavior. This uses DOM interception by design and depends on Remote's current file-link URL format. Link line numbers are used by Code Server; Scratch Tab opens at the beginning.
 
 ## Development and checks
 
@@ -47,10 +47,10 @@ The container file command supports Go 1.24.7 and later, matching Remote's insta
 Update `application.json`, run the checks, commit, and push a matching `vX.Y.Z` tag. The release workflow follows Connectly's convention: validate the version, test, build a runtime-only ZIP containing the license, and attach it to a GitHub Release. Pushes to main run checks without publishing. To retry an existing tag, use Actions → Release installable ZIP → Run workflow and enter the tag. Source archives remain available from GitHub. To build locally:
 
 ```sh
-python3 -B infra/package.py --tag v0.2.2 --output-dir dist
+python3 -B infra/package.py --tag v0.2.3 --output-dir dist
 ```
 
-Version 0.2.2 fixes installation with Remote’s Go 1.24.7 container toolchain and tests releases against both Go 1.24.7 and 1.25. Version 0.2.1 adds editing and saving, revision conflict checks, unsaved draft protection, the project-scoped file backend, AGPL licensing and tagged release packaging. Version 0.1.0 was the initial read-only UI.
+Version 0.2.3 adds the editor choice for direct Code Server app links and legacy editor payloads, with regression tests for both editor choices and project isolation. Version 0.2.2 fixes installation with Remote’s Go 1.24.7 container toolchain and tests releases against both Go 1.24.7 and 1.25. Version 0.2.1 adds editing and saving, revision conflict checks, unsaved draft protection, the project-scoped file backend, AGPL licensing and tagged release packaging. Version 0.1.0 was the initial read-only UI.
 
 Stopping or uninstalling removes the UI/backend. Project workspace files are kept. The provisioned `/usr/local/bin/scratch-tab` command remains inert in the shared project container until it is replaced or the container is rebuilt.
 
