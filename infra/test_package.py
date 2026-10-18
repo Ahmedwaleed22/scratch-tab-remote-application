@@ -1,4 +1,6 @@
 import json
+import posixpath
+import re
 import tempfile
 import unittest
 import zipfile
@@ -16,6 +18,15 @@ class PackageTests(unittest.TestCase):
                 names = package.namelist()
                 self.assertIn('LICENSE', names)
                 self.assertIn('backend/container/main.go', names)
+                self.assertIn('backend/container/storage.go', names)
+                self.assertNotIn('docs/maintenance.md', names)
+                for name in names:
+                    if name.endswith('.js'):
+                        for relative in re.findall(r"(?:from\s*|import\s*)['\"](\.[^'\"]+)['\"]", package.read(name).decode()):
+                            dependency = posixpath.normpath(posixpath.join(posixpath.dirname(name), relative))
+                            self.assertIn(dependency, names)
+                for image in re.findall(r'!\[[^]]*\]\(([^)]+)\)', package.read('README.md').decode()):
+                    self.assertIn(image, names)
                 self.assertTrue(all(not name.endswith(('_test.go', '.mjs', '.py')) for name in names))
 
     def test_wrong_tag_rejected(self):
