@@ -61,6 +61,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
     window.lastFilePath = body.path;
     if (body.save) {
       if (window.failSave) throw new Error('File changed on disk');
+      if (window.deferSave) await new Promise(resolve => { window.completeSave = resolve; });
       window.disk = body.content; window.revision = 'saved';
       return { revision: window.revision };
     }
@@ -139,6 +140,26 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  await page.locator('textarea').fill('Write an empty file');
  await page.getByRole('button', {name:'Save',exact:true}).click();
  await page.waitForFunction(() => window.disk === 'Write an empty file');
+ await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.evaluate(() => { window.disk = 'one\r\ntwo\r\n'; });
+ await page.getByText('notes', {exact:true}).click();
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
+ await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+ assert.equal(await page.locator('textarea').inputValue(), 'one\ntwo\n');
+ await page.locator('textarea').fill('changed\n');
+ await page.getByRole('button', {name:'Save',exact:true}).click();
+ await page.waitForFunction(() => window.disk === 'changed\r\n');
+ await page.evaluate(() => { window.deferSave = true; });
+ await page.locator('textarea').fill('pending\n');
+ await page.getByRole('button', {name:'Save',exact:true}).click();
+ await page.waitForFunction(() => typeof window.completeSave === 'function');
+ await page.locator('textarea').fill('newer\n');
+ await page.evaluate(() => { window.deferSave = false; window.completeSave(); });
+ await page.getByText('Saved earlier changes · Unsaved edits remain', {exact:true}).waitFor();
+ assert.equal(await page.evaluate(() => window.disk), 'pending\r\n');
+ assert.equal(await page.getByRole('button', {name:'Save',exact:true}).isDisabled(), false);
+ await page.getByRole('button', {name:'Save',exact:true}).click();
+ await page.waitForFunction(() => window.disk === 'newer\r\n');
  await page.getByRole('button', {name:'Close file',exact:true}).click();
  await page.evaluate(() => {
    document.querySelector('a').href = 'https://code--alpha.remote.test/_static/remote-open.html?folder=%2Fworkspace&file=%2Fworkspace%2FREADME.md&line=3';
