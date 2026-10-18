@@ -108,3 +108,9 @@ The browser checks administrator access and the current package version, downloa
 The drafts map blocks installation before and after download and blocks refresh if edits appear during upload. Other tabs and other projects' editors cannot be inspected; the confirmation explicitly asks users to save them. Partial upgrades keep their errors visible and offer a manual refresh. Concurrent administrators can still race package uploads because Remote has no conditional replacement API. No core code changes or automatic rollback are included.
 
 Validation includes host release/ZIP tests, non-admin route denial, browser version comparison, draft blocking, download errors, multipart upload, partial failures, successful refresh, and slot disposal. Live package installation remains a server integration check.
+
+## Tabbed windows
+
+New files join the active window's tab group. `app/chat.js` owns group membership, active-file selection, and splitting a tab into its own window. Each file retains its existing document model and presenter, so switching or separating files does not read them again, reset their revisions, or discard edits. Reopening the same path selects its existing tab. Closing the active file selects a remaining tab; dirty closes still require confirmation. Chat disposal remembers all drafts and closes all groups.
+
+`views/editorWindow.js` renders the tab strip, selected state, keyboard navigation and Separate window action. Inactive file panels are hidden; selected files inherit their group's current geometry. Separate windows can move and resize independently on desktop. On phones, each window still fits the visual viewport. Window groups and positions remain in memory only and are not restored across chat changes or browser refreshes.
