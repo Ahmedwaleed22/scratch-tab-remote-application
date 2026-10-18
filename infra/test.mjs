@@ -59,6 +59,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
   window.revision = 'original';
   window.failSave = false;
   const backend = { async call(path, {body}) {
+    window.lastFilePath = body.path;
     if (body.save) {
       if (window.failSave) throw new Error('File changed on disk');
       window.disk = body.content; window.revision = 'saved';
@@ -70,6 +71,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
   window.mount = () => activate(remote);
   window.mount();
  });
+ assert.equal(await page.locator('#host button').count(), 0);
  await page.getByText('notes', {exact:true}).click();
  const choices = page.locator('.scratch-tab-choice');
  assert.equal(await choices.getByRole('button').count(), 2);
@@ -154,6 +156,41 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  await page.getByText('notes', {exact:true}).click();
  await page.locator('.scratch-tab-choice').getByRole('button', {name:'Code Server',exact:true}).click();
  assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
+ await page.evaluate(() => {
+   const pane = document.createElement('aside'); pane.id = 'workspace-files-pane';
+   pane.innerHTML = '<div id="manager-file" role="button" tabindex="0" title="Open guide.md in application"><span>guide.md</span><a download="guide.md" href="/api/chats/a/files/download?path=docs%2Fguide.md">Download</a></div><div id="manager-folder" role="button" tabindex="0"><span>docs</span><a href="/api/chats/a/files/download-folder?path=docs">Download folder</a></div><div id="manager-media" role="button" title="View photo.png"><span>photo.png</span><a download="photo.png" href="/api/chats/a/files/download?path=photo.png">Download</a></div>';
+   document.body.append(pane);
+   window.originalOpens = 0; window.folderOpens = 0; window.mediaOpens = 0; window.downloads = 0;
+   const row = document.querySelector('#manager-file');
+   row.onclick = () => { window.originalOpens++; window.open('https://code--alpha.remote.test/_static/remote-open.html?file=/workspace/docs/guide.md', '_blank'); };
+   row.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); row.click(); } };
+   row.querySelector('a').onclick = event => { event.preventDefault(); event.stopPropagation(); window.downloads++; };
+   document.querySelector('#manager-folder').onclick = () => window.folderOpens++;
+   document.querySelector('#manager-media').onclick = () => window.mediaOpens++;
+ });
+ await page.locator('#manager-file span').click();
+ assert.equal(await page.evaluate(() => window.originalOpens), 0);
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
+ await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+ assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'guide.md');
+ assert.equal(await page.evaluate(() => window.lastFilePath), '/workspace/docs/guide.md');
+ await page.getByRole('button', {name:'Open in Code Server'}).click();
+ assert.equal(await page.evaluate(() => window.originalOpens), 1);
+ await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.locator('#manager-file').focus();
+ await page.locator('#manager-file').press('Enter');
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Code Server',exact:true}).click();
+ assert.equal(await page.evaluate(() => window.originalOpens), 2);
+ await page.locator('#manager-file').focus();
+ await page.locator('#manager-file').press('Space');
+ await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).press('Escape');
+ await page.locator('#manager-file a').click();
+ assert.equal(await page.evaluate(() => window.downloads), 1);
+ await page.locator('#manager-folder span').click();
+ await page.locator('#manager-media span').click();
+ assert.equal(await page.evaluate(() => window.folderOpens), 1);
+ assert.equal(await page.evaluate(() => window.mediaOpens), 1);
+ assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
  await page.getByText('notes', {exact:true}).click();
  assert.equal(await page.locator('.scratch-tab-choice').count(), 1);
  await page.evaluate(() => window.dispose());
