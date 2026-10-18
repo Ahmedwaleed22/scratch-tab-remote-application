@@ -77,12 +77,36 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   window.visualViewport?.addEventListener('scroll', fitViewport, { signal });
   compact.addEventListener('change', fitViewport, { signal });
   // Let phone users read first; tapping the text area opens the keyboard.
-  const focus = () => (compact.matches ? header : content).focus({ preventScroll: true });
+  let unsupported;
+  const focus = () => (unsupported ? unsupported.querySelector('a') : compact.matches ? header : content).focus({ preventScroll: true });
 
   return {
     get text() { return content.value; },
     setText(text) { content.value = text; },
     allowEditing() { content.readOnly = false; },
+    showUnsupported() {
+      if (!unsupported) {
+        unsupported = document.createElement('div');
+        unsupported.className = 'scratch-tab-unsupported';
+        const message = document.createElement('div');
+        message.setAttribute('role', 'status');
+        const heading = document.createElement('h2');
+        heading.textContent = 'File not supported';
+        const description = document.createElement('p');
+        description.textContent = 'Scratch Tab can only edit small UTF-8 text files. Download this file to open it in another app.';
+        const download = document.createElement('a');
+        download.href = target.download;
+        download.download = target.name;
+        download.textContent = 'Download file';
+        message.append(heading, description);
+        unsupported.append(message, download);
+        content.replaceWith(unsupported);
+        actions.hidden = true;
+        actions.style.display = 'none';
+        status.hidden = true;
+      }
+      focus();
+    },
     render({ canSave, dirty }) {
       saveButton.disabled = !canSave;
       title.textContent = `${dirty ? '● ' : ''}${target.name}`;

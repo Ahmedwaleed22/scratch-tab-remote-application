@@ -39,3 +39,10 @@
 .scratch-tab-updates button { min-height:44px; padding:6px 12px; border:1px solid var(--line, #aaa); border-radius:6px; color:inherit; background:transparent; font:inherit; cursor:pointer; }
 .scratch-tab-updates button:disabled { opacity:.5; cursor:default; }
 .scratch-tab-updates button:focus-visible { outline:2px solid rgb(var(--accent-blue, 45 100 215)); outline-offset:2px; }
+
+.scratch-tab-unsupported { flex:1; min-height:0; overflow:auto; padding:24px; display:flex; flex-direction:column; align-items:center; justify-content:safe center; text-align:center; gap:16px; }
+.scratch-tab-unsupported h2 { margin:0; font-size:18px; font-weight:600; }
+.scratch-tab-unsupported p { max-width:36ch; margin:8px 0 0; font-size:14px; line-height:1.5; }
+.scratch-tab-unsupported a { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-height:44px; flex-shrink:0; padding:8px 16px; border:1px solid currentColor; border-radius:8px; color:rgb(var(--accent-blue, 45 100 215)); font-size:14px; font-weight:500; text-decoration:none; }
+.scratch-tab-unsupported a:hover { background:rgb(var(--accent-blue, 45 100 215) / .1); }
+.scratch-tab-unsupported a:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
