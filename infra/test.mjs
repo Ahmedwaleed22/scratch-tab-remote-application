@@ -2,8 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-const source = await readFile(new URL('../ui/scripts/main.js', import.meta.url), 'utf8');
-const { fileTarget } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const { fileTarget } = await import(new URL('../ui/scripts/links.js', import.meta.url));
 test('matches current chat workspace links and preserves IDE line reference', () => {
  const target = fileTarget('/api/chats/a/ide-open?path=%2Fworkspace%2Fnote.txt%3A3', 'https://remote.test', 'a');
  assert.equal(target.path, '/workspace/note.txt');
@@ -42,9 +41,9 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  const browser = await chromium.launch({ headless:true, args:['--no-sandbox'] });
  try {
  const page = await browser.newPage({ viewport: { width:Number(process.env.SCRATCH_TAB_WIDTH || 1280), height:720 } });
- await page.route('https://remote.test/**', route => {
+ await page.route('https://remote.test/**', async route => {
   const path = new URL(route.request().url()).pathname;
-  if (path.endsWith('/main.js')) return route.fulfill({ contentType:'text/javascript', body:source });
+  if (path.endsWith('.js')) return route.fulfill({ contentType:'text/javascript', body:await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8') });
   if (path.endsWith('/files/download')) return route.fulfill({ body:'A small file\n<script>safe</script>' });
   return route.fulfill({ contentType:'text/html', body:'<div id="host"></div><a href="/api/chats/a/ide-open?path=%2Fworkspace%2Fnotes.txt">notes</a>' });
  });
