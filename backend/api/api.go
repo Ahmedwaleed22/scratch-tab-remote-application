@@ -1,13 +1,11 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"os/exec"
-	"time"
 
+	"futrx.local/catalog/applications/scratch-tab/backend/config"
 	"github.com/futrx-com/remote.futrx.com/pkg/applications"
 )
 
@@ -18,15 +16,6 @@ type backend struct {
 }
 
 func New(run Runner) applications.Backend { return &backend{run: run} }
-func Execute(ctx context.Context, container string, body []byte) ([]byte, error) {
-	binary, err := exec.LookPath("lxc")
-	if err != nil {
-		binary = "/snap/bin/lxc"
-	}
-	command := exec.CommandContext(ctx, binary, "exec", container, "--mode=non-interactive", "--", "/usr/local/bin/scratch-tab")
-	command.Stdin = bytes.NewReader(body)
-	return command.Output()
-}
 func (b *backend) Init(instance applications.Instance) error {
 	if instance.Scope != "project" || instance.ProjectID == "" || instance.ContainerName == "" {
 		return errors.New("Scratch Tab requires a project container; reinstall the application")
@@ -44,10 +33,10 @@ func (b *backend) Handle(request applications.Request) (applications.Response, e
 	if request.Path != "file" || request.Method != "POST" {
 		return applications.Errorf(404, "Route not found."), nil
 	}
-	if len(request.Body) > 8*1024*1024 {
+	if len(request.Body) > config.MaxBackendRequestBytes {
 		return applications.Errorf(413, "File request is too large."), nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.FileCommandTimeout)
 	defer cancel()
 	output, err := b.run(ctx, b.instance.ContainerName, request.Body)
 	if err != nil {
