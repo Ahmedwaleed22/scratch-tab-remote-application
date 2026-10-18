@@ -1,4 +1,4 @@
-.scratch-tab-window { position:fixed; width:620px; height:420px; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); min-width:280px; min-height:180px; resize:both; overflow:hidden; display:flex; flex-direction:column; background:rgb(var(--bg-surface-rgb, 250 250 250)); color:rgb(var(--fg, 32 32 36)); border:1px solid var(--line, #bbb); border-radius:10px; box-shadow:0 18px 65px #0004; font:13px system-ui; }
+.scratch-tab-window { position:fixed; box-sizing:border-box; width:620px; height:420px; max-width:calc(var(--scratch-viewport-width, 100vw) - 16px); max-height:calc(var(--scratch-viewport-height, 100dvh) - 16px); min-width:280px; min-height:180px; resize:both; overflow:hidden; display:flex; flex-direction:column; background:rgb(var(--bg-surface-rgb, 250 250 250)); color:rgb(var(--fg, 32 32 36)); border:1px solid var(--line, #bbb); border-radius:10px; box-shadow:0 18px 65px #0004; font:13px system-ui; }
 .scratch-tab-header { display:flex; align-items:center; gap:6px; padding:4px 6px; min-height:24px; flex-shrink:0; cursor:grab; touch-action:none; background:rgb(var(--bg-raised-rgb, 240 240 242)); border-bottom:1px solid var(--line, #ddd); user-select:none; }
 .scratch-tab-header:active { cursor:grabbing; }
 .scratch-tab-header strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:600; }
@@ -19,5 +19,16 @@
 .scratch-tab-window button:disabled { opacity:.5; cursor:default; }
 .scratch-tab-choice { position:fixed; display:flex; gap:4px; box-sizing:border-box; padding:4px; max-width:calc(100vw - 16px); border:1px solid var(--line, #bbb); border-radius:10px; background:rgb(var(--bg-surface-rgb, 250 250 250)); color:rgb(var(--fg, 32 32 36)); box-shadow:0 6px 20px #0003; font:11px system-ui; }
 .scratch-tab-choice button { flex:1; min-height:24px; padding:4px 8px; border:0; border-radius:5px; background:transparent; color:inherit; font:inherit; white-space:nowrap; cursor:pointer; }
-@media(max-width:480px) { .scratch-tab-window { min-width:0; width:calc(100vw - 16px); } .scratch-tab-header { gap:4px; padding:6px; } .scratch-tab-actions { gap:4px; } .scratch-tab-actions button { padding:3px 6px; font-size:11px; } }
+@media(max-width:600px), (pointer:coarse) and (max-height:500px) {
+  .scratch-tab-window { min-width:0; min-height:0; width:calc(var(--scratch-viewport-width, 100vw) - 16px); height:calc(var(--scratch-viewport-height, 100dvh) - 16px); resize:none; padding:env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  .scratch-tab-header { display:grid; grid-template-columns:44px minmax(0, 1fr); gap:0 4px; padding:4px 8px 8px; cursor:default; touch-action:auto; }
+  .scratch-tab-header strong { font-size:14px; }
+  .scratch-tab-controls button { width:44px; height:44px; }
+  .scratch-tab-actions { grid-column:1 / -1; gap:8px; }
+  .scratch-tab-actions button { min-height:44px; padding:6px 12px; font-size:13px; }
+  .scratch-tab-actions button:last-child { flex:1; min-width:0; white-space:normal; }
+  .scratch-tab-window textarea { font-size:16px; padding:12px; overscroll-behavior:contain; }
+  .scratch-tab-window footer { padding:6px 12px; overflow-wrap:anywhere; }
+  .scratch-tab-choice button { min-height:44px; }
+}
 @media(pointer:coarse) { .scratch-tab-controls button { width:44px; height:44px; } .scratch-tab-actions button,.scratch-tab-choice button { min-height:44px; } }

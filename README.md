@@ -20,7 +20,7 @@ Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the fil
 
 ![Edit a file in a movable Scratch Tab window](docs/images/editor-window.png)
 
-Drag the title bar to move the window and resize it from the corner. Open several files at once; selecting an already open file brings its window forward. Click the red dot or press Escape to close a window. If there are unsaved changes, Scratch Tab asks before discarding them.
+On phones, the editor fits the visible screen and keeps its controls above the keyboard. Tap the text to start editing. On desktop, drag the title bar to move the window and resize it from the corner. Open several files at once; selecting an already open file brings its window forward. Click the red dot or press Escape to close a window. If there are unsaved changes, Scratch Tab asks before discarding them.
 
 For keyboard navigation, use the arrow keys in the editor-choice menu. Focus a window’s title bar and use the arrow keys to move it.
 

@@ -42,13 +42,24 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   panel.append(header, content, status);
   document.body.append(panel);
 
+  const compact = matchMedia('(max-width: 600px), (pointer: coarse) and (max-height: 500px)');
   function position(x, y) {
-    panel.style.left = `${Math.max(0, Math.min(x, innerWidth - Math.min(panel.offsetWidth, 180)))}px`;
-    panel.style.top = `${Math.max(0, Math.min(y, innerHeight - 48))}px`;
+    header.setAttribute('aria-label', compact.matches ? 'File window title bar' : 'File window title bar. Use arrow keys to reposition.');
+    const viewport = window.visualViewport;
+    const left = viewport?.offsetLeft ?? 0;
+    const top = viewport?.offsetTop ?? 0;
+    const width = viewport?.width ?? innerWidth;
+    const height = viewport?.height ?? innerHeight;
+    panel.style.setProperty('--scratch-viewport-width', `${width}px`);
+    panel.style.setProperty('--scratch-viewport-height', `${height}px`);
+    panel.style.left = `${compact.matches ? left + 8 : Math.max(left + 8, Math.min(x, left + width - panel.offsetWidth - 8))}px`;
+    panel.style.top = `${compact.matches ? top + 8 : Math.max(top + 8, Math.min(y, top + height - panel.offsetHeight - 8))}px`;
   }
+  const fitViewport = () => position(panel.offsetLeft, panel.offsetTop);
+  fitViewport();
   let drag;
   header.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || event.target.closest('button')) return;
+    if (compact.matches || event.button !== 0 || event.target.closest('button')) return;
     drag = { x: event.clientX - panel.offsetLeft, y: event.clientY - panel.offsetTop };
     header.setPointerCapture(event.pointerId);
   });
@@ -61,7 +72,12 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   panel.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave(); }
   });
-  window.addEventListener('resize', () => position(panel.offsetLeft, panel.offsetTop), { signal });
+  window.addEventListener('resize', fitViewport, { signal });
+  window.visualViewport?.addEventListener('resize', fitViewport, { signal });
+  window.visualViewport?.addEventListener('scroll', fitViewport, { signal });
+  compact.addEventListener('change', fitViewport, { signal });
+  // Let phone users read first; tapping the text area opens the keyboard.
+  const focus = () => (compact.matches ? header : content).focus({ preventScroll: true });
 
   return {
     get text() { return content.value; },
@@ -73,8 +89,8 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
     },
     setStatus(text) { status.textContent = text; },
     setError(failed) { status.className = failed ? 'scratch-tab-error' : ''; },
-    focus() { content.focus(); },
-    restore() { panel.style.zIndex = String(nextLayer()); content.focus(); },
+    focus,
+    restore() { panel.style.zIndex = String(nextLayer()); focus(); },
     remove() { panel.remove(); },
   };
 }
