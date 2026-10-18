@@ -44,7 +44,7 @@ Use Go 1.25 or later. Set `PLAYWRIGHT_BROWSERS_PATH` if Chromium is already inst
 
 ## Releases
 
-Update `application.json`, run the checks, commit, and push a matching `vX.Y.Z` tag. The release workflow follows Connectly's convention: validate the version, test, build a runtime-only ZIP containing the license, and attach it to a GitHub Release. Source archives remain available from GitHub. To build locally:
+Update `application.json`, run the checks, commit, and push a matching `vX.Y.Z` tag. The release workflow follows Connectly's convention: validate the version, test, build a runtime-only ZIP containing the license, and attach it to a GitHub Release. Pushes to main run checks without publishing. To retry an existing tag, use Actions → Release installable ZIP → Run workflow and enter the tag. Source archives remain available from GitHub. To build locally:
 
 ```sh
 python3 -B infra/package.py --tag v0.2.0 --output-dir dist
