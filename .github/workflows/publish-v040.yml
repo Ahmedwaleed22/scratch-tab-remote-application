@@ -1,0 +1,29 @@
+name: Publish requested v0.4.0 package
+on:
+  push:
+    branches: [release/publish-v0.4.0]
+    paths: [.github/workflows/publish-v040.yml]
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v0.4.0
+          persist-credentials: false
+      - name: Build verified tag package
+        run: |
+          python3 -B infra/test_package.py
+          python3 -B infra/package.py --tag v0.4.0 --output-dir "$RUNNER_TEMP/package"
+      - name: Publish ZIP for existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view v0.4.0 >/dev/null 2>&1; then
+            gh release create v0.4.0 --verify-tag --draft --title "Scratch Tab v0.4.0" --notes "Adds GitHub release checks and administrator-controlled updates in project settings, with ZIP verification, draft protection, and refresh after successful installation. No Remote core changes."
+          fi
+          gh release upload v0.4.0 "$RUNNER_TEMP/package/scratch-tab-0.4.0.zip" --clobber
+          gh release edit v0.4.0 --draft=false --latest
