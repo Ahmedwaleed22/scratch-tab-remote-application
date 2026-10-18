@@ -245,6 +245,11 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
   });
   assert.equal(await page.evaluate(() => document.activeElement.tagName), 'HEADER');
   async function assertFits(width, height, top=0, left=0) {
+   // Browser resize events arrive asynchronously after setViewportSize resolves.
+   await page.waitForFunction(({width,height,top,left}) => {
+    const box = document.querySelector('.scratch-tab-window').getBoundingClientRect();
+    return box.x >= left && box.y >= top && box.right <= left+width+1 && box.bottom <= top+height+1;
+   }, {width,height,top,left});
    for (const selector of ['.scratch-tab-window','.scratch-tab-header','textarea','.scratch-tab-actions button:first-child','.scratch-tab-actions button:last-child','.scratch-tab-controls button','footer']) {
     const box = await page.locator(selector).boundingBox();
     assert.ok(box.x >= left && box.y >= top && box.x+box.width <= left+width+1 && box.y+box.height <= top+height+1, `${selector}: ${JSON.stringify(box)} outside ${width}x${height} at ${left},${top}`);
