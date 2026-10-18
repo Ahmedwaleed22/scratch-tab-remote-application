@@ -54,3 +54,27 @@ func TestRejectUnsafeAndUnsupported(t *testing.T) {
 		}
 	}
 }
+
+func TestSaveNestedFileWithGo124Rename(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "notes"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	name := filepath.Join(root, "notes", "small.txt")
+	if err := os.WriteFile(name, []byte("before"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	read := operate(root, Request{Path: "/workspace/notes/small.txt"})
+	result := operate(root, Request{Path: "/workspace/notes/small.txt", Save: true, Revision: read.Revision, Content: "after"})
+	if result.Status != 200 {
+		t.Fatal(result)
+	}
+	data, err := os.ReadFile(name)
+	if err != nil || string(data) != "after" {
+		t.Fatal(string(data), err)
+	}
+	entries, err := os.ReadDir(filepath.Dir(name))
+	if err != nil || len(entries) != 1 || entries[0].Name() != "small.txt" {
+		t.Fatal(entries, err)
+	}
+}
