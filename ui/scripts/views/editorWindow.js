@@ -131,6 +131,7 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
     },
     get geometry() { return { left: panel.style.left, top: panel.style.top, width: panel.style.width, height: panel.style.height }; },
     offset() { position(panel.offsetLeft + 24, panel.offsetTop + 24); },
+    refreshLinks() { if (unsupported) unsupported.querySelector('a').href = target.download; },
     get text() { return content.value; },
     setText(text) { content.value = text; },
     allowEditing() { content.readOnly = false; },

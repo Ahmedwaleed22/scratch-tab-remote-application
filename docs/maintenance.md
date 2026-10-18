@@ -9,7 +9,7 @@ The browser, host backend, and container command are independently built deploym
 ### Browser extension
 
 - `ui/scripts/main.js` composes the Remote slot, project-scoped file API, draft lifetime, and chat session.
-- `app/chat.js` owns the open-window collection, stacking order, chooser lifecycle, and dependency composition within a chat.
+- `app/chat.js` owns the open-window collection, stacking order, chooser lifecycle, and dependency composition for the current project.
 - `links.js` parses the supported editor links without touching the DOM.
 - `adapters/fileOpenings.js` translates chat links and file-manager rows into file-open intent. It owns capture listeners and the guard around Remote's original row action.
 - `api/files.js` owns the `file` request shapes and project target selection. Remote supplies the transport and error parsing.
@@ -65,7 +65,7 @@ The packager includes runtime Go/JavaScript/CSS, the README, license, and README
 
 ## Existing integration constraints
 
-- The chat-header slot owns listeners but renders no launcher. Leaving its scope closes windows and unregisters the capture handlers.
+- The chat-header slot owns listeners but renders no launcher. Same-project context changes rebind its capture handlers without closing windows. Leaving the chat scope suspends the windows and unregisters handlers; sidebar scope removal disposes the session.
 - Supported links include active-chat `ide-open`, `code--<project>.<Remote host>` file links, and legacy Code Server payload links. The active chat cwd supplies the project slug for isolation.
 - File-manager integration depends on `#workspace-files-pane` rows with `role="button"` and a file download anchor. Choosing Code Server replays the original row action under the adapter's recursion guard. Other projects, media, archives, folders, download controls and modified clicks are excluded.
 - Other editors do not share Scratch Tab's lock. A change between the final revision check and rename is still possible. The refactor preserves that existing limitation.
@@ -111,6 +111,8 @@ Validation includes host release/ZIP tests, non-admin route denial, browser vers
 
 ## Tabbed windows
 
-New files join the active window's tab group. `app/chat.js` owns group membership, active-file selection, and splitting a tab into its own window. Each file retains its existing document model and presenter, so switching or separating files does not read them again, reset their revisions, or discard edits. Reopening the same path selects its existing tab. Closing the active file selects a remaining tab; dirty closes still require confirmation. Chat disposal remembers all drafts and closes all groups.
+`main.js` keeps a single active project session across keyed chat remounts. The persistent sidebar-header slot owns final cleanup, without rendering a launcher. Chat-slot cleanup suspends link capture, hides the windows and closes the chooser. The next chat render resumes the windows only for the same project; a different project disposes them. Sidebar scope removal (including stopping the extension) disposes the session. Context rebinding updates download/IDE links and removes callbacks to the old file-manager DOM. File reads, saves, tab membership and geometry stay intact.
 
-`views/editorWindow.js` renders the tab strip, selected state, keyboard navigation and Separate window action. Inactive file panels are hidden; selected files inherit their group's current geometry. Separate windows can move and resize independently on desktop. On phones, each window still fits the visual viewport. Window groups and positions remain in memory only and are not restored across chat changes or browser refreshes.
+New files join the active window's tab group. `app/chat.js` owns group membership, active-file selection, and splitting a tab into its own window. Each file retains its existing document model and presenter, so switching or separating files does not read them again, reset their revisions, or discard edits. Reopening the same path selects its existing tab. Closing the active file selects a remaining tab; dirty closes still require confirmation. Project-session disposal remembers all drafts and closes all groups.
+
+`views/editorWindow.js` renders the tab strip, selected state, keyboard navigation and Separate window action. Inactive file panels are hidden; selected files inherit their group's current geometry. Separate windows can move and resize independently on desktop. On phones, each window still fits the visual viewport. Window groups and positions remain in memory across same-project chat changes, but are not restored after leaving the project or refreshing the browser.

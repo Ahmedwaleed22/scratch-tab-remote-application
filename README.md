@@ -30,7 +30,7 @@ For keyboard navigation, use the arrow keys in the editor-choice menu. Use Left/
 - Folders, downloads, images, audio, video, PDFs and archives keep Remote’s usual behavior.
 - Save is explicit; there is no autosave or automatic backup. Creating, renaming and deleting files stays in Remote or Code Server.
 - If a file changed on disk since you opened it, saving reports a conflict. Copy your edits before reopening the file.
-- Unsaved drafts survive chat changes in browser memory. Refreshing or closing the browser loses those drafts, so save your work before leaving.
+- Windows, tabs, edits and their positions stay open when switching chats within the same project. Leaving the project closes the windows and keeps unsaved drafts in browser memory. Refreshing or closing the browser loses those drafts, so save your work before leaving.
 - CRLF line endings are preserved. Mixed line endings normalize when saved. Symlinks and binary files are not editable; hard links and extended file attributes are not preserved on save.
 
 Stopping or uninstalling Scratch Tab keeps your workspace files.
