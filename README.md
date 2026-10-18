@@ -6,7 +6,7 @@ A lightweight text editor app for [Remote](https://github.com/futrx-com/remote.f
 
 ## Install
 
-Download the installable ZIP, upload it through **Settings → Applications**, then install and start Scratch Tab in your project. To update an existing installation, upload the newer ZIP and refresh Remote.
+Download the installable ZIP, upload it through **Settings → Applications**, then install and start Scratch Tab in your project. The first installation of a version with the updater still requires uploading its ZIP and refreshing Remote. After that, administrators can use **Project settings → Scratch Tab updates**. It checks GitHub when opened and every six hours while open. Click **Update** to install a newer stable release; updating replaces Scratch Tab across all projects on the server. Save work in other tabs first. Unsaved Scratch Tab drafts in this tab block installation and refresh. Failed project upgrades are reported without refreshing. Manual ZIP uploads remain available.
 
 ## Open a file
 
