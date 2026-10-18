@@ -259,7 +259,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
    await page.setViewportSize({width,height:844});
    await assertFits(width,844);
    assert.equal(await page.locator('textarea').evaluate(node => getComputedStyle(node).fontSize),'16px');
-   for (const button of await page.locator('.scratch-tab-window button').all()) assert.ok((await button.boundingBox()).height >= 44);
+   for (const button of await page.locator('.scratch-tab-window button:visible').all()) assert.ok((await button.boundingBox()).height >= 44);
   }
   await page.locator('textarea').fill('Mobile edit');
   await page.getByRole('button',{name:'Save',exact:true}).tap();
@@ -448,5 +448,86 @@ test('updater belongs only to Scratch Tab card and closes with its owner', async
   await page.evaluate(()=>window.cardCleanup());
   assert.equal(await page.locator('#popup').count(),0);
   assert.equal(await page.locator('#card button').count(),0);
+ }finally{await browser.close();}
+});
+
+test('file tabs retain independent edits, detach into windows, and protect dirty closes', async () => {
+ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ try {
+  const page=await browser.newPage({viewport:{width:1280,height:800}});
+  await page.route('https://remote.test/**',async route=>{
+   const path=new URL(route.request().url()).pathname;
+   if(path.endsWith('.js'))return route.fulfill({contentType:'text/javascript',body:await readFile(new URL('../ui/scripts'+path,import.meta.url),'utf8')});
+   return route.fulfill({contentType:'text/html',body:'<meta name="viewport" content="width=device-width, initial-scale=1"><a href="/api/chats/a/ide-open?path=/workspace/one.txt">First file</a><a href="/api/chats/a/ide-open?path=/workspace/two.txt">Second file</a><a href="/api/chats/a/ide-open?path=/workspace/three.txt">Third file</a>'});
+  });
+  await page.goto('https://remote.test/');
+  await page.addStyleTag({content:await readFile(new URL('../ui/style/scratch.css',import.meta.url),'utf8')});
+  await page.evaluate(async()=>{
+   const {mountChat}=await import('/app/chat.js');
+   window.disk={'/workspace/one.txt':'first','/workspace/two.txt':'second','/workspace/three.txt':'third'};
+   window.reads=0;window.drafts=new Map();
+   window.cleanup=mountChat({context:{chatId:'a',projectId:'p1'},drafts:window.drafts,launchIde:()=>{},files:{
+    async read(path){window.reads++;return {content:window.disk[path],revision:'initial'};},
+    async save(path,content){window.disk[path]=content;return {revision:'saved'};},
+   }});
+  });
+  const open=async name=>{
+   await page.getByRole('link',{name}).click({force:true});
+   await page.locator('.scratch-tab-choice').getByRole('button',{name:'Scratch Tab',exact:true}).click();
+  };
+  const visible=page.locator('.scratch-tab-window:visible');
+  await open('First file');
+  await visible.locator('textarea').fill('first draft');
+  await visible.evaluate(node=>{node.style.left='120px';node.style.width='700px';});
+  await open('Second file');
+  assert.equal(await visible.evaluate(node=>node.style.left),'120px');
+  assert.equal(await visible.evaluate(node=>node.style.width),'700px');
+  assert.equal(await visible.count(),1);
+  assert.equal(await visible.getByRole('tab').count(),2);
+  assert.equal(await visible.locator('textarea').inputValue(),'second');
+  await visible.locator('textarea').fill('second draft');
+  await visible.getByRole('tab',{name:'one.txt',exact:false}).click();
+  assert.equal(await visible.locator('textarea').inputValue(),'first draft');
+  await visible.getByRole('tab',{name:'one.txt',exact:false}).press('ArrowRight');
+  assert.equal(await visible.locator('textarea').inputValue(),'second draft');
+  assert.equal(await visible.getByRole('tab',{selected:true}).evaluate(node=>node===document.activeElement),true);
+  await visible.getByRole('button',{name:'Save',exact:true}).click();
+  await page.waitForFunction(()=>window.disk['/workspace/two.txt']==='second draft');
+  assert.equal(await page.evaluate(()=>window.disk['/workspace/one.txt']),'first');
+  await visible.getByRole('tab',{name:'one.txt',exact:false}).click();
+  page.once('dialog',dialog=>dialog.dismiss());
+  await visible.getByRole('button',{name:'Close file',exact:true}).click();
+  assert.equal(await visible.getByRole('tab').count(),2);
+  assert.equal(await visible.locator('textarea').inputValue(),'first draft');
+  if(process.env.SCRATCH_TAB_SCREENSHOTS)await page.screenshot({path:process.env.SCRATCH_TAB_SCREENSHOTS+'-tabs.png'});
+  await visible.getByRole('button',{name:'Separate window',exact:true}).click();
+  assert.equal(await visible.count(),2);
+  const first=page.getByRole('dialog',{name:'one.txt',exact:true});
+  const second=page.getByRole('dialog',{name:'two.txt',exact:true});
+  if(process.env.SCRATCH_TAB_SCREENSHOTS)await page.screenshot({path:process.env.SCRATCH_TAB_SCREENSHOTS+'-windows.png'});
+  assert.equal(await first.locator('textarea').inputValue(),'first draft');
+  assert.equal(await second.locator('textarea').inputValue(),'second draft');
+  await open('Third file');
+  assert.equal(await visible.count(),2);
+  const third=page.getByRole('dialog',{name:'three.txt',exact:true});
+  assert.equal(await third.getByRole('tab').count(),2);
+  await open('First file');
+  assert.equal(await page.evaluate(()=>window.reads),3);
+  assert.equal(await first.isVisible(),true);
+  await page.setViewportSize({width:320,height:568});
+  await page.addStyleTag({content:':root{--bg-surface-rgb:20 21 25;--bg-raised-rgb:27 28 33;--fg:227 227 231;--accent-blue:138 180 255;--line:#424349}'});
+  await page.waitForFunction(()=>document.querySelector('.scratch-tab-window').getBoundingClientRect().width<=320);
+  const bounds=await first.boundingBox();
+  assert.ok(bounds.x>=0 && bounds.x+bounds.width<=320);
+  const bar=await first.locator('.scratch-tab-tabbar').boundingBox();
+  assert.ok(bar.x>=0 && bar.x+bar.width<=320);
+  assert.ok((await first.getByRole('button',{name:'Separate window',exact:true}).boundingBox()).height>=44);
+  if(process.env.SCRATCH_TAB_SCREENSHOTS)await page.screenshot({path:process.env.SCRATCH_TAB_SCREENSHOTS+'-tabs-mobile.png'});
+  page.once('dialog',dialog=>dialog.accept());
+  await first.getByRole('button',{name:'Close file',exact:true}).click();
+  assert.equal(await third.isVisible(),true);
+  assert.equal(await second.isVisible(),true);
+  await page.evaluate(()=>window.cleanup());
+  assert.equal(await page.locator('.scratch-tab-window').count(),0);
  }finally{await browser.close();}
 });

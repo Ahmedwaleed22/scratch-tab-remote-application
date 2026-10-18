@@ -1,4 +1,4 @@
-export function createEditorWindow({ target, index, button, signal, nextLayer, onClose, onSave, onOpenIde, onEdit }) {
+export function createEditorWindow({ target, index, button, signal, nextLayer, onClose, onSave, onOpenIde, onEdit, onActivate, onSeparate, onStateChange }) {
   const panel = document.createElement('section');
   panel.className = 'scratch-tab-window';
   panel.setAttribute('role', 'dialog');
@@ -39,7 +39,17 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   const status = document.createElement('footer');
   status.textContent = 'Loading…';
   status.setAttribute('role', 'status');
-  panel.append(header, content, status);
+  const tabBar = document.createElement('div');
+  tabBar.className = 'scratch-tab-tabbar';
+  tabBar.hidden = true;
+  const tabs = document.createElement('div');
+  tabs.className = 'scratch-tab-tabs';
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Open files');
+  tabBar.append(tabs);
+  const separate = button('Separate window', () => onSeparate?.(), tabBar);
+  separate.className = 'scratch-tab-separate';
+  panel.append(header, tabBar, content, status);
   document.body.append(panel);
 
   const compact = matchMedia('(max-width: 600px), (pointer: coarse) and (max-height: 500px)');
@@ -55,7 +65,7 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
     panel.style.left = `${compact.matches ? left + 8 : Math.max(left + 8, Math.min(x, left + width - panel.offsetWidth - 8))}px`;
     panel.style.top = `${compact.matches ? top + 8 : Math.max(top + 8, Math.min(y, top + height - panel.offsetHeight - 8))}px`;
   }
-  const fitViewport = () => position(panel.offsetLeft, panel.offsetTop);
+  const fitViewport = () => { if (panel.style.display !== 'none') position(panel.offsetLeft, panel.offsetTop); };
   fitViewport();
   let drag;
   header.addEventListener('pointerdown', event => {
@@ -66,7 +76,7 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   header.addEventListener('pointermove', event => { if (drag) position(event.clientX - drag.x, event.clientY - drag.y); });
   header.addEventListener('pointerup', () => { drag = null; });
   header.addEventListener('pointercancel', () => { drag = null; });
-  panel.addEventListener('pointerdown', () => { panel.style.zIndex = String(nextLayer()); });
+  panel.addEventListener('pointerdown', () => { onActivate?.(); panel.style.zIndex = String(nextLayer()); });
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } });
   content.addEventListener('input', () => onEdit(content.value));
   panel.addEventListener('keydown', event => {
@@ -78,9 +88,49 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   compact.addEventListener('change', fitViewport, { signal });
   // Let phone users read first; tapping the text area opens the keyboard.
   let unsupported;
-  const focus = () => (unsupported ? unsupported.querySelector('a') : compact.matches ? header : content).focus({ preventScroll: true });
+  const focus = () => { if (panel.style.display !== 'none') (unsupported ? unsupported.querySelector('a') : compact.matches ? header : content).focus({ preventScroll: true }); };
 
   return {
+    setTabs(entries, activePath) {
+      // Keep single-file windows as compact as before.
+      tabBar.hidden = entries.length < 2;
+      const focused = tabs.contains(document.activeElement) ? document.activeElement.dataset.path : null;
+      const scroll = tabs.scrollLeft;
+      tabs.replaceChildren();
+      for (const [index, entry] of entries.entries()) {
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.textContent = `${entry.dirty ? '● ' : ''}${entry.name}`;
+        tab.title = entry.path;
+        tab.dataset.path = entry.path;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-selected', String(entry.path === activePath));
+        tab.tabIndex = entry.path === activePath ? 0 : -1;
+        tab.addEventListener('click', entry.select);
+        tab.addEventListener('keydown', event => {
+          const next = event.key === 'ArrowRight' ? (index + 1) % entries.length
+            : event.key === 'ArrowLeft' ? (index + entries.length - 1) % entries.length
+            : event.key === 'Home' ? 0 : event.key === 'End' ? entries.length - 1 : null;
+          if (next === null) return;
+          event.preventDefault();
+          entries[next].select();
+        });
+        tabs.append(tab);
+      }
+      tabs.scrollLeft = scroll;
+      if (focused) [...tabs.children].find(tab => tab.dataset.path === focused)?.focus({ preventScroll: true });
+    },
+    focusTab() {
+      const selected = tabs.querySelector('[aria-selected="true"]');
+      selected?.focus({ preventScroll: true });
+      selected?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    },
+    setVisible(visible) { panel.style.display = visible ? '' : 'none'; if (visible) fitViewport(); },
+    copyGeometry(other) {
+      for (const property of ['left', 'top', 'width', 'height']) panel.style[property] = other.geometry[property];
+    },
+    get geometry() { return { left: panel.style.left, top: panel.style.top, width: panel.style.width, height: panel.style.height }; },
+    offset() { position(panel.offsetLeft + 24, panel.offsetTop + 24); },
     get text() { return content.value; },
     setText(text) { content.value = text; },
     allowEditing() { content.readOnly = false; },
@@ -110,11 +160,12 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
     render({ canSave, dirty }) {
       saveButton.disabled = !canSave;
       title.textContent = `${dirty ? '● ' : ''}${target.name}`;
+      onStateChange?.();
     },
     setStatus(text) { status.textContent = text; },
     setError(failed) { status.className = failed ? 'scratch-tab-error' : ''; },
     focus,
-    restore() { panel.style.zIndex = String(nextLayer()); focus(); },
+    restore() { onActivate?.(); panel.style.zIndex = String(nextLayer()); focus(); },
     remove() { panel.remove(); },
   };
 }
