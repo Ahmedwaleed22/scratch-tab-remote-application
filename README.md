@@ -1,59 +1,40 @@
 # Scratch Tab
 
-A lightweight text editor app for [Remote](https://github.com/futrx-com/remote.futrx), developed independently by Pixlotech. Click an agent's workspace file link, choose Scratch Tab or Code Server, and read or edit the file in a small movable window.
+A lightweight text editor app for [Remote](https://github.com/futrx-com/remote.futrx), developed independently by Pixlotech. Open small workspace files in movable windows, make a quick edit, and get back to your conversation.
 
-[Download the latest installable ZIP](https://github.com/Ahmedwaleed22/Scratch-tab-remote-application/releases/latest) · [License](LICENSE)
+[Download Scratch Tab](https://github.com/Ahmedwaleed22/Scratch-tab-remote-application/releases/latest) · [License](LICENSE)
 
-## Install or upgrade
+## Install
 
-Download `scratch-tab-0.2.5.zip` from Releases. Upload it through **Settings → Applications**, then install and start Scratch Tab in the desired project. Uploading a newer version updates existing installations and provisions the file command. If upgrading a UI-only 0.1.0 installation leaves no project container attached, uninstall and reinstall Scratch Tab in that project; workspace files are retained.
+Download the installable ZIP, upload it through **Settings → Applications**, then install and start Scratch Tab in your project. To update an existing installation, upload the newer ZIP and refresh Remote.
 
-Scratch Tab requires Remote's application-backend and container-Go capabilities and a working LXD project container. It adds no core changes, listening ports, credentials, third-party services, or always-running container process. Remote builds the application-owned Go backend and installs the file command automatically.
+## Open a file
 
-## Use
+Click a workspace file link in an agent message, or select a text file in the file manager. Choose **Scratch Tab** or **Code Server** from the small menu beside the file. File-manager search results work the same way.
 
-Click a `/workspace/...` file link in an agent message, or select a text file in Remote’s file manager (including search results). A compact popover beside the link offers **Scratch Tab** and **Code Server** side by side. Use the arrow keys to choose, Escape to dismiss, or click outside it. Edit the text, then press **Save** or **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open in Code Server** opens the same file, preserving any line reference.
+![Choose Scratch Tab or Code Server beside a file link](docs/images/editor-choice.png)
 
-The title bar has one small red close dot, the filename, **Save**, and **Open in Code Server**. Drag the title bar or resize the window’s corner. Focus the title bar and use arrow keys for keyboard movement; Escape closes the focused window. Several files can stay open; reopening one focuses its existing window.
+## Edit and save
 
-Closing a dirty file asks before discarding changes. Leaving the chat or stopping the extension keeps unsaved drafts in browser memory, restored when you reopen the file in that project. Refreshing or closing the browser loses these drafts; a browser leave warning protects open dirty windows. Drafts are not disk saves, and drafts hidden by a chat change have no browser leave warning. Save before leaving if the changes matter.
+Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open in Code Server** opens the same file in the full editor.
 
-## Files and save behavior
+![Edit a file in a movable Scratch Tab window](docs/images/editor-window.png)
 
-- Existing UTF-8 regular files up to 128 KiB; empty files and UTF-8 BOMs are supported. Binary files, invalid UTF-8, final symlinks and directories are refused.
-- File access stays beneath `/workspace` through Go's rooted filesystem API. The host backend uses only the installed instance's project container, never a container supplied by the browser. Remote checks project membership; the backend also requires a signed-in caller.
-- Saves check a SHA-256 revision and refuse stale edits with an error. Copy your edits and reopen the file if another tool changed it. Scratch Tab commands serialize through a container lock. Other editors do not share that lock: a change in the tiny interval between the final check and rename is still possible.
-- Saving writes a temporary file in the same directory, syncs it, preserves Unix ownership and permission bits, then replaces the original. This changes the inode, so hard links, ACLs and extended attributes are not preserved. No automatic backups or undo history across windows.
-- CRLF files retain CRLF on save. Mixed line endings normalize to CRLF when any CRLF exists; otherwise they normalize to LF. No autosave, create, rename or delete operation.
+Drag the title bar to move the window and resize it from the corner. Open several files at once; selecting an already open file brings its window forward. Click the red dot or press Escape to close a window. If there are unsaved changes, Scratch Tab asks before discarding them.
 
-The document click handler recognizes the active chat’s `ide-open` links, direct Code Server app links (`code--<project>.<Remote host>/_static/remote-open.html?file=...`), and legacy Code Server payload links (`code.<Remote host>/<project>/?payload=...`). Direct editor links must match the project slug supplied by the active chat’s working directory. Host paths within that same project workspace are translated to `/workspace`. The file-manager adapter reads the workspace-relative path from each file row’s existing download link; choosing Code Server delegates to that row’s original open action. File rows also support Enter and Space. Download buttons, folders, media, archives, other projects, unrelated domains and modified clicks keep their existing behavior. There is no Scratch Tab launcher in the chat toolbar. This uses DOM interception by design and depends on Remote's current file-link URL format and file-manager row markup. Link line numbers are used by Code Server; Scratch Tab opens at the beginning.
+For keyboard navigation, use the arrow keys in the editor-choice menu. Focus a window’s title bar and use the arrow keys to move it.
 
-## Development and checks
+## Files and drafts
 
-```sh
-npm install --no-save --package-lock=false playwright@1.62.1
-npx playwright install chromium
-node --test infra/test.mjs
-GO111MODULE=off go test ./backend/container
-GO111MODULE=off go vet ./backend/container
-python3 -B infra/test_package.py
-python3 -B infra/test_backend.py --remote-root /path/to/remote.futrx
-```
+- Supports existing UTF-8 text files up to **128 KiB** inside `/workspace`.
+- Folders, downloads, images, audio, video, PDFs and archives keep Remote’s usual behavior.
+- Save is explicit; there is no autosave or automatic backup. Creating, renaming and deleting files stays in Remote or Code Server.
+- If a file changed on disk since you opened it, saving reports a conflict. Copy your edits before reopening the file.
+- Unsaved drafts survive chat changes in browser memory. Refreshing or closing the browser loses those drafts, so save your work before leaving.
+- CRLF line endings are preserved. Mixed line endings normalize when saved. Symlinks and binary files are not editable; hard links and extended file attributes are not preserved on save.
 
-The container file command supports Go 1.24.7 and later, matching Remote's installer. The host-backend check uses the Go version required by your Remote checkout. Set `PLAYWRIGHT_BROWSERS_PATH` if Chromium is already installed in a custom cache. Tests cover editing, saving, save failure, close protection and window lifecycle in Chromium; container tests cover real file writes, stale revisions, traversal, symlinks and unsupported files. The backend check validates the package, compiles it through Remote's generated-module builder, and tests/vets its host API. Browser tests mock the extension API; live installation and actual LXD execution require a Remote server.
-
-## Releases
-
-Update `application.json`, run the checks, commit, and push a matching `vX.Y.Z` tag. The release workflow follows Connectly's convention: validate the version, test, build a runtime-only ZIP containing the license, and attach it to a GitHub Release. Pushes to main run checks without publishing. To retry an existing tag, use Actions → Release installable ZIP → Run workflow and enter the tag. Source archives remain available from GitHub. To build locally:
-
-```sh
-python3 -B infra/package.py --tag v0.2.5 --output-dir dist
-```
-
-Version 0.2.5 reduces button sizes, removes the chat-toolbar launcher, and adds the editor choice to file-manager rows and search results. Version 0.2.4 simplifies the editor chooser and combines document actions into one compact title bar with a single red close dot. Version 0.2.3 adds the editor choice for direct Code Server app links and legacy editor payloads, with regression tests for both editor choices and project isolation. Version 0.2.2 fixes installation with Remote’s Go 1.24.7 container toolchain and tests releases against both Go 1.24.7 and 1.25. Version 0.2.1 adds editing and saving, revision conflict checks, unsaved draft protection, the project-scoped file backend, AGPL licensing and tagged release packaging. Version 0.1.0 was the initial read-only UI.
-
-Stopping or uninstalling removes the UI/backend. Project workspace files are kept. The provisioned `/usr/local/bin/scratch-tab` command remains inert in the shared project container until it is replaced or the container is rebuilt.
+Stopping or uninstalling Scratch Tab keeps your workspace files.
 
 ## License
 
-Copyright © 2026 Pixlotech. Licensed under **AGPL-3.0-or-later**, matching Connectly. See [LICENSE](LICENSE) for the complete text. Provided without warranty. The license is included in each release ZIP; the source is available in this repository.
+Copyright © 2026 Pixlotech. Licensed under **AGPL-3.0-or-later**. See [LICENSE](LICENSE) for the complete text. Provided without warranty.

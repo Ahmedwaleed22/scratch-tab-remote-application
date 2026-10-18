@@ -1,0 +1,98 @@
+# Scratch Tab maintenance
+
+This document is for the plugin owner. The README is for people installing and using Scratch Tab.
+
+## Architecture
+
+The browser, host backend, and container command are independently built deployment units. They meet through the existing `POST file` JSON request/response contract; this refactor does not change that contract, the interface, or save behavior.
+
+### Browser extension
+
+- `ui/scripts/main.js` composes the Remote slot, project-scoped file API, draft lifetime, and chat session.
+- `app/chat.js` owns the open-window collection, stacking order, chooser lifecycle, and dependency composition within a chat.
+- `links.js` parses the supported editor links without touching the DOM.
+- `adapters/fileOpenings.js` translates chat links and file-manager rows into file-open intent. It owns capture listeners and the guard around Remote's original row action.
+- `api/files.js` owns the `file` request shapes and project target selection. Remote supplies the transport and error parsing.
+- `services/editorDocument.js` owns document text, baseline, revision, CRLF handling, draft snapshots and save transitions. It has no DOM or Remote imports.
+- `presenters/editor.js` connects document intent/state to the view and owns load, save and close feedback and browser-leave handling.
+- `views/` owns DOM rendering, keyboard/pointer interactions, focus, geometry, and accessible labels. Views receive intent callbacks and render-ready state.
+- `config/editor.js` contains the browser's public file-size limit, initial stacking layer, and media/archive catalog.
+
+Draft memory remains module-scoped, as before, so switching chats or stopping the extension can retain drafts until the browser reloads. Reads are still allowed to finish after closing a window; the presenter suppresses their results. Save requests already in flight still finish. These behaviors are deliberately preserved rather than changed during a refactor.
+
+### Host backend
+
+`backend/main.go` wires the Remote API adapter to `clients/container.go`. The API owns caller/scope/route checks, request deadlines and response mapping. The client owns LXD lookup, arguments and stdin/stdout. The instance's container name is the only execution target; browser input never chooses a container or shell command. Host request limits and deadlines live in `backend/config/`.
+
+### Container command
+
+The files remain in one root Go package, which Remote installs as `/usr/local/bin/scratch-tab`:
+
+- `main.go`: process composition.
+- `command.go`: command lock and JSON stdin/stdout transport.
+- `protocol.go`: existing request/response DTOs.
+- `workspace.go`: path/content validation, revision policy, and public result mapping.
+- `storage.go`: rooted reads, file metadata, temporary writes, revision recheck, and directory-relative rename.
+- `config.go`: container limits and fixed runtime paths.
+
+The container command supports Go 1.24.7 and later. Keep its Linux `renameat` operation: `os.Root.Rename` is unavailable in Remote's Go 1.24.7 installer.
+
+## Checks
+
+```sh
+npm install --no-save --package-lock=false playwright@1.62.1
+npx playwright install chromium
+node --test infra/test.mjs
+GO111MODULE=off go test ./backend/container
+GO111MODULE=off go vet ./backend/container
+python3 -B infra/test_package.py
+python3 -B infra/test_backend.py --remote-root /path/to/remote.futrx
+```
+
+Set `PLAYWRIGHT_BROWSERS_PATH` when using an existing Chromium cache. The browser fixture exercises links, file-manager click/keyboard activation, both editor choices, text editing, save errors, in-flight edits, CRLF, drafts, close protection and disposal. It serves the actual module graph, with Remote and LXD replaced at their boundaries. The backend script validates the catalog, compiles through Remote's generated-module builder, and tests/vets the host packages using the checkout's required Go version.
+
+CI runs container tests, vet and an installer-style build on Go 1.24.7 and 1.25, then browser/package checks. Live installation, actual LXD execution, project membership enforcement, and theme integration still need a Remote server.
+
+## Release ownership
+
+Only the owner manages versions and publishes packages. Set `application.json` to the intended version, run the checks, commit, and push a matching `vX.Y.Z` tag after its commit reaches main. The workflow builds a runtime-only ZIP and attaches it to a GitHub Release. Main-branch pushes run checks without publishing. A manual workflow dispatch accepts an existing tag for retries.
+
+```sh
+python3 -B infra/package.py --tag v0.3.0 --output-dir dist
+```
+
+The packager includes runtime Go/JavaScript/CSS, the README, license, and README screenshots. It excludes tests, maintainer documentation, Git metadata, local artifacts and credentials. Package tests check that module imports and README images exist inside the ZIP. Source archives and this maintainer guide remain available in the repository.
+
+## Existing integration constraints
+
+- The chat-header slot owns listeners but renders no launcher. Leaving its scope closes windows and unregisters the capture handlers.
+- Supported links include active-chat `ide-open`, `code--<project>.<Remote host>` file links, and legacy Code Server payload links. The active chat cwd supplies the project slug for isolation.
+- File-manager integration depends on `#workspace-files-pane` rows with `role="button"` and a file download anchor. Choosing Code Server replays the original row action under the adapter's recursion guard. Other projects, media, archives, folders, download controls and modified clicks are excluded.
+- Other editors do not share Scratch Tab's lock. A change between the final revision check and rename is still possible. The refactor preserves that existing limitation.
+- Saves preserve ownership and Unix permission bits, but replace the inode and do not retain ACLs, extended attributes or hard-link relationships. No backups or persistent undo history are added.
+- Upgrading an old UI-only 0.1.0 instance may require uninstalling and reinstalling in its project to attach the project container. Workspace files are retained.
+- Uninstall removes the UI/backend but leaves the inert file command in the shared project container until replacement or container rebuild.
+
+## v0.3.0 refactor record
+
+| Original smell (v0.2.5) | Principle | Resulting owner |
+| --- | --- | --- |
+| `ui/scripts/main.js:57` mixed DOM rendering, drafts and RPC saves | One owner per responsibility; presentation depends on intent callbacks | `views/editorWindow.js`, `presenters/editor.js`, `services/editorDocument.js`, and `api/files.js` |
+| `ui/scripts/main.js:150` combined event capture and chooser construction | Separate host adaptation from rendering | `adapters/fileOpenings.js` and `views/chooser.js` |
+| `backend/api/api.go:23` launched LXD inside the inbound API package | Keep infrastructure behind the existing injected runner contract | `backend/clients/container.go`, composed in `backend/main.go` |
+| `backend/container/main.go:31` mixed JSON transport, validation and disk replacement | Separate delivery mapping, command policy and persistence mechanics | `command.go`, `workspace.go`, and `storage.go` |
+| The package script listed individual runtime source files | Packaging follows the deployment unit, not its current internal layout | Runtime source discovery plus checks for missing module imports and README images |
+
+Behavior was preserved using the existing browser scenario, focused CRLF/in-flight-save characterization, worker tests and vet, host API tests and vet, and Remote's generated-module builder. A before/after executable comparison also matched stdout, stderr and resulting file bytes across 12 read/save/error cases. The chooser and editor screenshots were byte-identical to the pre-refactor dark-theme fixture captures. A 320 px browser run passed too.
+
+The work was split into independently checked commits:
+
+| Commit | Structural checkpoint | Verification before commit |
+| --- | --- | --- |
+| `6631beb` | Separate link capture and chooser presentation from extension composition | Browser and package tests |
+| `d2363f9` | Characterize newline handling and edits made during an in-flight save | Browser tests against the pre-extraction document code |
+| `fe712d8` | Give document state and editor presentation independent owners | Browser and package tests |
+| `a11f209` | Separate host API handling from LXD command execution | Generated-module builder; host tests and vet |
+| `f4657b6` | Separate container command transport, file policy, and rooted storage | Worker tests, vet, installer-style build and 12-case executable comparison |
+
+Deliberately excluded: feature additions, visual changes, fixes to the existing save-race window, persistent drafts, new opener APIs, Remote core changes, and live installation/deployment. The Go-version adjustment belongs only to the verification harness; runtime requirements and behavior are unchanged.
