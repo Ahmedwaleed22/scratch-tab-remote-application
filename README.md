@@ -2,7 +2,7 @@
 
 A lightweight text editor app for [Remote](https://github.com/futrx-com/remote.futrx), developed independently by Pixlotech. Open small workspace files in movable windows, make a quick edit, and get back to your conversation.
 
-[Download Scratch Tab](https://github.com/Ahmedwaleed22/Scratch-tab-remote-application/releases/latest) · [License](LICENSE)
+[Download Scratch Tab](https://github.com/Ahmedwaleed22/scratch-tab-remote-application/releases/latest) · [License](LICENSE)
 
 ## Install
 
