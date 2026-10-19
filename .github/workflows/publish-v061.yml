@@ -1,0 +1,58 @@
+name: Publish verified v0.6.1 ZIP
+
+on:
+  push:
+    branches: [release/publish-v0.6.1]
+    paths: [.github/workflows/publish-v061.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: harness
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: v0.6.1
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.x'
+      - name: Use corrected resize test against unchanged tagged runtime
+        run: cp harness/infra/test.mjs source/infra/test.mjs
+      - name: Verify tagged files and run browser tests
+        working-directory: source
+        env:
+          HUSKY: '0'
+        run: |
+          npm ci
+          npm run format:check
+          npm run build:syntax
+          git diff --exit-code -- . ':!infra/test.mjs'
+          npx playwright install --with-deps chromium
+          node --test infra/test.mjs
+      - name: Test file command and build exact tag package
+        working-directory: source
+        env:
+          GO111MODULE: 'off'
+        run: |
+          go test ./backend/container
+          go vet ./backend/container
+          python3 -B infra/test_package.py
+          python3 -B infra/package.py --tag v0.6.1 --output-dir "$RUNNER_TEMP/package"
+          git diff --exit-code -- . ':!infra/test.mjs'
+      - name: Attach ZIP to the existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload v0.6.1 "$RUNNER_TEMP/package/scratch-tab-0.6.1.zip"
