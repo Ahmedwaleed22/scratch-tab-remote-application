@@ -230,6 +230,31 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
       after.x,
       before.x + (Number(process.env.SCRATCH_TAB_WIDTH || 1280) <= 600 ? 0 : 20),
     );
+    if (Number(process.env.SCRATCH_TAB_WIDTH || 1280) > 600) {
+      await header.evaluate(node => {
+        for (let i = 0; i < 20; i++)
+          node.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+      });
+      const outside = await page.locator('.scratch-tab-window').boundingBox();
+      assert.ok(outside.x < 0);
+      assert.ok(outside.x + outside.width >= 72);
+      await header.evaluate(node => {
+        for (let i = 0; i < 150; i++) {
+          node.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+          node.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+        }
+      });
+      const farEdge = await page.locator('.scratch-tab-window').boundingBox();
+      const viewport = page.viewportSize();
+      assert.ok(farEdge.x + farEdge.width > viewport.width);
+      assert.ok(farEdge.y + farEdge.height > viewport.height);
+      assert.ok(farEdge.x <= viewport.width - 72);
+      assert.ok(farEdge.y + (await header.boundingBox()).height <= viewport.height - 8);
+      await page.locator('.scratch-tab-window').evaluate((node, bounds) => {
+        node.style.left = `${bounds.x}px`;
+        node.style.top = `${bounds.y}px`;
+      }, after);
+    }
     await page.getByRole('button', { name: 'Close window' }).click();
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     await page.getByText('notes', { exact: true }).click();
@@ -977,6 +1002,12 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
       await page.screenshot({ path: process.env.SCRATCH_TAB_SCREENSHOTS + '-windows.png' });
     assert.equal(await first.locator('textarea').inputValue(), 'first draft');
     assert.equal(await second.locator('textarea').inputValue(), 'second draft');
+    const firstBounds = await first.boundingBox();
+    const secondBounds = await second.boundingBox();
+    assert.equal(firstBounds.x, secondBounds.x + 24);
+    assert.equal(firstBounds.y, secondBounds.y + 24);
+    assert.equal(firstBounds.width, secondBounds.width);
+    assert.equal(firstBounds.height, secondBounds.height);
     await open('Third file');
     assert.equal(await visible.count(), 2);
     const third = page.getByRole('dialog', { name: 'three.txt', exact: true });
@@ -1048,7 +1079,17 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     // The remaining single tab can also be closed with its own X.
     await second.getByRole('button', { name: 'Close tab two.txt', exact: true }).click();
     assert.equal(await visible.count(), 0);
+    const savedGeometry = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('scratch-tab:window-geometry:p1')),
+    );
+    assert.ok(savedGeometry.width >= 280);
+    assert.ok(savedGeometry.height >= 180);
     await open('First file');
+    const restoredGeometry = await visible.boundingBox();
+    assert.equal(restoredGeometry.x, savedGeometry.left);
+    assert.equal(restoredGeometry.y, savedGeometry.top);
+    assert.equal(restoredGeometry.width, savedGeometry.width);
+    assert.equal(restoredGeometry.height, savedGeometry.height);
     assert.equal(await visible.locator('textarea').inputValue(), 'first');
     await open('Third file');
     // Clean groups close together without confirmation.
@@ -1764,5 +1805,45 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
+  }
+});
+
+test('window geometry is project-scoped and tolerates invalid or unavailable storage', async () => {
+  const { windowGeometry } = await import('../ui/scripts/services/windowGeometry.js');
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const values = new Map();
+  try {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: key => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, value),
+      },
+    });
+    const geometry = windowGeometry('one');
+    assert.equal(geometry.read(), null);
+    geometry.write({ left: 120, top: 90, width: 700, height: 450 });
+    assert.deepEqual(windowGeometry('one').read(), {
+      left: '120px',
+      top: '90px',
+      width: '700px',
+      height: '450px',
+    });
+    assert.equal(windowGeometry('two').read(), null);
+    for (const invalid of ['broken JSON', 'null', '{"left":0,"top":0,"width":2,"height":2}']) {
+      values.set('scratch-tab:window-geometry:one', invalid);
+      assert.equal(geometry.read(), null);
+    }
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('Storage blocked');
+      },
+    });
+    assert.equal(geometry.read(), null);
+    assert.doesNotThrow(() => geometry.write({ left: 0, top: 0, width: 620, height: 420 }));
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else delete globalThis.localStorage;
   }
 });

@@ -1,9 +1,11 @@
+import { windowGeometry } from '../services/windowGeometry.js';
 import { createSyntaxSurface } from './syntax.js';
 import { createMarkdownPreview } from './markdown.js';
 
 export function createEditorWindow({
   target,
   index,
+  projectId,
   button,
   signal,
   nextLayer,
@@ -21,6 +23,9 @@ export function createEditorWindow({
   panel.setAttribute('aria-label', target.name);
   panel.style.left = `${Math.min(48 + index * 24, Math.max(8, innerWidth - 350))}px`;
   panel.style.top = `${Math.min(90 + index * 24, Math.max(8, innerHeight - 200))}px`;
+  const geometry = windowGeometry(projectId);
+  const saved = geometry.read();
+  if (saved) Object.assign(panel.style, saved);
   panel.style.zIndex = String(nextLayer());
   const header = document.createElement('header');
   header.className = 'scratch-tab-header';
@@ -48,6 +53,7 @@ export function createEditorWindow({
     if (delta) {
       event.preventDefault();
       position(panel.offsetLeft + delta[0], panel.offsetTop + delta[1]);
+      rememberGeometry();
     }
   });
   const actions = document.createElement('div');
@@ -102,13 +108,33 @@ export function createEditorWindow({
     const height = viewport?.height ?? innerHeight;
     panel.style.setProperty('--scratch-viewport-width', `${width}px`);
     panel.style.setProperty('--scratch-viewport-height', `${height}px`);
-    panel.style.left = `${compact.matches ? left + 8 : Math.max(left + 8, Math.min(x, left + width - panel.offsetWidth - 8))}px`;
-    panel.style.top = `${compact.matches ? top + 8 : Math.max(top + 8, Math.min(y, top + height - panel.offsetHeight - 8))}px`;
+    // Desktop windows may leave the viewport, but retain a reachable title-bar strip.
+    const visibleTitle = 72;
+    panel.style.left = `${compact.matches ? left + 8 : Math.max(left + visibleTitle - panel.offsetWidth, Math.min(x, left + width - visibleTitle))}px`;
+    panel.style.top = `${compact.matches ? top + 8 : Math.max(top + 8, Math.min(y, top + height - header.offsetHeight - 8))}px`;
   }
   const fitViewport = () => {
     if (panel.style.display !== 'none') position(panel.offsetLeft, panel.offsetTop);
   };
   fitViewport();
+  function rememberGeometry() {
+    if (compact.matches || panel.style.display === 'none' || !panel.isConnected) return;
+    geometry.write({
+      left: panel.offsetLeft,
+      top: panel.offsetTop,
+      width: panel.offsetWidth,
+      height: panel.offsetHeight,
+    });
+  }
+  let inlineSize = `${panel.style.width}:${panel.style.height}`;
+  const resizeObserver = new ResizeObserver(() => {
+    const next = `${panel.style.width}:${panel.style.height}`;
+    if (next === inlineSize) return;
+    inlineSize = next;
+    rememberGeometry();
+  });
+  resizeObserver.observe(panel);
+  signal.addEventListener('abort', () => resizeObserver.disconnect(), { once: true });
   let drag;
   header.addEventListener('pointerdown', event => {
     if (compact.matches || event.button !== 0 || event.target.closest('button')) return;
@@ -119,6 +145,7 @@ export function createEditorWindow({
     if (drag) position(event.clientX - drag.x, event.clientY - drag.y);
   });
   header.addEventListener('pointerup', () => {
+    if (drag) rememberGeometry();
     drag = null;
   });
   header.addEventListener('pointercancel', () => {
@@ -239,7 +266,12 @@ export function createEditorWindow({
       };
     },
     offset() {
-      position(panel.offsetLeft + 24, panel.offsetTop + 24);
+      const x = panel.offsetLeft;
+      const y = panel.offsetTop;
+      position(x + 24, y + 24);
+      // Cascade inward when a window already touches the right or bottom edge.
+      if (panel.offsetLeft === x && panel.offsetTop === y) position(x - 24, y - 24);
+      rememberGeometry();
     },
     refreshLinks() {
       if (unsupported) unsupported.querySelector('a').href = target.download;
@@ -301,6 +333,8 @@ export function createEditorWindow({
       focus();
     },
     remove() {
+      rememberGeometry();
+      resizeObserver.disconnect();
       syntax?.dispose();
       markdown?.remove();
       panel.remove();

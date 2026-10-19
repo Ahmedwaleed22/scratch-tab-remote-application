@@ -89,6 +89,7 @@ export function mountChat({ context, drafts, files, launchIde }) {
         item.view = createEditorWindow({
           target,
           index: windows.size,
+          projectId: context.projectId,
           button,
           nextLayer,
           ...handlers,
