@@ -16,6 +16,8 @@ Click a workspace file link in an agent message, or select a text file in the fi
 
 ## Edit and save
 
+Programming files get syntax highlighting based on their extension: JavaScript/JSX, TypeScript/TSX, Python, Go, JSON, shell, HTML/XML, CSS, Markdown, YAML, SQL, Rust, Java, C/C++, and PHP. Unknown extensions stay plain text. Highlighting updates as you type and does not reformat or change the file. Very large drafts and lines over 8,192 characters display without colors to keep editing responsive.
+
 Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open in Code Server** opens the same file in the full editor.
 
 ![Edit a file in a movable Scratch Tab window](docs/images/editor-window.png)

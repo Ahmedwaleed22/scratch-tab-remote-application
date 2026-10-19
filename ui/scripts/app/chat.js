@@ -16,8 +16,13 @@ export function mountChat({ context, drafts, files, launchIde }) {
   let activeGroup;
   function renderGroup(group) {
     const tabs = [...group.items.values()].map(item => ({
-      path: item.target.path, name: item.target.name, dirty: item.documentModel.dirty,
-      select: () => { item.editor.restore(); item.view.focusTab(); },
+      path: item.target.path,
+      name: item.target.name,
+      dirty: item.documentModel.dirty,
+      select: () => {
+        item.editor.restore();
+        item.view.focusTab();
+      },
       close: () => item.editor.close(),
     }));
     for (const item of group.items.values()) item.view.setTabs(tabs, group.active);
@@ -44,14 +49,26 @@ export function mountChat({ context, drafts, files, launchIde }) {
   }
   function closeGroup(group) {
     const items = [...group.items.values()];
-    if (items.some(item => item.documentModel.dirty) && !confirm('Discard unsaved changes and close all tabs in this window?')) return;
+    if (
+      items.some(item => item.documentModel.dirty) &&
+      !confirm('Discard unsaved changes and close all tabs in this window?')
+    )
+      return;
     for (const item of items) item.editor.close(false, true);
   }
   function open(target) {
     const existing = windows.get(target.path);
-    if (existing) { existing.editor.restore(); return; }
+    if (existing) {
+      existing.editor.restore();
+      return;
+    }
     const group = activeGroup?.items.size ? activeGroup : { items: new Map(), active: null };
-    const documentModel = new EditorDocument(target.path, `${context.projectId}:${target.path}`, drafts, files);
+    const documentModel = new EditorDocument(
+      target.path,
+      `${context.projectId}:${target.path}`,
+      drafts,
+      files,
+    );
     const item = { target, documentModel, group };
     const editor = mountEditor({
       target,
@@ -62,15 +79,26 @@ export function mountChat({ context, drafts, files, launchIde }) {
         // A tab may have moved since it was opened.
         item.group.items.delete(target.path);
         if (item.group.items.size) {
-          const next = item.group.items.get(item.group.active) || item.group.items.values().next().value;
+          const next =
+            item.group.items.get(item.group.active) || item.group.items.values().next().value;
           activate(next);
           next.editor.restore();
         } else if (activeGroup === item.group) activeGroup = windows.values().next().value?.group;
       },
       createView: handlers => {
-        item.view = createEditorWindow({ target, index: windows.size, button, nextLayer, ...handlers,
+        item.view = createEditorWindow({
+          target,
+          index: windows.size,
+          button,
+          nextLayer,
+          ...handlers,
           onClose: () => closeGroup(item.group),
-          onActivate: () => { if (item.group.active !== item.target.path) activate(item); else activeGroup = item.group; }, onSeparate: () => separate(item), onStateChange: () => renderGroup(item.group),
+          onActivate: () => {
+            if (item.group.active !== item.target.path) activate(item);
+            else activeGroup = item.group;
+          },
+          onSeparate: () => separate(item),
+          onStateChange: () => renderGroup(item.group),
         });
         return item.view;
       },
@@ -95,7 +123,10 @@ export function mountChat({ context, drafts, files, launchIde }) {
         const relative = item.target.path.slice('/workspace/'.length);
         item.target.download = `/api/chats/${encodeURIComponent(next.chatId)}/files/download?path=${encodeURIComponent(relative)}`;
         const ide = new URL(item.target.ide, location.origin);
-        if (ide.origin === location.origin && ide.pathname === `/api/chats/${encodeURIComponent(context.chatId)}/ide-open`) {
+        if (
+          ide.origin === location.origin &&
+          ide.pathname === `/api/chats/${encodeURIComponent(context.chatId)}/ide-open`
+        ) {
           ide.pathname = `/api/chats/${encodeURIComponent(next.chatId)}/ide-open`;
           item.target.ide = ide.href;
         }
@@ -105,15 +136,27 @@ export function mountChat({ context, drafts, files, launchIde }) {
       }
     }
     context = next;
-    for (const item of windows.values()) item.view.setVisible(item.group.active === item.target.path);
+    for (const item of windows.values())
+      item.view.setVisible(item.group.active === item.target.path);
     capture = new AbortController();
     captureFileOpenings(context, capture.signal, (anchor, target) => {
       chooser?.close();
-      chooser = openChooser({ anchor, target, button, nextLayer, onScratch: open, onCode: launchIde });
+      chooser = openChooser({
+        anchor,
+        target,
+        button,
+        nextLayer,
+        onScratch: open,
+        onCode: launchIde,
+      });
     });
   }
   setContext(context);
-  const dispose = () => { suspend(); lifetime.abort(); for (const item of [...windows.values()]) item.editor.close(true); };
+  const dispose = () => {
+    suspend();
+    lifetime.abort();
+    for (const item of [...windows.values()]) item.editor.close(true);
+  };
   dispose.setContext = setContext;
   dispose.suspend = suspend;
   return dispose;
