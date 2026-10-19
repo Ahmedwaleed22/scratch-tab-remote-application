@@ -1,3 +1,5 @@
+export const MARKDOWN_EXTENSION = /\.(md|markdown)$/i;
+
 export const MAX_HIGHLIGHT_LINE_LENGTH = 8192;
 
 export const LANGUAGE_BY_EXTENSION = new Map(

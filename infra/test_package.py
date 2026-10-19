@@ -18,6 +18,8 @@ class PackageTests(unittest.TestCase):
                 names = package.namelist()
                 self.assertIn('LICENSE', names)
                 self.assertIn('ui/scripts/vendor/LICENSE.txt', names)
+                self.assertIn('ui/scripts/vendor/LICENSE.markdown.txt', names)
+                self.assertIn('ui/scripts/vendor/markdown.js', names)
                 self.assertIn('ui/scripts/vendor/syntax.js', names)
                 self.assertIn(b'BSD 3-Clause', package.read('ui/scripts/vendor/LICENSE.txt'))
                 self.assertLess(archive.stat().st_size, 512 * 1024)
