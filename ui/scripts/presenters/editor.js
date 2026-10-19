@@ -17,8 +17,8 @@ export function mountEditor({ documentModel, createView, onClosed, launchIde, ta
     },
   });
   function refresh() { view.render({ canSave: documentModel.canSave, dirty: documentModel.dirty }); }
-  function close(force = false) {
-    if (!force && documentModel.dirty && !confirm('Discard unsaved changes to this file?')) return;
+  function close(force = false, confirmed = false) {
+    if (!force && !confirmed && documentModel.dirty && !confirm('Discard unsaved changes to this file?')) return;
     if (force) documentModel.remember(); else documentModel.discardDraft();
     request.abort();
     view.remove();

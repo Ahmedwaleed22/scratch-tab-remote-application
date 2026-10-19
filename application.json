@@ -3,7 +3,7 @@
   "name": "Scratch Tab",
   "description": "Read and edit small workspace text files in movable windows, or open them in Code Server.",
   "category": "development",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "icon": "code",
   "scopes": [
     "project"

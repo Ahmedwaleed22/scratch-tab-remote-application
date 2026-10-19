@@ -101,13 +101,13 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  await page.getByText('File changed on disk', {exact:true}).waitFor();
  assert.equal(await page.locator('textarea').inputValue(), 'Unsaved conflict');
  page.once('dialog', dialog => dialog.dismiss());
- await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.getByRole('button', {name:'Close window',exact:true}).click();
  assert.equal(await page.locator('.scratch-tab-window').count(), 1);
  await page.evaluate(() => { window.failSave = false; });
  await page.getByRole('button', {name:'Save',exact:true}).click();
  await page.waitForFunction(() => window.disk === 'Unsaved conflict');
  assert.equal(await page.locator('.scratch-tab-controls button').count(), 1);
- assert.equal(await page.getByRole('button', {name:'Close file',exact:true}).textContent(), '');
+ assert.equal(await page.getByRole('button', {name:'Close window',exact:true}).textContent(), '');
  assert.equal(await page.getByRole('button', {name:'Save',exact:true}).evaluate(node => !!node.closest('header')), true);
  assert.equal(await page.getByRole('button', {name:'Open in Code Server',exact:true}).evaluate(node => !!node.closest('header')), true);
  const header = page.locator('.scratch-tab-header');
@@ -115,7 +115,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  await header.focus(); await header.press('ArrowRight');
  const after = await page.locator('.scratch-tab-window').boundingBox();
  assert.equal(after.x, before.x + (Number(process.env.SCRATCH_TAB_WIDTH || 1280) <= 600 ? 0 : 20));
- await page.getByRole('button', {name:'Close file'}).click();
+ await page.getByRole('button', {name:'Close window'}).click();
  assert.equal(await page.locator('.scratch-tab-window').count(), 0);
  await page.getByText('notes', {exact:true}).click();
  assert.equal(await page.locator('.scratch-tab-choice').count(), 1);
@@ -131,7 +131,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  await page.waitForFunction(() => document.querySelector('textarea')?.value === 'Draft survives chat change');
  await page.getByRole('button', {name:'Save',exact:true}).click();
  await page.waitForFunction(() => window.disk === 'Draft survives chat change');
- await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.getByRole('button', {name:'Close window',exact:true}).click();
  await page.evaluate(() => { window.disk = ''; });
  await page.getByText('notes', {exact:true}).click();
  await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
@@ -140,7 +140,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  await page.locator('textarea').fill('Write an empty file');
  await page.getByRole('button', {name:'Save',exact:true}).click();
  await page.waitForFunction(() => window.disk === 'Write an empty file');
- await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.getByRole('button', {name:'Close window',exact:true}).click();
  await page.evaluate(() => { window.disk = 'one\r\ntwo\r\n'; });
  await page.getByText('notes', {exact:true}).click();
  await page.locator('.scratch-tab-choice').getByRole('button', {name:'Scratch Tab',exact:true}).click();
@@ -160,7 +160,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  assert.equal(await page.getByRole('button', {name:'Save',exact:true}).isDisabled(), false);
  await page.getByRole('button', {name:'Save',exact:true}).click();
  await page.waitForFunction(() => window.disk === 'newer\r\n');
- await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.getByRole('button', {name:'Close window',exact:true}).click();
  await page.evaluate(() => {
    document.querySelector('a').href = 'https://code--alpha.remote.test/_static/remote-open.html?folder=%2Fworkspace&file=%2Fworkspace%2FREADME.md&line=3';
    window.open = (...args) => { window.opened = args; return null; };
@@ -172,7 +172,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'README.md');
  await page.getByRole('button', {name:'Open in Code Server'}).click();
  assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
- await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.getByRole('button', {name:'Close window',exact:true}).click();
  await page.getByText('notes', {exact:true}).click();
  await page.locator('.scratch-tab-choice').getByRole('button', {name:'Code Server',exact:true}).click();
  assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
@@ -196,7 +196,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
  assert.equal(await page.evaluate(() => window.lastFilePath), '/workspace/docs/guide.md');
  await page.getByRole('button', {name:'Open in Code Server'}).click();
  assert.equal(await page.evaluate(() => window.originalOpens), 1);
- await page.getByRole('button', {name:'Close file',exact:true}).click();
+ await page.getByRole('button', {name:'Close window',exact:true}).click();
  await page.locator('#manager-file').focus();
  await page.locator('#manager-file').press('Enter');
  await page.locator('.scratch-tab-choice').getByRole('button', {name:'Code Server',exact:true}).click();
@@ -285,7 +285,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
   await page.setViewportSize({width:390,height:844});
   await assertFits(390,844);
   if (process.env.SCRATCH_TAB_SCREENSHOTS) await page.screenshot({path:process.env.SCRATCH_TAB_SCREENSHOTS+'-mobile.png'});
-  await page.getByRole('button',{name:'Close file'}).tap();
+  await page.getByRole('button',{name:'Close window'}).tap();
   assert.equal(await page.locator('.scratch-tab-window').count(),0);
  } finally { await browser.close(); }
 });
@@ -408,7 +408,7 @@ test('unsupported Word and binary files offer a download instead of an empty edi
   await page.evaluate(()=>window.showFile('notes.txt','Project unavailable'));
   await page.getByText('Project unavailable',{exact:true}).waitFor();
   assert.equal(await page.getByRole('heading',{name:'File not supported'}).count(),0);
-  await page.getByRole('button',{name:'Close file'}).click();
+  await page.getByRole('button',{name:'Close window'}).click();
   assert.equal(await page.locator('.scratch-tab-window').count(),0);
  } finally {await browser.close();}
 });
@@ -496,7 +496,7 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
   assert.equal(await page.evaluate(()=>window.disk['/workspace/one.txt']),'first');
   await visible.getByRole('tab',{name:'one.txt',exact:false}).click();
   page.once('dialog',dialog=>dialog.dismiss());
-  await visible.getByRole('button',{name:'Close file',exact:true}).click();
+  await visible.getByRole('button',{name:'Close tab one.txt',exact:true}).click();
   assert.equal(await visible.getByRole('tab').count(),2);
   assert.equal(await visible.locator('textarea').inputValue(),'first draft');
   if(process.env.SCRATCH_TAB_SCREENSHOTS)await page.screenshot({path:process.env.SCRATCH_TAB_SCREENSHOTS+'-tabs.png'});
@@ -523,10 +523,40 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
   assert.ok(bar.x>=0 && bar.x+bar.width<=320);
   assert.ok((await first.getByRole('button',{name:'Separate window',exact:true}).boundingBox()).height>=44);
   if(process.env.SCRATCH_TAB_SCREENSHOTS)await page.screenshot({path:process.env.SCRATCH_TAB_SCREENSHOTS+'-tabs-mobile.png'});
-  page.once('dialog',dialog=>dialog.accept());
-  await first.getByRole('button',{name:'Close file',exact:true}).click();
+  assert.equal(await first.getByRole('button',{name:'Close tab one.txt',exact:true}).isVisible(),true);
+  assert.ok((await first.getByRole('button',{name:'Close tab three.txt',exact:true}).boundingBox()).width>=44);
+  // Closing an inactive tab must leave the active draft intact.
+  await first.getByRole('button',{name:'Close tab three.txt',exact:true}).click();
+  assert.equal(await third.count(),0);
+  assert.equal(await first.locator('textarea').inputValue(),'first draft');
+  assert.equal(await first.getByRole('tab').count(),1);
+  await page.setViewportSize({width:1280,height:800});
+  await first.evaluate(node=>{node.style.top='90px';});
+  await second.evaluate(node=>{node.style.top='90px';});
+  await open('Third file');
+  // A hidden dirty tab protects the whole window, without closing clean tabs first.
+  page.once('dialog',dialog=>dialog.dismiss());
+  await third.getByRole('button',{name:'Close window',exact:true}).click();
   assert.equal(await third.isVisible(),true);
+  assert.equal(await third.getByRole('tab').count(),2);
+  await third.getByRole('tab',{name:'one.txt',exact:false}).click();
+  assert.equal(await first.locator('textarea').inputValue(),'first draft');
+  await first.getByRole('tab',{name:'three.txt',exact:true}).click();
+  page.once('dialog',dialog=>dialog.accept());
+  await third.getByRole('button',{name:'Close window',exact:true}).click();
+  assert.equal(await first.count(),0);
+  assert.equal(await third.count(),0);
   assert.equal(await second.isVisible(),true);
+  assert.equal(await page.evaluate(()=>window.drafts.size),0);
+  // The remaining single tab can also be closed with its own X.
+  await second.getByRole('button',{name:'Close tab two.txt',exact:true}).click();
+  assert.equal(await visible.count(),0);
+  await open('First file');
+  assert.equal(await visible.locator('textarea').inputValue(),'first');
+  await open('Third file');
+  // Clean groups close together without confirmation.
+  await visible.getByRole('button',{name:'Close window',exact:true}).click();
+  assert.equal(await page.locator('.scratch-tab-window').count(),0);
   await page.evaluate(()=>window.cleanup());
   assert.equal(await page.locator('.scratch-tab-window').count(),0);
  }finally{await browser.close();}

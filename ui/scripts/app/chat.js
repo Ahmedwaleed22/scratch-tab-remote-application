@@ -18,6 +18,7 @@ export function mountChat({ context, drafts, files, launchIde }) {
     const tabs = [...group.items.values()].map(item => ({
       path: item.target.path, name: item.target.name, dirty: item.documentModel.dirty,
       select: () => { item.editor.restore(); item.view.focusTab(); },
+      close: () => item.editor.close(),
     }));
     for (const item of group.items.values()) item.view.setTabs(tabs, group.active);
   }
@@ -41,6 +42,11 @@ export function mountChat({ context, drafts, files, launchIde }) {
     item.view.offset();
     item.editor.restore();
   }
+  function closeGroup(group) {
+    const items = [...group.items.values()];
+    if (items.some(item => item.documentModel.dirty) && !confirm('Discard unsaved changes and close all tabs in this window?')) return;
+    for (const item of items) item.editor.close(false, true);
+  }
   function open(target) {
     const existing = windows.get(target.path);
     if (existing) { existing.editor.restore(); return; }
@@ -63,6 +69,7 @@ export function mountChat({ context, drafts, files, launchIde }) {
       },
       createView: handlers => {
         item.view = createEditorWindow({ target, index: windows.size, button, nextLayer, ...handlers,
+          onClose: () => closeGroup(item.group),
           onActivate: () => { if (item.group.active !== item.target.path) activate(item); else activeGroup = item.group; }, onSeparate: () => separate(item), onStateChange: () => renderGroup(item.group),
         });
         return item.view;
