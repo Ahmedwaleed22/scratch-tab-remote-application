@@ -11,7 +11,7 @@ def build_package(root, output_dir, tag):
     version = manifest['version']
     if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version) or tag != f'v{version}':
         raise ValueError('tag must match application.json version vX.Y.Z')
-    files = ['README.md', 'LICENSE', 'application.json', 'ui/scripts/vendor/LICENSE.txt', 'ui/scripts/vendor/LICENSE.markdown.txt']
+    files = ['README.md', 'LICENSE', 'application.json', 'ui/scripts/vendor/LICENSE.txt', 'ui/scripts/vendor/LICENSE.markdown.txt', 'ui/scripts/vendor/LICENSE.mermaid.txt']
     for directory, extensions in [('backend', ('.go',)), ('ui', ('.js', '.css'))]:
         files.extend(str(path.relative_to(root)) for path in sorted((root / directory).rglob('*'))
                      if path.is_file() and path.suffix in extensions and not path.name.endswith('_test.go'))

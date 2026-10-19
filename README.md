@@ -18,7 +18,7 @@ Click a workspace file link in an agent message, or select a text file in the fi
 
 Programming files get syntax highlighting based on their extension: JavaScript/JSX, TypeScript/TSX, Python, Go, JSON, shell, HTML/XML, CSS, Markdown, YAML, SQL, Rust, Java, C/C++, and PHP. Unknown extensions stay plain text. Highlighting updates as you type and does not reformat or change the file. Very large drafts and lines over 8,192 characters display without colors to keep editing responsive.
 
-For `.md` and `.markdown` files, click **Preview** to read formatted Markdown, then **Source** to return to the editable text. Preview shows your current unsaved edits, including headings, emphasis, lists, tables, images, links, and code blocks. Switching views does not save or rewrite the file. Embedded HTML is displayed as text.
+For `.md` and `.markdown` files, click **Preview** to read formatted Markdown, then **Source** to return to the editable text. Preview shows your current unsaved edits, including headings, emphasis, lists, tables, images, links, and code blocks. Switching views does not save or rewrite the file. Embedded HTML is displayed as text. Fenced `mermaid` blocks render as diagrams in Preview; wide diagrams scroll horizontally on phones. Invalid diagrams keep their source visible with an error message.
 
 Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open in Code Server** opens the same file in the full editor.
 

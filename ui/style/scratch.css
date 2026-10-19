@@ -607,3 +607,15 @@
     padding: 12px;
   }
 }
+
+.scratch-tab-diagram {
+  overflow: auto;
+  max-width: 100%;
+  margin-block: 16px;
+  padding: 8px;
+  background: transparent;
+}
+.scratch-tab-diagram svg {
+  display: block;
+  margin-inline: auto;
+}
