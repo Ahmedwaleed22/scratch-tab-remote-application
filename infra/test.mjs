@@ -1847,3 +1847,95 @@ test('window geometry is project-scoped and tolerates invalid or unavailable sto
     else delete globalThis.localStorage;
   }
 });
+
+test('Mermaid preview renders installer flowcharts, retains source and handles invalid diagrams', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('https://remote.test/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('.js'))
+        return route.fulfill({
+          contentType: 'text/javascript',
+          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+        });
+      return route.fulfill({
+        contentType: 'text/html',
+        body: '<meta name="viewport" content="width=device-width, initial-scale=1">',
+      });
+    });
+    await page.goto('https://remote.test/');
+    await page.addStyleTag({
+      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+    });
+    const diagram = `flowchart TD
+    Start["Run infra/install.sh with hostname"] --> Root["Validate root and options"]
+    Root --> Checkout["Select target checkout and re-execute its installer"]
+    Checkout --> Validate["Validate distro and DNS"]
+    Validate --> Deps["Install pinned host dependencies"]
+    Deps --> Agents["Converge catalog-declared host agent CLIs"]
+    Agents --> Build["Build frontend and Go backend"]
+    Build --> Proxy["Render, validate, and reload Caddy"]
+    Proxy --> Service["Install and start systemd backend service"]
+    Service --> Health["Poll backend health for up to 30 seconds"]
+    Health --> Image["Build reusable LXD workspace image"]
+    Image --> SSH["Disable SSH password authentication"]
+    SSH --> Heal["Enable minutely LXD IPv4 repair timer"]
+    Heal --> Ready["Open app and claim administrator"]`;
+    const text = '```mermaid\n' + diagram + '\n```';
+    await page.evaluate(async text => {
+      const { createMarkdownPreview } = await import('/views/markdown.js');
+      const source = document.createElement('textarea');
+      source.value = text;
+      const actions = document.createElement('div');
+      const button = (label, action, parent) => {
+        const node = document.createElement('button');
+        node.textContent = label;
+        node.onclick = action;
+        parent.append(node);
+        return node;
+      };
+      button('Code Server', () => {}, actions);
+      window.preview = createMarkdownPreview({
+        target: {
+          name: 'README.md',
+          path: '/workspace/README.md',
+          download: '/api/chats/a/files/download?path=README.md',
+        },
+        source,
+        sourceSurface: source,
+        actions,
+        button,
+      });
+      window.preview.enable();
+      document.body.append(actions, source, window.preview.element);
+    }, text);
+    await page.getByRole('button', { name: 'Show Markdown preview' }).click();
+    await page.locator('.scratch-tab-diagram svg').waitFor();
+    assert.equal(await page.locator('.scratch-tab-diagram .node').count(), 14);
+    assert.match(
+      await page.locator('.scratch-tab-diagram').textContent(),
+      /Open app and claim administrator/,
+    );
+    await page.getByRole('button', { name: 'Show Markdown source' }).click();
+    assert.equal(await page.locator('textarea').inputValue(), text);
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.addStyleTag({ content: 'body { color: rgb(227,227,231); background: #141519; }' });
+    await page.getByRole('button', { name: 'Show Markdown preview' }).click();
+    await page.locator('.scratch-tab-diagram svg').waitFor();
+    const bounds = await page.locator('.scratch-tab-diagram').boundingBox();
+    assert.ok(bounds.x + bounds.width <= 320);
+    await page.getByRole('button', { name: 'Show Markdown source' }).click();
+    await page.locator('textarea').fill('```mermaid\nflowchart TD\n A[broken\n```');
+    await page.getByRole('button', { name: 'Show Markdown preview' }).click();
+    await page.getByText('Unable to render Mermaid diagram. Check its source syntax.').waitFor();
+    assert.match(await page.locator('code.language-mermaid').textContent(), /A\[broken/);
+    await page.evaluate(() => window.preview.remove());
+    assert.equal(await page.locator('.scratch-tab-markdown').count(), 0);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});

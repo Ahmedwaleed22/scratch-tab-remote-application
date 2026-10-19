@@ -40,3 +40,14 @@ const licenseNotices = await Promise.all(
   }),
 );
 await writeFile('ui/scripts/vendor/LICENSE.markdown.txt', licenseNotices.join('\n\n'));
+
+// The tiny distribution is an IIFE; expose its local API as an ES module without globals.
+const tiny = await readFile('node_modules/@mermaid-js/tiny/dist/mermaid.tiny.js', 'utf8');
+const globalExport =
+  'globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;';
+if (!tiny.includes(globalExport)) throw new Error('Unexpected Mermaid tiny export');
+await writeFile(
+  'ui/scripts/vendor/mermaid.js',
+  tiny.replace(globalExport, 'export default __esbuild_esm_mermaid_nm.mermaid.default;'),
+);
+await copyFile('node_modules/@mermaid-js/tiny/LICENSE', 'ui/scripts/vendor/LICENSE.mermaid.txt');
