@@ -1015,7 +1015,15 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     assert.equal(await third.count(), 0);
     assert.equal(await first.locator('textarea').inputValue(), 'first draft');
     assert.equal(await first.getByRole('tab').count(), 1);
+    // setViewportSize resolves before Chromium necessarily delivers its resize event.
+    // Wait for that event before opening a chooser, which dismisses on resize.
+    await page.evaluate(() => {
+      window.desktopResize = new Promise(resolve => {
+        window.addEventListener('resize', () => requestAnimationFrame(resolve), { once: true });
+      });
+    });
     await page.setViewportSize({ width: 1280, height: 800 });
+    await page.evaluate(() => window.desktopResize);
     await first.evaluate(node => {
       node.style.top = '90px';
     });
