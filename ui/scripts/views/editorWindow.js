@@ -73,7 +73,8 @@ export function createEditorWindow({
   tabBar.append(tabs);
   const separate = button('Separate window', () => onSeparate?.(), tabBar);
   separate.className = 'scratch-tab-separate';
-  panel.append(header, tabBar, syntax.element, status);
+  const editorSurface = syntax?.element ?? content;
+  panel.append(header, tabBar, editorSurface, status);
   document.body.append(panel);
 
   const compact = matchMedia('(max-width: 600px), (pointer: coarse) and (max-height: 500px)');
@@ -237,7 +238,7 @@ export function createEditorWindow({
     },
     setText(text) {
       content.value = text;
-      syntax.refresh();
+      syntax?.refresh();
     },
     allowEditing() {
       content.readOnly = false;
@@ -259,8 +260,8 @@ export function createEditorWindow({
         download.textContent = 'Download file';
         message.append(heading, description);
         unsupported.append(message, download);
-        syntax.dispose();
-        syntax.element.replaceWith(unsupported);
+        syntax?.dispose();
+        editorSurface.replaceWith(unsupported);
         actions.hidden = true;
         actions.style.display = 'none';
         status.hidden = true;
@@ -285,7 +286,7 @@ export function createEditorWindow({
       focus();
     },
     remove() {
-      syntax.dispose();
+      syntax?.dispose();
       panel.remove();
     },
   };
