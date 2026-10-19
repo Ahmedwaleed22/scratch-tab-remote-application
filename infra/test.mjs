@@ -1523,6 +1523,14 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     assert.equal(await input.inputValue(), 'const value = "مرحبا 😀";\n');
     await visible.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForFunction(() => window.disk === 'const value = "مرحبا 😀";\r\n');
+    // Check plain-text fallback before viewport changes can dismiss the chooser.
+    await open('notes.unknown');
+    assert.equal(await visible.locator('pre').count(), 0);
+    assert.equal(
+      await visible.locator('textarea').inputValue(),
+      await page.evaluate(() => window.disk.replaceAll('\r\n', '\n')),
+    );
+    await visible.getByRole('tab', { name: 'main.js', exact: true }).click();
     const long =
       Array.from(
         { length: 100 },
@@ -1581,23 +1589,6 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     assert.equal(await paint.isVisible(), false);
     assert.notEqual(await input.evaluate(node => getComputedStyle(node).color), 'rgba(0, 0, 0, 0)');
     await page.emulateMedia({ forcedColors: 'none' });
-    await page.setViewportSize({ width: 1280, height: 800 });
-    // Resize handlers run before the next frame; move the window after they settle.
-    await visible.evaluate(
-      node =>
-        new Promise(resolve =>
-          requestAnimationFrame(() => {
-            node.style.top = '90px';
-            resolve();
-          }),
-        ),
-    );
-    await open('notes.unknown');
-    assert.equal(await visible.locator('pre').count(), 0);
-    assert.equal(
-      await visible.locator('textarea').inputValue(),
-      await page.evaluate(() => window.disk.replaceAll('\r\n', '\n')),
-    );
     await page.evaluate(() => window.cleanup());
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     assert.deepEqual(errors, []);
