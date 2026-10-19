@@ -1,4 +1,5 @@
 import { createSyntaxSurface } from './syntax.js';
+import { createMarkdownPreview } from './markdown.js';
 
 export function createEditorWindow({
   target,
@@ -74,7 +75,16 @@ export function createEditorWindow({
   const separate = button('Separate window', () => onSeparate?.(), tabBar);
   separate.className = 'scratch-tab-separate';
   const editorSurface = syntax?.element ?? content;
-  panel.append(header, tabBar, editorSurface, status);
+  const markdown = createMarkdownPreview({
+    target,
+    source: content,
+    sourceSurface: editorSurface,
+    actions,
+    button,
+  });
+  panel.append(header, tabBar, editorSurface);
+  if (markdown) panel.append(markdown.element);
+  panel.append(status);
   document.body.append(panel);
 
   const compact = matchMedia('(max-width: 600px), (pointer: coarse) and (max-height: 500px)');
@@ -138,10 +148,11 @@ export function createEditorWindow({
   // Let phone users read first; tapping the text area opens the keyboard.
   let unsupported;
   const focus = () => {
-    if (panel.style.display !== 'none')
-      (unsupported ? unsupported.querySelector('a') : compact.matches ? header : content).focus({
-        preventScroll: true,
-      });
+    if (panel.style.display === 'none') return;
+    let focusTarget = compact.matches ? header : content;
+    if (markdown?.isPreview) focusTarget = markdown.element;
+    if (unsupported) focusTarget = unsupported.querySelector('a');
+    focusTarget.focus({ preventScroll: true });
   };
 
   return {
@@ -232,6 +243,7 @@ export function createEditorWindow({
     },
     refreshLinks() {
       if (unsupported) unsupported.querySelector('a').href = target.download;
+      markdown?.refresh();
     },
     get text() {
       return content.value;
@@ -239,9 +251,11 @@ export function createEditorWindow({
     setText(text) {
       content.value = text;
       syntax?.refresh();
+      markdown?.refresh();
     },
     allowEditing() {
       content.readOnly = false;
+      markdown?.enable();
     },
     showUnsupported() {
       if (!unsupported) {
@@ -261,6 +275,7 @@ export function createEditorWindow({
         message.append(heading, description);
         unsupported.append(message, download);
         syntax?.dispose();
+        markdown?.remove();
         editorSurface.replaceWith(unsupported);
         actions.hidden = true;
         actions.style.display = 'none';
@@ -287,6 +302,7 @@ export function createEditorWindow({
     },
     remove() {
       syntax?.dispose();
+      markdown?.remove();
       panel.remove();
     },
   };

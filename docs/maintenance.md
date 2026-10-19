@@ -126,3 +126,10 @@ Validation includes host release/ZIP tests, non-admin route denial, browser vers
 New files join the active window's tab group. `app/chat.js` owns group membership, active-file selection, and splitting a tab into its own window. Each file retains its existing document model and presenter, so switching or separating files does not read them again, reset their revisions, or discard edits. Reopening the same path selects its existing tab. Closing the active file selects a remaining tab; dirty closes still require confirmation. Project-session disposal remembers all drafts and closes all groups.
 
 `views/editorWindow.js` renders the tab strip, selected state, keyboard navigation and Separate window action. Inactive file panels are hidden; selected files inherit their group's current geometry. Separate windows can move and resize independently on desktop. On phones, each window still fits the visual viewport. Window groups and positions remain in memory across same-project chat changes, but are not restored after leaving the project or refreshing the browser.
+
+
+## Markdown preview
+
+`views/markdown.js` owns the per-file Preview/Source toggle. It hides the existing source surface rather than replacing the textarea, so switching views preserves edits, native undo, and document state. The preview renders the current textarea value on entry and when loaded text or chat resource URLs change. Saving from preview still uses the existing document presenter and source text.
+
+`presenters/markdown.js` resolves relative links and images inside `/workspace` through the current chat's IDE/download URLs. External HTTP(S) links open separately with `noopener noreferrer`; images use a no-referrer policy. Other schemes and paths outside the workspace are omitted. `infra/markdown-entry.js` configures Markdown-it with embedded HTML disabled. `npm run build:syntax` builds both renderer bundles and copies their license notices. The preview includes standard Markdown and tables; raw HTML, Mermaid, and math rendering are not enabled.
