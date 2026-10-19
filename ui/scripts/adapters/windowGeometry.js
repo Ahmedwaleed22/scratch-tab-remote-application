@@ -3,14 +3,22 @@ import { WINDOW_LAYOUT, WINDOW_GEOMETRY_PROPERTIES } from '../config/windowLayou
 // Store layout only, never document content. Storage may be disabled by the browser.
 export function windowGeometry(projectId) {
   const key = `scratch-tab:window-geometry:${projectId}`;
+
   return {
     read() {
       try {
         const value = JSON.parse(localStorage.getItem(key));
-        if (!value || !WINDOW_GEOMETRY_PROPERTIES.every(name => Number.isFinite(value[name])))
-          return null;
-        if (value.width < WINDOW_LAYOUT.minimumWidth || value.height < WINDOW_LAYOUT.minimumHeight)
-          return null;
+        if (!value) return null;
+
+        const hasFiniteCoordinates = WINDOW_GEOMETRY_PROPERTIES.every(name =>
+          Number.isFinite(value[name]),
+        );
+        if (!hasFiniteCoordinates) return null;
+
+        const isTooSmall =
+          value.width < WINDOW_LAYOUT.minimumWidth || value.height < WINDOW_LAYOUT.minimumHeight;
+        if (isTooSmall) return null;
+
         return Object.fromEntries(
           Object.entries(value)
             .filter(([name]) => WINDOW_GEOMETRY_PROPERTIES.includes(name))

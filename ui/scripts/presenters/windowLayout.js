@@ -9,14 +9,23 @@ export function restoreWindowLayout(panel, index, persistence) {
     initialHorizontalRoom,
     initialVerticalRoom,
   } = WINDOW_LAYOUT;
-  panel.style.left = `${Math.min(initialLeft + index * cascadeOffset, Math.max(viewportMargin, innerWidth - initialHorizontalRoom))}px`;
-  panel.style.top = `${Math.min(initialTop + index * cascadeOffset, Math.max(viewportMargin, innerHeight - initialVerticalRoom))}px`;
+
+  const cascadeDistance = index * cascadeOffset;
+  const maximumInitialLeft = Math.max(viewportMargin, innerWidth - initialHorizontalRoom);
+  const maximumInitialTop = Math.max(viewportMargin, innerHeight - initialVerticalRoom);
+  const left = Math.min(initialLeft + cascadeDistance, maximumInitialLeft);
+  const top = Math.min(initialTop + cascadeDistance, maximumInitialTop);
+
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+
   const saved = persistence.read();
   if (saved) Object.assign(panel.style, saved);
 }
 
 export function bindWindowLayout({ panel, header, signal, persistence }) {
   const compact = matchMedia(WINDOW_LAYOUT.compactQuery);
+
   function position(x, y) {
     header.setAttribute(
       'aria-label',
@@ -46,10 +55,12 @@ export function bindWindowLayout({ panel, header, signal, persistence }) {
     panel.style.left = `${nextLeft}px`;
     panel.style.top = `${nextTop}px`;
   }
+
   const fitViewport = () => {
     if (panel.style.display !== 'none') position(panel.offsetLeft, panel.offsetTop);
   };
   fitViewport();
+
   function rememberGeometry() {
     if (compact.matches || panel.style.display === 'none' || !panel.isConnected) return;
     persistence.write({
@@ -59,31 +70,34 @@ export function bindWindowLayout({ panel, header, signal, persistence }) {
       height: panel.offsetHeight,
     });
   }
-  let inlineSize = `${panel.style.width}:${panel.style.height}`;
+
+  let previousInlineSize = `${panel.style.width}:${panel.style.height}`;
   const resizeObserver = new ResizeObserver(() => {
-    const next = `${panel.style.width}:${panel.style.height}`;
-    if (next === inlineSize) return;
-    inlineSize = next;
+    const currentInlineSize = `${panel.style.width}:${panel.style.height}`;
+    if (currentInlineSize === previousInlineSize) return;
+    previousInlineSize = currentInlineSize;
     rememberGeometry();
   });
   resizeObserver.observe(panel);
   signal.addEventListener('abort', () => resizeObserver.disconnect(), { once: true });
-  let drag;
+
+  let dragOffset;
   header.addEventListener('pointerdown', event => {
     if (compact.matches || event.button !== 0 || event.target.closest('button')) return;
-    drag = { x: event.clientX - panel.offsetLeft, y: event.clientY - panel.offsetTop };
+    dragOffset = { x: event.clientX - panel.offsetLeft, y: event.clientY - panel.offsetTop };
     header.setPointerCapture(event.pointerId);
   });
   header.addEventListener('pointermove', event => {
-    if (drag) position(event.clientX - drag.x, event.clientY - drag.y);
+    if (dragOffset) position(event.clientX - dragOffset.x, event.clientY - dragOffset.y);
   });
   header.addEventListener('pointerup', () => {
-    if (drag) rememberGeometry();
-    drag = null;
+    if (dragOffset) rememberGeometry();
+    dragOffset = null;
   });
   header.addEventListener('pointercancel', () => {
-    drag = null;
+    dragOffset = null;
   });
+
   header.addEventListener('keydown', event => {
     if (event.target !== header) return;
     const delta = WINDOW_MOVE_KEYS[event.key];
@@ -93,10 +107,12 @@ export function bindWindowLayout({ panel, header, signal, persistence }) {
       rememberGeometry();
     }
   });
+
   window.addEventListener('resize', fitViewport, { signal });
   window.visualViewport?.addEventListener('resize', fitViewport, { signal });
   window.visualViewport?.addEventListener('scroll', fitViewport, { signal });
   compact.addEventListener('change', fitViewport, { signal });
+
   return {
     get isCompact() {
       return compact.matches;
