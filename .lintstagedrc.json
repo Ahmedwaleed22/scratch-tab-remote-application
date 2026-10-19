@@ -1,0 +1,5 @@
+{
+  "ui/scripts/**/*.js": "prettier --write",
+  "ui/style/**/*.css": "prettier --write",
+  "infra/*.{js,mjs}": "prettier --write"
+}

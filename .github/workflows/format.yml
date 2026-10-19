@@ -1,0 +1,33 @@
+name: Prettier
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prettier-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prettier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install formatting tools
+        run: npm ci
+        env:
+          HUSKY: '0'
+      - name: Format handwritten code and verify a clean diff
+        run: |
+          npm run format
+          git diff --exit-code

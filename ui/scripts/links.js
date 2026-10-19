@@ -2,14 +2,23 @@ export function fileTarget(href, origin, chatId, cwd = '') {
   try {
     const url = new URL(href, origin);
     const base = new URL(origin);
-    const project = /^\/var\/lib\/remote\/projects\/([a-z0-9][a-z0-9-]*)\/workspace(?:\/|$)/.exec(cwd);
+    const project = /^\/var\/lib\/remote\/projects\/([a-z0-9][a-z0-9-]*)\/workspace(?:\/|$)/.exec(
+      cwd,
+    );
     let raw;
-    if (url.origin === origin && url.pathname === `/api/chats/${encodeURIComponent(chatId)}/ide-open`) {
+    if (
+      url.origin === origin &&
+      url.pathname === `/api/chats/${encodeURIComponent(chatId)}/ide-open`
+    ) {
       raw = url.searchParams.get('path') || '';
-    } else if (project && url.protocol === base.protocol && url.port === base.port &&
+    } else if (
+      project &&
+      url.protocol === base.protocol &&
+      url.port === base.port &&
       ((url.hostname === `code--${project[1]}.${base.hostname}` &&
         (url.pathname === '/_static/remote-open.html' || url.pathname === '/')) ||
-       (url.hostname === `code.${base.hostname}` && url.pathname === `/${project[1]}/`))) {
+        (url.hostname === `code.${base.hostname}` && url.pathname === `/${project[1]}/`))
+    ) {
       raw = url.searchParams.get('file');
       if (!raw) {
         const payload = JSON.parse(url.searchParams.get('payload') || '[]');
@@ -29,9 +38,18 @@ export function fileTarget(href, origin, chatId, cwd = '') {
     }
     if (!path.startsWith('/workspace/') || path.endsWith('/')) return null;
     const relative = path.slice('/workspace/'.length);
-    if (relative.split('/').some(part => part === '..' || part === '.' || part === '') || path.includes('\0')) return null;
-    return { path, name: path.split('/').pop(), ide: url.href,
-      download: `/api/chats/${encodeURIComponent(chatId)}/files/download?path=${encodeURIComponent(relative)}` };
-  } catch { return null; }
+    if (
+      relative.split('/').some(part => part === '..' || part === '.' || part === '') ||
+      path.includes('\0')
+    )
+      return null;
+    return {
+      path,
+      name: path.split('/').pop(),
+      ide: url.href,
+      download: `/api/chats/${encodeURIComponent(chatId)}/files/download?path=${encodeURIComponent(relative)}`,
+    };
+  } catch {
+    return null;
+  }
 }
-
