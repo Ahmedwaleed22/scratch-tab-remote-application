@@ -63,3 +63,17 @@
 .scratch-tab-tabs button[aria-selected="true"] { color:rgb(var(--accent-blue, 45 100 215)); background:rgb(var(--accent-blue, 45 100 215) / .1); border-bottom-color:currentColor; }
 .scratch-tab-separate { flex-shrink:0; border-left:1px solid var(--line, #bbb) !important; }
 @media(max-width:600px), (pointer:coarse) { .scratch-tab-tabbar button { min-height:44px; } .scratch-tab-tabs .scratch-tab-tab-close { width:44px; } }
+
+.scratch-tab-codearea { position:relative; flex:1; min-height:0; overflow:hidden; --syntax-keyword:#6639ba; --syntax-string:#17663a; --syntax-comment:#626871; --syntax-number:#995419; --syntax-name:#075e95; }
+.scratch-tab-codearea pre,.scratch-tab-codearea textarea { box-sizing:border-box; margin:0; border:0; padding:16px; font:13px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size:4; letter-spacing:normal; font-variant-ligatures:none; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; }
+.scratch-tab-codearea pre { position:absolute; inset:0; overflow:hidden; pointer-events:none; color:rgb(var(--fg, 32 32 36)); }
+.scratch-tab-codearea pre span { font:inherit; }
+.scratch-tab-codearea textarea { position:absolute; inset:0; height:100%; color:transparent; -webkit-text-fill-color:transparent; caret-color:rgb(var(--fg, 32 32 36)); }
+.scratch-tab-codearea .hljs-keyword,.scratch-tab-codearea .hljs-literal,.scratch-tab-codearea .hljs-selector-tag { color:var(--syntax-keyword); }
+.scratch-tab-codearea .hljs-string,.scratch-tab-codearea .hljs-regexp { color:var(--syntax-string); }
+.scratch-tab-codearea .hljs-comment,.scratch-tab-codearea .hljs-quote { color:var(--syntax-comment); }
+.scratch-tab-codearea .hljs-number,.scratch-tab-codearea .hljs-built_in,.scratch-tab-codearea .hljs-meta { color:var(--syntax-number); }
+.scratch-tab-codearea .hljs-title,.scratch-tab-codearea .hljs-attr,.scratch-tab-codearea .hljs-name,.scratch-tab-codearea .hljs-type,.scratch-tab-codearea .hljs-section { color:var(--syntax-name); }
+:root[data-theme="dark"] .scratch-tab-codearea,:root.dark .scratch-tab-codearea { --syntax-keyword:#c4a7ff; --syntax-string:#a6d89b; --syntax-comment:#a5aab5; --syntax-number:#eac078; --syntax-name:#8bc3f8; }
+@media(max-width:600px), (pointer:coarse) and (max-height:500px) { .scratch-tab-codearea pre,.scratch-tab-codearea textarea { font-size:16px; padding:12px; } }
+@media(forced-colors:active) { .scratch-tab-codearea pre { display:none; } .scratch-tab-codearea textarea { color:CanvasText; -webkit-text-fill-color:CanvasText; caret-color:CanvasText; } }
