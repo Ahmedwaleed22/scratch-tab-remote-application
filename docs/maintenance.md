@@ -51,6 +51,10 @@ python3 -B infra/test_package.py
 python3 -B infra/test_backend.py --remote-root /path/to/remote.futrx
 ```
 
+Run `npm ci` after cloning to install the shared Git hooks, then `npx playwright install chromium` for browser tests. The pre-commit hook runs lint-staged to format only staged handwritten JavaScript and CSS, then runs the browser tests. This keeps formatting inside the original signed commit, including when staging only part of a file. There is no TypeScript typecheck because this project uses JavaScript.
+
+The Prettier workflow runs on every push and pull request: it formats the checkout and fails if that creates a diff. It has read-only repository permissions and never commits or pushes, so it cannot put local branches behind or create formatting-only merge conflicts. Fix failures locally with `npm run format` and include them in the next commit. Changes made by other people still require the usual fetch and merge/rebase.
+
 Use `npm run format` to format handwritten browser JavaScript, CSS, build scripts, and browser tests. `npm run format:check` verifies the same files locally and in CI. The generated vendor bundle is excluded from formatting.
 
 The checked-in `ui/scripts/vendor/syntax.js` bundle is built from `infra/syntax-entry.js` with pinned Highlight.js and esbuild versions in `package-lock.json`. Rebuild it with `npm run build:syntax` when changing grammars. CI rebuilds and checks the generated bundle for drift. The ZIP includes the Highlight.js BSD license. No CDN is used. `config/syntax.js` owns the extension catalog and line-length limit. `presenters/syntax.js` owns language detection and the decision to highlight or display literal text. `views/syntax.js` only paints behind the native textarea and synchronizes scroll, size, and lifecycle. Plain-text files use the textarea directly. The textarea continues to own input, undo, selection, and accessibility.
