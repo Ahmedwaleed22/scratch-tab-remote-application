@@ -1403,7 +1403,8 @@ test('chat update notice checks in background, opens updater, and cleans up acro
 });
 
 test('syntax languages follow extensions and escape source markup', async () => {
-  const { languageFor, highlightCode } = await import('../ui/scripts/vendor/syntax.js');
+  const { languageFor } = await import('../ui/scripts/presenters/syntax.js');
+  const { highlightCode } = await import('../ui/scripts/vendor/syntax.js');
   for (const [name, language] of Object.entries({
     'APP.TSX': 'typescript',
     'app.jsx': 'javascript',
@@ -1581,7 +1582,16 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     assert.notEqual(await input.evaluate(node => getComputedStyle(node).color), 'rgba(0, 0, 0, 0)');
     await page.emulateMedia({ forcedColors: 'none' });
     await page.setViewportSize({ width: 1280, height: 800 });
-    await visible.evaluate(node => (node.style.top = '90px'));
+    // Resize handlers run before the next frame; move the window after they settle.
+    await visible.evaluate(
+      node =>
+        new Promise(resolve =>
+          requestAnimationFrame(() => {
+            node.style.top = '90px';
+            resolve();
+          }),
+        ),
+    );
     await open('notes.unknown');
     assert.equal(await visible.locator('pre').count(), 0);
     assert.equal(
