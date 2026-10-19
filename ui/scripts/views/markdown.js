@@ -1,3 +1,4 @@
+import { renderDiagrams } from './diagrams.js';
 import { MARKDOWN_EXTENSION } from '../config/syntax.js';
 import { markdownPreview } from '../presenters/markdown.js';
 
@@ -10,6 +11,7 @@ export function createMarkdownPreview({ target, source, sourceSurface, actions, 
   preview.tabIndex = 0;
   preview.hidden = true;
   let isPreview = false;
+  let generation = 0;
 
   const codeServerButton = actions.lastElementChild;
   const toggle = button(
@@ -39,7 +41,10 @@ export function createMarkdownPreview({ target, source, sourceSurface, actions, 
   toggle.title = 'Show formatted Markdown preview';
 
   function refresh() {
-    if (isPreview) preview.innerHTML = markdownPreview(source.value, target);
+    if (!isPreview) return;
+    const version = ++generation;
+    preview.innerHTML = markdownPreview(source.value, target);
+    renderDiagrams(preview, () => isPreview && preview.isConnected && generation === version);
   }
 
   return {
@@ -52,6 +57,7 @@ export function createMarkdownPreview({ target, source, sourceSurface, actions, 
     },
     refresh,
     remove() {
+      generation++;
       preview.remove();
       toggle.remove();
     },
