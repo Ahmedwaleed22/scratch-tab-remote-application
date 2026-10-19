@@ -1,11 +1,11 @@
-import { windowGeometry } from '../services/windowGeometry.js';
+import { restoreWindowLayout, bindWindowLayout } from '../presenters/windowLayout.js';
 import { createSyntaxSurface } from './syntax.js';
 import { createMarkdownPreview } from './markdown.js';
 
 export function createEditorWindow({
   target,
   index,
-  projectId,
+  layoutPersistence,
   button,
   signal,
   nextLayer,
@@ -21,11 +21,7 @@ export function createEditorWindow({
   panel.className = 'scratch-tab-window';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', target.name);
-  panel.style.left = `${Math.min(48 + index * 24, Math.max(8, innerWidth - 350))}px`;
-  panel.style.top = `${Math.min(90 + index * 24, Math.max(8, innerHeight - 200))}px`;
-  const geometry = windowGeometry(projectId);
-  const saved = geometry.read();
-  if (saved) Object.assign(panel.style, saved);
+  restoreWindowLayout(panel, index, layoutPersistence);
   panel.style.zIndex = String(nextLayer());
   const header = document.createElement('header');
   header.className = 'scratch-tab-header';
@@ -42,20 +38,6 @@ export function createEditorWindow({
   header.tabIndex = 0;
   header.setAttribute('role', 'group');
   header.setAttribute('aria-label', 'File window title bar. Use arrow keys to reposition.');
-  header.addEventListener('keydown', event => {
-    if (event.target !== header) return;
-    const delta = {
-      ArrowLeft: [-20, 0],
-      ArrowRight: [20, 0],
-      ArrowUp: [0, -20],
-      ArrowDown: [0, 20],
-    }[event.key];
-    if (delta) {
-      event.preventDefault();
-      position(panel.offsetLeft + delta[0], panel.offsetTop + delta[1]);
-      rememberGeometry();
-    }
-  });
   const actions = document.createElement('div');
   actions.className = 'scratch-tab-actions';
   header.append(actions);
@@ -93,64 +75,7 @@ export function createEditorWindow({
   panel.append(status);
   document.body.append(panel);
 
-  const compact = matchMedia('(max-width: 600px), (pointer: coarse) and (max-height: 500px)');
-  function position(x, y) {
-    header.setAttribute(
-      'aria-label',
-      compact.matches
-        ? 'File window title bar'
-        : 'File window title bar. Use arrow keys to reposition.',
-    );
-    const viewport = window.visualViewport;
-    const left = viewport?.offsetLeft ?? 0;
-    const top = viewport?.offsetTop ?? 0;
-    const width = viewport?.width ?? innerWidth;
-    const height = viewport?.height ?? innerHeight;
-    panel.style.setProperty('--scratch-viewport-width', `${width}px`);
-    panel.style.setProperty('--scratch-viewport-height', `${height}px`);
-    // Desktop windows may leave the viewport, but retain a reachable title-bar strip.
-    const visibleTitle = 72;
-    panel.style.left = `${compact.matches ? left + 8 : Math.max(left + visibleTitle - panel.offsetWidth, Math.min(x, left + width - visibleTitle))}px`;
-    panel.style.top = `${compact.matches ? top + 8 : Math.max(top + 8, Math.min(y, top + height - header.offsetHeight - 8))}px`;
-  }
-  const fitViewport = () => {
-    if (panel.style.display !== 'none') position(panel.offsetLeft, panel.offsetTop);
-  };
-  fitViewport();
-  function rememberGeometry() {
-    if (compact.matches || panel.style.display === 'none' || !panel.isConnected) return;
-    geometry.write({
-      left: panel.offsetLeft,
-      top: panel.offsetTop,
-      width: panel.offsetWidth,
-      height: panel.offsetHeight,
-    });
-  }
-  let inlineSize = `${panel.style.width}:${panel.style.height}`;
-  const resizeObserver = new ResizeObserver(() => {
-    const next = `${panel.style.width}:${panel.style.height}`;
-    if (next === inlineSize) return;
-    inlineSize = next;
-    rememberGeometry();
-  });
-  resizeObserver.observe(panel);
-  signal.addEventListener('abort', () => resizeObserver.disconnect(), { once: true });
-  let drag;
-  header.addEventListener('pointerdown', event => {
-    if (compact.matches || event.button !== 0 || event.target.closest('button')) return;
-    drag = { x: event.clientX - panel.offsetLeft, y: event.clientY - panel.offsetTop };
-    header.setPointerCapture(event.pointerId);
-  });
-  header.addEventListener('pointermove', event => {
-    if (drag) position(event.clientX - drag.x, event.clientY - drag.y);
-  });
-  header.addEventListener('pointerup', () => {
-    if (drag) rememberGeometry();
-    drag = null;
-  });
-  header.addEventListener('pointercancel', () => {
-    drag = null;
-  });
+  const layout = bindWindowLayout({ panel, header, signal, persistence: layoutPersistence });
   panel.addEventListener('pointerdown', () => {
     onActivate?.();
     panel.style.zIndex = String(nextLayer());
@@ -168,15 +93,11 @@ export function createEditorWindow({
       onSave();
     }
   });
-  window.addEventListener('resize', fitViewport, { signal });
-  window.visualViewport?.addEventListener('resize', fitViewport, { signal });
-  window.visualViewport?.addEventListener('scroll', fitViewport, { signal });
-  compact.addEventListener('change', fitViewport, { signal });
   // Let phone users read first; tapping the text area opens the keyboard.
   let unsupported;
   const focus = () => {
     if (panel.style.display === 'none') return;
-    let focusTarget = compact.matches ? header : content;
+    let focusTarget = layout.isCompact ? header : content;
     if (markdown?.isPreview) focusTarget = markdown.element;
     if (unsupported) focusTarget = unsupported.querySelector('a');
     focusTarget.focus({ preventScroll: true });
@@ -251,7 +172,7 @@ export function createEditorWindow({
     },
     setVisible(visible) {
       panel.style.display = visible ? '' : 'none';
-      if (visible) fitViewport();
+      if (visible) layout.fitViewport();
     },
     copyGeometry(other) {
       for (const property of ['left', 'top', 'width', 'height'])
@@ -265,14 +186,7 @@ export function createEditorWindow({
         height: panel.style.height,
       };
     },
-    offset() {
-      const x = panel.offsetLeft;
-      const y = panel.offsetTop;
-      position(x + 24, y + 24);
-      // Cascade inward when a window already touches the right or bottom edge.
-      if (panel.offsetLeft === x && panel.offsetTop === y) position(x - 24, y - 24);
-      rememberGeometry();
-    },
+    offset: layout.offset,
     refreshLinks() {
       if (unsupported) unsupported.querySelector('a').href = target.download;
       markdown?.refresh();
@@ -333,8 +247,7 @@ export function createEditorWindow({
       focus();
     },
     remove() {
-      rememberGeometry();
-      resizeObserver.disconnect();
+      layout.dispose();
       syntax?.dispose();
       markdown?.remove();
       panel.remove();

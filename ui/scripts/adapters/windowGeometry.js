@@ -1,3 +1,5 @@
+import { WINDOW_LAYOUT, WINDOW_GEOMETRY_PROPERTIES } from '../config/windowLayout.js';
+
 // Store layout only, never document content. Storage may be disabled by the browser.
 export function windowGeometry(projectId) {
   const key = `scratch-tab:window-geometry:${projectId}`;
@@ -5,15 +7,13 @@ export function windowGeometry(projectId) {
     read() {
       try {
         const value = JSON.parse(localStorage.getItem(key));
-        if (
-          !value ||
-          !['left', 'top', 'width', 'height'].every(name => Number.isFinite(value[name]))
-        )
+        if (!value || !WINDOW_GEOMETRY_PROPERTIES.every(name => Number.isFinite(value[name])))
           return null;
-        if (value.width < 280 || value.height < 180) return null;
+        if (value.width < WINDOW_LAYOUT.minimumWidth || value.height < WINDOW_LAYOUT.minimumHeight)
+          return null;
         return Object.fromEntries(
           Object.entries(value)
-            .filter(([name]) => ['left', 'top', 'width', 'height'].includes(name))
+            .filter(([name]) => WINDOW_GEOMETRY_PROPERTIES.includes(name))
             .map(([name, number]) => [name, `${number}px`]),
         );
       } catch {
