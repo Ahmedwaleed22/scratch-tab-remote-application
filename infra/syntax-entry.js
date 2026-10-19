@@ -15,20 +15,66 @@ import java from 'highlight.js/lib/languages/java';
 import cpp from 'highlight.js/lib/languages/cpp';
 import php from 'highlight.js/lib/languages/php';
 
-for (const [name, grammar] of Object.entries({javascript, typescript, python, go, json, bash, xml, css, markdown, yaml, sql, rust, java, cpp, php})) hljs.registerLanguage(name, grammar);
-const extensions = new Map(Object.entries({
-  js:'javascript', jsx:'javascript', mjs:'javascript', cjs:'javascript',
-  ts:'typescript', tsx:'typescript', mts:'typescript', cts:'typescript',
-  py:'python', pyw:'python', go:'go', json:'json', sh:'bash', bash:'bash', zsh:'bash',
-  html:'xml', htm:'xml', xml:'xml', css:'css', md:'markdown', markdown:'markdown',
-  yaml:'yaml', yml:'yaml', sql:'sql', rs:'rust', java:'java',
-  c:'cpp', h:'cpp', cc:'cpp', cpp:'cpp', cxx:'cpp', hpp:'cpp', php:'php',
-}));
+for (const [name, grammar] of Object.entries({
+  javascript,
+  typescript,
+  python,
+  go,
+  json,
+  bash,
+  xml,
+  css,
+  markdown,
+  yaml,
+  sql,
+  rust,
+  java,
+  cpp,
+  php,
+}))
+  hljs.registerLanguage(name, grammar);
+const extensions = new Map(
+  Object.entries({
+    js: 'javascript',
+    jsx: 'javascript',
+    mjs: 'javascript',
+    cjs: 'javascript',
+    ts: 'typescript',
+    tsx: 'typescript',
+    mts: 'typescript',
+    cts: 'typescript',
+    py: 'python',
+    pyw: 'python',
+    go: 'go',
+    json: 'json',
+    sh: 'bash',
+    bash: 'bash',
+    zsh: 'bash',
+    html: 'xml',
+    htm: 'xml',
+    xml: 'xml',
+    css: 'css',
+    md: 'markdown',
+    markdown: 'markdown',
+    yaml: 'yaml',
+    yml: 'yaml',
+    sql: 'sql',
+    rs: 'rust',
+    java: 'java',
+    c: 'cpp',
+    h: 'cpp',
+    cc: 'cpp',
+    cpp: 'cpp',
+    cxx: 'cpp',
+    hpp: 'cpp',
+    php: 'php',
+  }),
+);
 export function languageFor(name) {
   const filename = name.split('/').pop().toLowerCase();
   if (!filename.includes('.')) return null;
   return extensions.get(filename.split('.').pop()) || null;
 }
 export function highlightCode(text, language) {
-  return hljs.highlight(text, { language, ignoreIllegals:true }).value;
+  return hljs.highlight(text, { language, ignoreIllegals: true }).value;
 }

@@ -41,6 +41,7 @@ The container command supports Go 1.24.7 and later. Keep its Linux `renameat` op
 
 ```sh
 npm ci
+npm run format:check
 npm run build:syntax
 npx playwright install chromium
 node --test infra/test.mjs
@@ -49,6 +50,8 @@ GO111MODULE=off go vet ./backend/container
 python3 -B infra/test_package.py
 python3 -B infra/test_backend.py --remote-root /path/to/remote.futrx
 ```
+
+Use `npm run format` to format handwritten browser JavaScript, CSS, build scripts, and browser tests. `npm run format:check` verifies the same files locally and in CI. The generated vendor bundle is excluded from formatting.
 
 The checked-in `ui/scripts/vendor/syntax.js` bundle is built from `infra/syntax-entry.js` with pinned Highlight.js and esbuild versions in `package-lock.json`. Rebuild it with `npm run build:syntax` when changing grammars. CI rebuilds and checks the generated bundle for drift. The ZIP includes the Highlight.js BSD license. No CDN is used. `views/syntax.js` paints behind the native textarea; it owns highlighting and scroll/resize synchronization, while the textarea continues to own input, undo, selection, and accessibility.
 

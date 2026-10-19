@@ -4,7 +4,9 @@ export function createUpdates(backend, projectId, signal) {
     const response = await fetch(url, { credentials: 'same-origin', ...options });
     if (!response.ok) {
       if (response.status === 403) throw new Error('Only administrators can update Scratch Tab.');
-      throw new Error(`Remote returned HTTP ${response.status}. Check Applications before retrying.`);
+      throw new Error(
+        `Remote returned HTTP ${response.status}. Check Applications before retrying.`,
+      );
     }
     return response.json();
   }
@@ -12,7 +14,12 @@ export function createUpdates(backend, projectId, signal) {
     latest: () => backend.call('updates', { projectId, signal }),
     packages: () => request('/api/applications/packages', { signal }),
     async install(version, beforeUpload) {
-      const response = await backend.fetch('updates/archive', { projectId, method: 'POST', body: { version }, signal });
+      const response = await backend.fetch('updates/archive', {
+        projectId,
+        method: 'POST',
+        body: { version },
+        signal,
+      });
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Could not download the verified release ZIP.');

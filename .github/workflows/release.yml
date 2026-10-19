@@ -87,6 +87,7 @@ jobs:
       - name: Test editor in Chromium
         run: |
           npm ci
+          npm run format:check
           npm run build:syntax
           git diff --exit-code -- ui/scripts/vendor
           npx playwright install --with-deps chromium

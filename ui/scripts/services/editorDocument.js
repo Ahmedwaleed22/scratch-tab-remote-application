@@ -20,11 +20,19 @@ export class EditorDocument {
     this.#files = files;
   }
 
-  get text() { return this.#text; }
-  get dirty() { return this.#loaded && this.#text !== this.#baseline; }
-  get canSave() { return this.#loaded && !this.#saving && this.dirty; }
+  get text() {
+    return this.#text;
+  }
+  get dirty() {
+    return this.#loaded && this.#text !== this.#baseline;
+  }
+  get canSave() {
+    return this.#loaded && !this.#saving && this.dirty;
+  }
 
-  read() { return this.#files.read(this.#path); }
+  read() {
+    return this.#files.read(this.#path);
+  }
 
   load(result, normalizedText) {
     this.#crlf = result.content.includes('\r\n');
@@ -41,7 +49,9 @@ export class EditorDocument {
     return Boolean(draft);
   }
 
-  edit(text) { this.#text = text; }
+  edit(text) {
+    this.#text = text;
+  }
 
   remember() {
     if (!this.#loaded) return;
@@ -55,7 +65,9 @@ export class EditorDocument {
     } else this.discardDraft();
   }
 
-  discardDraft() { this.#drafts.delete(this.#draftKey); }
+  discardDraft() {
+    this.#drafts.delete(this.#draftKey);
+  }
 
   beginSave() {
     if (!this.canSave) return { kind: 'idle' };
@@ -73,5 +85,7 @@ export class EditorDocument {
     this.remember();
   }
 
-  finishSave() { this.#saving = false; }
+  finishSave() {
+    this.#saving = false;
+  }
 }
