@@ -79,3 +79,48 @@ export function mountUpdates(host, { remote, projectId, drafts, reload = () => l
   const interval = setInterval(() => void checkRelease(), CHECK_INTERVAL_MS);
   return () => { lifetime.abort(); clearInterval(interval); section.remove(); };
 }
+
+// Chat slots use the platform's icon sizing and own the notice's lifetime.
+export function mountUpdateNotice({ remote, projectId, drafts, checks }) {
+  const lifetime = new AbortController();
+  const api = createUpdates(remote.backend, projectId, lifetime.signal);
+  const intervalMs = 60 * 60 * 1000;
+  let disposeButton, popup, busy = false;
+  function show(version) {
+    disposeButton?.();
+    disposeButton = undefined;
+    if (!isNewer(version, remote.application.version)) return;
+    disposeButton = remote.ui.addIconButton(remote.slots.chatHeaderActions, {
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m-4 4 4-4 4 4M4 15v5h16v-5"/><circle cx="20" cy="4" r="3" fill="currentColor" stroke="none"/></svg>',
+      label: `Scratch Tab update available: v${version}`,
+      title: `Scratch Tab v${version} is available. Click to update.`,
+      when: context => context.projectId === projectId && Boolean(context.chatId),
+      onClick: () => {
+        popup?.close();
+        popup = remote.ui.openPopup({
+          title: 'Scratch Tab updates', width: 420,
+          mount: body => mountUpdates(body, { remote, projectId, drafts }),
+        });
+      },
+    });
+  }
+  async function check() {
+    if (busy || lifetime.signal.aborted) return;
+    const cached = checks.get(projectId);
+    if (cached && Date.now() - cached.checkedAt < intervalMs) { show(cached.version); return; }
+    busy = true;
+    try {
+      await api.packages();
+      const latest = await api.latest();
+      if (lifetime.signal.aborted) return;
+      checks.set(projectId, { version: latest.version, checkedAt: Date.now() });
+      show(latest.version);
+    } catch {
+      // Background failures stay quiet; the app-card updater exposes retry errors.
+      if (!lifetime.signal.aborted) { checks.delete(projectId); disposeButton?.(); disposeButton = undefined; }
+    } finally { busy = false; }
+  }
+  void check();
+  const interval = setInterval(() => void check(), intervalMs);
+  return () => { lifetime.abort(); clearInterval(interval); disposeButton?.(); popup?.close(); };
+}

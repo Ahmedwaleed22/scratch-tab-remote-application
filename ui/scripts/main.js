@@ -1,11 +1,12 @@
 import { mountChat } from './app/chat.js';
-import { mountUpdates } from './views/updates.js';
+import { mountUpdates, mountUpdateNotice } from './views/updates.js';
 import { createFiles } from './api/files.js';
 import { createButton } from './views/button.js';
 
 const drafts = new Map();
 
 export default function activate(remote) {
+  const updateChecks = new Map();
   remote.ui.register(remote.slots.applicationCardActions, (host, context) => {
     if (!context.projectId || context.instance?.applicationId !== remote.application.id) return;
     const lifetime = new AbortController();
@@ -38,6 +39,7 @@ export default function activate(remote) {
       files: createFiles(remote.backend, context.projectId),
       launchIde: target => target.openIde ? target.openIde() : window.open(target.ide, '_blank', 'noopener,noreferrer'),
     });
-    return () => session?.suspend();
+    const disposeNotice = mountUpdateNotice({ remote, projectId: context.projectId, drafts, checks: updateChecks });
+    return () => { disposeNotice(); session?.suspend(); };
   });
 }
