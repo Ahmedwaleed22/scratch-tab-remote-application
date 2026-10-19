@@ -6,11 +6,14 @@
     "build:syntax": "node infra/build-syntax.mjs",
     "test": "node --test infra/test.mjs",
     "format": "prettier --write \"ui/scripts/**/*.js\" \"ui/style/**/*.css\" \"infra/*.js\" \"infra/*.mjs\"",
-    "format:check": "prettier --check \"ui/scripts/**/*.js\" \"ui/style/**/*.css\" \"infra/*.js\" \"infra/*.mjs\""
+    "format:check": "prettier --check \"ui/scripts/**/*.js\" \"ui/style/**/*.css\" \"infra/*.js\" \"infra/*.mjs\"",
+    "prepare": "husky"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
     "highlight.js": "11.12.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
     "playwright": "1.62.1",
     "prettier": "3.9.10"
   }
