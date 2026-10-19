@@ -1,3 +1,4 @@
+import { windowGeometry } from '../adapters/windowGeometry.js';
 import { FIRST_WINDOW_LAYER } from '../config/editor.js';
 import { captureFileOpenings } from '../adapters/fileOpenings.js';
 import { openChooser } from '../views/chooser.js';
@@ -89,7 +90,7 @@ export function mountChat({ context, drafts, files, launchIde }) {
         item.view = createEditorWindow({
           target,
           index: windows.size,
-          projectId: context.projectId,
+          layoutPersistence: windowGeometry(context.projectId),
           button,
           nextLayer,
           ...handlers,

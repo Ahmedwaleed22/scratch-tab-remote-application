@@ -459,6 +459,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
     });
     await page.evaluate(async () => {
       const { createEditorWindow } = await import('/views/editorWindow.js');
+      const { windowGeometry } = await import('/adapters/windowGeometry.js');
       const { createButton } = await import('/views/button.js');
       window.lifetime = new AbortController();
       window.saved = '';
@@ -466,6 +467,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
       window.view = createEditorWindow({
         target: { name: 'a-very-long-file-name-in-a-deep-folder.md', path: '/workspace/README.md' },
         index: 5,
+        layoutPersistence: windowGeometry(undefined),
         signal: window.lifetime.signal,
         button: (text, action, parent) =>
           createButton(text, action, parent, window.lifetime.signal),
@@ -742,6 +744,7 @@ test('unsupported Word and binary files offer a download instead of an empty edi
     await page.evaluate(async () => {
       const { mountEditor } = await import('/presenters/editor.js');
       const { createEditorWindow } = await import('/views/editorWindow.js');
+      const { windowGeometry } = await import('/adapters/windowGeometry.js');
       const { createButton } = await import('/views/button.js');
       window.reads = 0;
       window.showFile = (name, error) => {
@@ -768,6 +771,7 @@ test('unsupported Word and binary files offer a download instead of an empty edi
             createEditorWindow({
               target,
               index: 0,
+              layoutPersistence: windowGeometry(undefined),
               nextLayer: () => 201,
               button: (label, action, parent) =>
                 createButton(label, action, parent, handlers.signal),
@@ -1809,7 +1813,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
 });
 
 test('window geometry is project-scoped and tolerates invalid or unavailable storage', async () => {
-  const { windowGeometry } = await import('../ui/scripts/services/windowGeometry.js');
+  const { windowGeometry } = await import('../ui/scripts/adapters/windowGeometry.js');
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const values = new Map();
   try {
