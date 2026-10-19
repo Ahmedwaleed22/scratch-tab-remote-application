@@ -40,7 +40,8 @@ The container command supports Go 1.24.7 and later. Keep its Linux `renameat` op
 ## Checks
 
 ```sh
-npm install --no-save --package-lock=false playwright@1.62.1
+npm ci
+npm run build:syntax
 npx playwright install chromium
 node --test infra/test.mjs
 GO111MODULE=off go test ./backend/container
@@ -48,6 +49,8 @@ GO111MODULE=off go vet ./backend/container
 python3 -B infra/test_package.py
 python3 -B infra/test_backend.py --remote-root /path/to/remote.futrx
 ```
+
+The checked-in `ui/scripts/vendor/syntax.js` bundle is built from `infra/syntax-entry.js` with pinned Highlight.js and esbuild versions in `package-lock.json`. Rebuild it with `npm run build:syntax` when changing grammars. CI rebuilds and checks the generated bundle for drift. The ZIP includes the Highlight.js BSD license. No CDN is used. `views/syntax.js` paints behind the native textarea; it owns highlighting and scroll/resize synchronization, while the textarea continues to own input, undo, selection, and accessibility.
 
 Set `PLAYWRIGHT_BROWSERS_PATH` when using an existing Chromium cache. The browser fixture exercises links, file-manager click/keyboard activation, both editor choices, text editing, save errors, in-flight edits, CRLF, drafts, close protection and disposal. It serves the actual module graph, with Remote and LXD replaced at their boundaries. The backend script validates the catalog, compiles through Remote's generated-module builder, and tests/vets the host packages using the checkout's required Go version.
 

@@ -1,3 +1,5 @@
+import { createSyntaxSurface } from './syntax.js';
+
 export function createEditorWindow({ target, index, button, signal, nextLayer, onClose, onSave, onOpenIde, onEdit, onActivate, onSeparate, onStateChange }) {
   const panel = document.createElement('section');
   panel.className = 'scratch-tab-window';
@@ -36,6 +38,7 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   content.readOnly = true;
   content.spellcheck = false;
   content.setAttribute('aria-label', `${target.name} file content`);
+  const syntax = createSyntaxSurface(content, target.name, signal);
   const status = document.createElement('footer');
   status.textContent = 'Loading…';
   status.setAttribute('role', 'status');
@@ -49,7 +52,7 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   tabBar.append(tabs);
   const separate = button('Separate window', () => onSeparate?.(), tabBar);
   separate.className = 'scratch-tab-separate';
-  panel.append(header, tabBar, content, status);
+  panel.append(header, tabBar, syntax.element, status);
   document.body.append(panel);
 
   const compact = matchMedia('(max-width: 600px), (pointer: coarse) and (max-height: 500px)');
@@ -146,7 +149,7 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
     offset() { position(panel.offsetLeft + 24, panel.offsetTop + 24); },
     refreshLinks() { if (unsupported) unsupported.querySelector('a').href = target.download; },
     get text() { return content.value; },
-    setText(text) { content.value = text; },
+    setText(text) { content.value = text; syntax.refresh(); },
     allowEditing() { content.readOnly = false; },
     showUnsupported() {
       if (!unsupported) {
@@ -164,7 +167,8 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
         download.textContent = 'Download file';
         message.append(heading, description);
         unsupported.append(message, download);
-        content.replaceWith(unsupported);
+        syntax.dispose();
+        syntax.element.replaceWith(unsupported);
         actions.hidden = true;
         actions.style.display = 'none';
         status.hidden = true;
@@ -180,6 +184,6 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
     setError(failed) { status.className = failed ? 'scratch-tab-error' : ''; },
     focus,
     restore() { onActivate?.(); panel.style.zIndex = String(nextLayer()); focus(); },
-    remove() { panel.remove(); },
+    remove() { syntax.dispose(); panel.remove(); },
   };
 }
