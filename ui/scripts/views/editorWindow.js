@@ -12,8 +12,8 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
   controls.className = 'scratch-tab-controls';
   header.append(controls);
   const red = button('', onClose, controls);
-  red.setAttribute('aria-label', 'Close file');
-  red.title = 'Close file';
+  red.setAttribute('aria-label', 'Close window');
+  red.title = 'Close window';
   const title = document.createElement('strong');
   title.textContent = target.name;
   title.title = target.path;
@@ -92,12 +92,15 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
 
   return {
     setTabs(entries, activePath) {
-      // Keep single-file windows as compact as before.
-      tabBar.hidden = entries.length < 2;
-      const focused = tabs.contains(document.activeElement) ? document.activeElement.dataset.path : null;
+      tabBar.hidden = false;
+      separate.disabled = entries.length < 2;
+      const focused = tabs.contains(document.activeElement) ? { path: document.activeElement.dataset.path, close: document.activeElement.classList.contains('scratch-tab-tab-close') } : null;
       const scroll = tabs.scrollLeft;
       tabs.replaceChildren();
       for (const [index, entry] of entries.entries()) {
+        const entryHost = document.createElement('div');
+        entryHost.className = 'scratch-tab-tab';
+        entryHost.setAttribute('role', 'presentation');
         const tab = document.createElement('button');
         tab.type = 'button';
         tab.textContent = `${entry.dirty ? '● ' : ''}${entry.name}`;
@@ -115,10 +118,20 @@ export function createEditorWindow({ target, index, button, signal, nextLayer, o
           event.preventDefault();
           entries[next].select();
         });
-        tabs.append(tab);
+        entryHost.append(tab);
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'scratch-tab-tab-close';
+        close.textContent = '×';
+        close.dataset.path = entry.path;
+        close.setAttribute('aria-label', `Close tab ${entry.name}`);
+        close.title = `Close tab ${entry.name}`;
+        close.addEventListener('click', entry.close);
+        entryHost.append(close);
+        tabs.append(entryHost);
       }
       tabs.scrollLeft = scroll;
-      if (focused) [...tabs.children].find(tab => tab.dataset.path === focused)?.focus({ preventScroll: true });
+      if (focused) [...tabs.querySelectorAll('button')].find(tab => tab.dataset.path === focused.path && tab.classList.contains('scratch-tab-tab-close') === focused.close)?.focus({ preventScroll: true });
     },
     focusTab() {
       const selected = tabs.querySelector('[aria-selected="true"]');

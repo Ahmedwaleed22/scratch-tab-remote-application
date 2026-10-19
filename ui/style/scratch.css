@@ -56,7 +56,10 @@
 .scratch-tab-tabbar[hidden] { display:none; }
 .scratch-tab-tabs { display:flex; flex:1; min-width:0; overflow-x:auto; }
 .scratch-tab-tabbar button { min-height:30px; padding:5px 8px; border:0; border-radius:0; background:transparent; color:inherit; font:12px system-ui; cursor:pointer; white-space:nowrap; }
-.scratch-tab-tabs button { max-width:180px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; border-bottom:2px solid transparent; }
+.scratch-tab-tab { display:flex; flex-shrink:0; min-width:0; }
+.scratch-tab-tabs button[role="tab"] { max-width:180px; overflow:hidden; text-overflow:ellipsis; border-bottom:2px solid transparent; }
+.scratch-tab-tabs .scratch-tab-tab-close { flex-shrink:0; width:30px; padding:0; font-size:18px; }
+.scratch-tab-tabs .scratch-tab-tab-close:hover { background:rgb(var(--accent-blue, 45 100 215) / .1); }
 .scratch-tab-tabs button[aria-selected="true"] { color:rgb(var(--accent-blue, 45 100 215)); background:rgb(var(--accent-blue, 45 100 215) / .1); border-bottom-color:currentColor; }
 .scratch-tab-separate { flex-shrink:0; border-left:1px solid var(--line, #bbb) !important; }
-@media(max-width:600px), (pointer:coarse) { .scratch-tab-tabbar button { min-height:44px; } }
+@media(max-width:600px), (pointer:coarse) { .scratch-tab-tabbar button { min-height:44px; } .scratch-tab-tabs .scratch-tab-tab-close { width:44px; } }
