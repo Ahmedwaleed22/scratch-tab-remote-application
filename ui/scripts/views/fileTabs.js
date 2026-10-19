@@ -9,6 +9,7 @@ export function createFileTabs({ button, onSeparate }) {
   tabBar.append(tabs);
   const separate = button('Separate window', () => onSeparate?.(), tabBar);
   separate.className = 'scratch-tab-separate';
+
   return {
     element: tabBar,
     setTabs(entries, activePath) {
@@ -36,17 +37,23 @@ export function createFileTabs({ button, onSeparate }) {
         tab.tabIndex = entry.path === activePath ? 0 : -1;
         tab.addEventListener('click', entry.select);
         tab.addEventListener('keydown', event => {
-          const next =
-            event.key === 'ArrowRight'
-              ? (index + 1) % entries.length
-              : event.key === 'ArrowLeft'
-                ? (index + entries.length - 1) % entries.length
-                : event.key === 'Home'
-                  ? 0
-                  : event.key === 'End'
-                    ? entries.length - 1
-                    : null;
-          if (next === null) return;
+          let next;
+          switch (event.key) {
+            case 'ArrowRight':
+              next = (index + 1) % entries.length;
+              break;
+            case 'ArrowLeft':
+              next = (index + entries.length - 1) % entries.length;
+              break;
+            case 'Home':
+              next = 0;
+              break;
+            case 'End':
+              next = entries.length - 1;
+              break;
+            default:
+              return;
+          }
           event.preventDefault();
           entries[next].select();
         });
