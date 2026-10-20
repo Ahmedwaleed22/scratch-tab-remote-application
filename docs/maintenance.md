@@ -8,17 +8,24 @@ The browser, host backend, and container command are independently built deploym
 
 ### Browser extension
 
-- `ui/scripts/main.js` composes the Remote slot, project-scoped file API, draft lifetime, and chat session.
-- `app/chat.js` owns the open-window collection, stacking order, chooser lifecycle, and dependency composition for the current project.
-- `links.js` parses the supported editor links without touching the DOM.
-- `adapters/fileOpenings.js` translates chat links and file-manager rows into file-open intent. It owns capture listeners and the guard around Remote's original row action.
-- `api/files.js` owns the `file` request shapes and project target selection. Remote supplies the transport and error parsing.
-- `services/editorDocument.js` owns document text, baseline, revision, CRLF handling, draft snapshots and save transitions. It has no DOM or Remote imports.
-- `presenters/editor.js` connects document intent/state to the view and owns load, save and close feedback and browser-leave handling.
-- `views/` owns DOM rendering, keyboard/pointer interactions, focus, geometry, and accessible labels. Views receive intent callbacks and render-ready state.
-- `config/editor.js` contains the browser's public file-size limit, initial stacking layer, and media/archive catalog.
+- `dev/frontend/src/index.tsx` exports the Remote activation entry from `dev/frontend/src/App.tsx`.
+- `dev/frontend/src/App.tsx` composes Remote slots, the project-scoped API, draft lifetime, and chat session. Desktop and mobile toolbar slots are mounted together, so their owners share one project update notice and global icon registration. Releasing one slot keeps the notice alive until the last owner leaves; stale project cleanup cannot dispose the current notice.
+- `dev/frontend/src/app/chat.ts` owns the window collection, stacking order, direct file opening, tab groups, and current project composition.
+- `dev/frontend/src/pages/Editor.tsx` calls `useEditorWindow`, which composes `useEditor`, and renders `dev/frontend/src/components/EditorWindow.tsx`. `dev/frontend/src/pages/Updates.tsx` calls `useUpdates`. Components reach file and update workflows through custom hooks, then services, then APIs.
+- `dev/frontend/src/hooks/useEditor.ts` starts reading on mount, subscribes to document feedback, exposes edit/save/close actions, updates the uncontrolled textarea only after a load, and owns browser-leave handling. It unsubscribes on unmount. Window/tab changes keep that hook mounted and do not reread the file.
+- `dev/frontend/src/hooks/useEditorWindow.ts` owns DOM refs, layout binding, focus, preview state and the narrow imperative window handle used by chat composition. `dev/frontend/src/hooks/useSyntaxHighlight.ts` owns painting, resize observation and scroll synchronization. Hook cleanup releases observers, animation frames and subscriptions.
+- `dev/frontend/src/hooks/useUpdates.ts` owns popup subscriptions and polling; `dev/frontend/src/hooks/useUpdateNotice.ts` owns background polling. They invoke injected services and clear timers on unmount.
+- `dev/frontend/src/services/editorSession.ts` owns read/save workflows, unsupported-file decisions, draft restoration and close policy. `dev/frontend/src/services/editorDocument.ts` remains the sole owner of document text, revisions, CRLF handling and save transitions. Both are independent of Preact and the DOM.
+- `dev/frontend/src/state/editor.ts` owns document feedback and derives dirty/save state from the document model. `dev/frontend/src/state/updates.ts` owns updater snapshots and installation ownership. Hooks subscribe without mirroring these values into another state owner.
+- `dev/frontend/src/services/updates.ts` owns release checks, draft protection, installation sequencing and refresh decisions through injected dependencies. `dev/frontend/src/services/updateNotice.ts` owns background release eligibility and cache policy.
+- `dev/frontend/src/app/editor.tsx`, `dev/frontend/src/app/updates.tsx` and `dev/frontend/src/app/updateNotice.tsx` construct services, state and APIs and mount their components. They own the Remote contribution and root lifetime, while hooks own component effects.
+- Supported file-open intent goes directly to Scratch Tab. `dev/frontend/src/links.ts` and `dev/frontend/src/adapters/fileOpenings.ts` parse and capture file-open intent.
+- `dev/frontend/src/api/` owns the file and update request shapes; Remote supplies the backend transport. `dev/frontend/src/presenters/windowLayout.ts` retains layout mechanics and `dev/frontend/src/adapters/windowGeometry.ts` persists project geometry.
+- `dev/frontend/src/config/` owns public limits, catalogs, layout values and polling intervals. `dev/frontend/src/types.ts` retains the consumed Remote API and existing file contracts. View snapshots and update DTOs live under `dev/frontend/src/model/`; service dependencies and the imperative window capability live under `dev/frontend/src/port/`.
 
-Draft memory remains module-scoped, as before, so switching chats or stopping the extension can retain drafts until the browser reloads. Reads are still allowed to finish after closing a window; the presenter suppresses their results. Save requests already in flight still finish. These behaviors are deliberately preserved rather than changed during a refactor.
+All handwritten browser code and the build script use TypeScript. Preact owns rendered DOM. The main flow is `component → custom hook → service → API`; composition constructs dependencies and components never call APIs directly. The textarea is uncontrolled and stays mounted during state updates and Markdown toggles to preserve native undo, selection and scroll. Geometry uses DOM refs because it measures and moves actual windows. Each Preact root is unmounted on disposal; syntax effects cancel animation frames and disconnect observers.
+
+Draft memory remains module-scoped, as before, so switching chats or stopping the extension can retain drafts until the browser reloads. Reads are still allowed to finish after closing a window; the document service suppresses their results after cancellation. Save requests already in flight still finish. These behaviors are deliberately preserved rather than changed during a refactor.
 
 ### Host backend
 
@@ -42,7 +49,8 @@ The container command supports Go 1.24.7 and later. Keep its Linux `renameat` op
 ```sh
 npm ci
 npm run format:check
-npm run build:syntax
+npm run typecheck
+npm run build
 npx playwright install chromium
 node --test infra/test.mjs
 GO111MODULE=off go test ./backend/container
@@ -51,15 +59,17 @@ python3 -B infra/test_package.py
 python3 -B infra/test_backend.py --remote-root /path/to/remote.futrx
 ```
 
-Run `npm ci` after cloning to install the shared Git hooks, then `npx playwright install chromium` for browser tests. The pre-commit hook runs lint-staged to format only staged handwritten JavaScript and CSS, then runs the browser tests. This keeps formatting inside the original signed commit, including when staging only part of a file. There is no TypeScript typecheck because this project uses JavaScript.
+Run `npm ci` after cloning to install the shared Git hooks, then `npx playwright install chromium` for browser tests. The pre-commit hook formats staged TypeScript, CSS and test files, then runs `npm test` (type checking, production build and browser tests). This keeps formatting inside the original signed commit, including when staging only part of a file.
 
 The Prettier workflow runs on every push and pull request: it formats the checkout and fails if that creates a diff. It has read-only repository permissions and never commits or pushes, so it cannot put local branches behind or create formatting-only merge conflicts. Fix failures locally with `npm run format` and include them in the next commit. Changes made by other people still require the usual fetch and merge/rebase.
 
-Use `npm run format` to format handwritten browser JavaScript, CSS, build scripts, and browser tests. `npm run format:check` verifies the same files locally and in CI. The generated vendor bundle is excluded from formatting.
+Use `npm run format` to format handwritten TypeScript, CSS, build scripts, and browser tests. `npm run format:check` verifies the same files locally and in CI. Generated JavaScript in `dist/` and temporary browser-test modules in `.test-build/` are excluded from formatting.
 
-The checked-in `ui/scripts/vendor/syntax.js` bundle is built from `infra/syntax-entry.js` with pinned Highlight.js and esbuild versions in `package-lock.json`. Rebuild it with `npm run build:syntax` when changing grammars. CI rebuilds and checks the generated bundle for drift. The ZIP includes the Highlight.js BSD license. No CDN is used. `config/syntax.js` owns the extension catalog and line-length limit. `presenters/syntax.js` owns language detection and the decision to highlight or display literal text. `views/syntax.js` only paints behind the native textarea and synchronizes scroll, size, and lifecycle. Plain-text files use the textarea directly. The textarea continues to own input, undo, selection, and accessibility.
+`infra/build.ts` uses esbuild to bundle `dev/frontend/src/index.tsx`, Preact, Highlight.js, Markdown-it and Mermaid into `dist/main.js`. No runtime CDN or bare package imports are needed. It also collects third-party notices in `dev/frontend/ui/licenses/THIRD-PARTY.txt`, including Preact's MIT license and Highlight.js's BSD license. `npm run typecheck` uses strict TypeScript without emitting files. Node.js 22.18 or later runs the build script with type stripping; esbuild compiles TSX with `jsxImportSource: preact`. Markdown-it ships its own types.
 
-Set `PLAYWRIGHT_BROWSERS_PATH` when using an existing Chromium cache. The browser fixture exercises links, file-manager click/keyboard activation, both editor choices, text editing, save errors, in-flight edits, CRLF, drafts, close protection and disposal. It serves the actual module graph, with Remote and LXD replaced at their boundaries. The backend script validates the catalog, compiles through Remote's generated-module builder, and tests/vets the host packages using the checkout's required Go version.
+`dev/frontend/src/config/syntax.ts` owns the extension catalog and line-length limit. `dev/frontend/src/presenters/syntax.ts` owns language detection and literal-text fallback. `dev/frontend/src/components/SyntaxSurface.tsx` renders the paint layer; `dev/frontend/src/hooks/useSyntaxHighlight.ts` paints behind the native textarea and synchronizes scroll and size. Plain-text files use the textarea directly.
+
+Set `PLAYWRIGHT_BROWSERS_PATH` when using an existing Chromium cache. The browser fixture exercises links, file-manager click/keyboard activation, direct opening and the default editor action, text editing, save errors, in-flight edits, CRLF, drafts, close protection and disposal. Activation scenarios serve the actual `dist/main.js` production bundle. Component scenarios compile TypeScript entry points into a temporary shared module graph under `.test-build/`, removed after testing. Remote and LXD are replaced at their boundaries. The backend script validates the catalog, compiles through Remote's generated-module builder, and tests/vets the host packages using the checkout's required Go version.
 
 CI runs container tests, vet and an installer-style build on Go 1.24.7 and 1.25, then browser/package checks. Live installation, actual LXD execution, project membership enforcement, and theme integration still need a Remote server.
 
@@ -68,16 +78,17 @@ CI runs container tests, vet and an installer-style build on Go 1.24.7 and 1.25,
 Only the owner manages versions and publishes packages. Set `application.json` to the intended version, run the checks, commit, and push a matching `vX.Y.Z` tag after its commit reaches main. The workflow builds a runtime-only ZIP and attaches it to a GitHub Release. Main-branch pushes run checks without publishing. A manual workflow dispatch accepts an existing tag for retries.
 
 ```sh
-python3 -B infra/package.py --tag v0.3.0 --output-dir dist
+npm run build
+python3 -B infra/package.py --tag v0.6.4 --output-dir /tmp/scratch-tab-package
 ```
 
-The packager includes runtime Go/JavaScript/CSS, the README, license, and README screenshots. It excludes tests, maintainer documentation, Git metadata, local artifacts and credentials. Package tests check that module imports and README images exist inside the ZIP. Source archives and this maintainer guide remain available in the repository.
+The packager maps `dist/main.js` to `ui/scripts/main.js` (the manifest entry) and includes runtime Go/CSS, README, licenses and README screenshots. It rejects packaging without a built JavaScript bundle and excludes TypeScript sources. It excludes tests, maintainer documentation, Git metadata, local artifacts and credentials. Package tests check that module imports and README images exist inside the ZIP. Source archives and this maintainer guide remain available in the repository.
 
 ## Existing integration constraints
 
 - The chat-header slot owns listeners but renders no launcher. Same-project context changes rebind its capture handlers without closing windows. Leaving the chat scope suspends the windows and unregisters handlers; sidebar scope removal disposes the session.
 - Supported links include active-chat `ide-open`, `code--<project>.<Remote host>` file links, and legacy Code Server payload links. The active chat cwd supplies the project slug for isolation.
-- File-manager integration depends on `#workspace-files-pane` rows with `role="button"` and a file download anchor. Choosing Code Server replays the original row action under the adapter's recursion guard. Other projects, media, archives, folders, download controls and modified clicks are excluded.
+- File-manager integration depends on `#workspace-files-pane` rows with `role="button"` and a file download anchor. The Open with default editor action replays the original row action under the adapter's recursion guard. Other projects, media, archives, folders, download controls and modified clicks are excluded.
 - Other editors do not share Scratch Tab's lock. A change between the final revision check and rename is still possible. The refactor preserves that existing limitation.
 - Saves preserve ownership and Unix permission bits, but replace the inode and do not retain ACLs, extended attributes or hard-link relationships. No backups or persistent undo history are added.
 - Upgrading an old UI-only 0.1.0 instance may require uninstalling and reinstalling in its project to attach the project container. Workspace files are retained.
@@ -117,19 +128,19 @@ The browser checks administrator access and the current package version, downloa
 
 The drafts map blocks installation before and after download and blocks refresh if edits appear during upload. Other tabs and other projects' editors cannot be inspected; the confirmation explicitly asks users to save them. Partial upgrades keep their errors visible and offer a manual refresh. Concurrent administrators can still race package uploads because Remote has no conditional replacement API. No core code changes or automatic rollback are included.
 
-Validation includes host release/ZIP tests, non-admin route denial, browser version comparison, draft blocking, download errors, multipart upload, partial failures, successful refresh, and slot disposal. Live package installation remains a server integration check.
+Validation includes host release/ZIP tests, non-admin route denial, browser version comparison, draft blocking, download errors, multipart upload, partial failures, successful refresh, and slot disposal. A focused browser characterization verifies that installation ownership is shared across popups and that a cancelled download releases ownership without uploading; it passes against both the pre-refactor and refactored implementations. Live package installation remains a server integration check.
 
 ## Tabbed windows
 
-`main.js` keeps a single active project session across keyed chat remounts. The persistent sidebar-header slot owns final cleanup, without rendering a launcher. Chat-slot cleanup suspends link capture, hides the windows and closes the chooser. The next chat render resumes the windows only for the same project; a different project disposes them. Sidebar scope removal (including stopping the extension) disposes the session. Context rebinding updates download/IDE links and removes callbacks to the old file-manager DOM. File reads, saves, tab membership and geometry stay intact.
+`dev/frontend/src/App.tsx` keeps a single active project session across keyed chat remounts. The persistent sidebar-header slot owns final cleanup, without rendering a launcher. Chat-slot cleanup suspends link capture, hides the windows. The next chat render resumes the windows only for the same project; a different project disposes them. Sidebar scope removal (including stopping the extension) disposes the session. Context rebinding updates download/IDE links and removes callbacks to the old file-manager DOM. File reads, saves, tab membership and geometry stay intact.
 
-New files join the active window's tab group. `app/chat.js` owns group membership, active-file selection, and splitting a tab into its own window. Each file retains its existing document model and presenter, so switching or separating files does not read them again, reset their revisions, or discard edits. Reopening the same path selects its existing tab. Closing the active file selects a remaining tab; dirty closes still require confirmation. Project-session disposal remembers all drafts and closes all groups.
+New files join the active window's tab group. `dev/frontend/src/app/chat.ts` owns group membership, active-file selection, and splitting a tab into its own window. Each file retains its existing document model, service and mounted hook, so switching or separating files does not read them again, reset their revisions, or discard edits. Reopening the same path selects its existing tab. Closing the active file selects a remaining tab; dirty closes still require confirmation. Project-session disposal remembers all drafts and closes all groups.
 
-`views/editorWindow.js` renders the tab strip, selected state, keyboard navigation and Separate window action. Inactive file panels are hidden; selected files inherit their group's current geometry. Separate windows can move and resize independently on desktop. On phones, each window still fits the visual viewport. Window groups and positions remain in memory across same-project chat changes, but are not restored after leaving the project or refreshing the browser.
+`dev/frontend/src/components/EditorWindow.tsx` and `dev/frontend/src/components/FileTabs.tsx` render the tab strip, selected state, keyboard navigation and Separate window action. Inactive file panels are hidden; selected files inherit their group's current geometry. Separate windows can move and resize independently on desktop. On phones, each window still fits the visual viewport. Window groups and positions remain in memory across same-project chat changes, but are not restored after leaving the project or refreshing the browser.
 
 
 ## Markdown preview
 
-`views/markdown.js` owns the per-file Preview/Source toggle. It hides the existing source surface rather than replacing the textarea, so switching views preserves edits, native undo, and document state. The preview renders the current textarea value on entry and when loaded text or chat resource URLs change. Saving from preview still uses the existing document presenter and source text.
+`dev/frontend/src/hooks/useEditorWindow.ts` owns per-file Preview/Source state and focus changes. Markdown starts in Preview; `dev/frontend/src/services/markdownPreference.ts` persists the last toggle choice under `scratch-tab:markdown-view` in localStorage for newly opened Markdown files. With blocked storage it remembers the choice in page memory. Plain-text and code files always start in Source. `dev/frontend/src/components/EditorWindow.tsx` renders the toggle and passes prepared HTML to `dev/frontend/src/components/MarkdownPreview.tsx`. It hides the existing source surface rather than replacing the textarea, so switching views preserves edits, native undo, and document state. The preview renders the current textarea value on entry and when loaded text or chat resource URLs change. Saving from preview uses `useEditor` and the document service with the same source text.
 
-`presenters/markdown.js` resolves relative links and images inside `/workspace` through the current chat's IDE/download URLs. External HTTP(S) links open separately with `noopener noreferrer`; images use a no-referrer policy. Other schemes and paths outside the workspace are omitted. `infra/markdown-entry.js` configures Markdown-it with embedded HTML disabled. `npm run build:syntax` builds both renderer bundles and copies their license notices. The preview includes standard Markdown and tables; raw HTML, Mermaid, and math rendering are not enabled.
+`dev/frontend/src/presenters/markdown.ts` resolves relative links and images inside `/workspace` through the current chat's IDE/download URLs. External HTTP(S) links open separately with `noopener noreferrer`; images use a no-referrer policy. Other schemes and paths outside the workspace are omitted. `dev/frontend/src/vendor/markdown.ts` configures Markdown-it with embedded HTML disabled. `npm run build` bundles both renderers with Preact and collects their license notices. The preview includes standard Markdown, tables and fenced `mermaid` diagrams. `useMermaidPreview` delegates rendering to `services/mermaid.ts`, serializes Mermaid operations, uses strict security, follows the Remote theme, ignores stale results and retains source with an error message for invalid diagrams. Raw HTML and standalone math rendering are not enabled. Mermaid increases the ZIP beyond the 512 KiB automatic update cap; these builds require manual upload.

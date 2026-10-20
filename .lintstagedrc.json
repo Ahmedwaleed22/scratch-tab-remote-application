@@ -1,5 +1,5 @@
 {
-  "ui/scripts/**/*.js": "prettier --write",
-  "ui/style/**/*.css": "prettier --write",
-  "infra/*.{js,mjs}": "prettier --write"
+  "dev/frontend/src/**/*.{ts,tsx}": "prettier --write",
+  "dev/frontend/ui/style/**/*.css": "prettier --write",
+  "infra/*.{ts,mjs}": "prettier --write"
 }

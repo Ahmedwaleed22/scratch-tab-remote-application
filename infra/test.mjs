@@ -1,8 +1,36 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
+import { build } from 'esbuild';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir, rm } from 'node:fs/promises';
 import { chromium } from 'playwright';
-const { fileTarget } = await import(new URL('../ui/scripts/links.js', import.meta.url));
+const fixtureRoot = new URL('../.test-build/', import.meta.url);
+await rm(fixtureRoot, { recursive: true, force: true });
+const sourceFiles = await readdir(new URL('../dev/frontend/src/', import.meta.url), {
+  recursive: true,
+});
+await build({
+  entryPoints: sourceFiles
+    .filter(name => /\.tsx?$/.test(name) && name !== 'types.ts')
+    .map(name => 'dev/frontend/src/' + name),
+  outbase: 'dev/frontend/src',
+  outdir: '.test-build',
+  bundle: true,
+  splitting: true,
+  format: 'esm',
+  platform: 'browser',
+  target: 'es2022',
+  chunkNames: 'chunks/[name]-[hash]',
+});
+after(() => rm(fixtureRoot, { recursive: true, force: true }));
+async function runtimeModule(path) {
+  return readFile(
+    path === '/main.js'
+      ? new URL('../dist/main.js', import.meta.url)
+      : new URL(path.slice(1), fixtureRoot),
+    'utf8',
+  );
+}
+const { fileTarget } = await import(new URL('links.js', fixtureRoot));
 test('matches current chat workspace links and preserves IDE line reference', () => {
   const target = fileTarget(
     '/api/chats/a/ide-open?path=%2Fworkspace%2Fnote.txt%3A3',
@@ -71,7 +99,7 @@ test('supports legacy Code Server payloads and current-project host paths', () =
   url.searchParams.set('payload', '{bad');
   assert.equal(fileTarget(url.href, origin, 'a', cwd), null);
 });
-test('browser choice, content, controls, modified clicks and disposal', async () => {
+test('direct file opening, content, controls, modified clicks and disposal', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage({
@@ -82,7 +110,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       if (path.endsWith('/files/download'))
         return route.fulfill({ body: 'A small file\n<script>safe</script>' });
@@ -97,7 +125,10 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
       content: `:root { --bg-surface-rgb:${dark ? '20 21 25' : '244 245 248'}; --bg-raised-rgb:${dark ? '27 28 33' : '255 255 255'}; --fg:${dark ? '227 227 231' : '31 36 44'}; --accent-blue:${dark ? '138 180 255' : '47 111 235'}; --line:${dark ? 'rgba(255,255,255,.07)' : 'rgba(15,20,28,.1)'}; } body { background:${dark ? '#101114' : '#fff'}; color:rgb(var(--fg)); font:13px system-ui; } a {color:rgb(var(--accent-blue));}`,
     });
     await page.addStyleTag({
-      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
     });
     await page.evaluate(async () => {
       const { default: activate } = await import('/main.js');
@@ -141,13 +172,6 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
               window.ownerCleanup();
             };
           },
-          openPopup(options) {
-            const body = document.createElement('div');
-            body.id = 'chooser';
-            document.body.append(body);
-            options.mount?.(body);
-            return { close: () => body.remove() };
-          },
         },
       };
       window.mount = () => activate(remote);
@@ -155,30 +179,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
     });
     assert.equal(await page.locator('#host button').count(), 0);
     await page.getByText('notes', { exact: true }).click();
-    const choices = page.locator('.scratch-tab-choice');
-    assert.equal(await choices.getByRole('button').count(), 2);
-    const left = await choices
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .boundingBox();
-    const right = await choices
-      .getByRole('button', { name: 'Code Server', exact: true })
-      .boundingBox();
-    assert.equal(left.y, right.y);
-    assert.ok(right.x > left.x);
-    await choices.getByRole('button', { name: 'Scratch Tab', exact: true }).press('ArrowRight');
-    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Code Server');
-    await choices.getByRole('button', { name: 'Scratch Tab', exact: true }).press('Escape');
-    assert.equal(await choices.count(), 0);
-    await page.getByText('notes', { exact: true }).click();
-    await page.mouse.click(Number(process.env.SCRATCH_TAB_WIDTH || 1280) - 8, 700);
-    assert.equal(await choices.count(), 0);
-    await page.getByText('notes', { exact: true }).click();
-    if (process.env.SCRATCH_TAB_SCREENSHOTS)
-      await page.screenshot({ path: process.env.SCRATCH_TAB_SCREENSHOTS + '-chooser.png' });
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .click();
+    assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
     await page.waitForFunction(() =>
       document.querySelector('textarea')?.value.includes('A small file'),
     );
@@ -217,7 +218,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
     );
     assert.equal(
       await page
-        .getByRole('button', { name: 'Open in Code Server', exact: true })
+        .getByRole('button', { name: 'Open with default editor', exact: true })
         .evaluate(node => !!node.closest('header')),
       true,
     );
@@ -258,11 +259,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
     await page.getByRole('button', { name: 'Close window' }).click();
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     await page.getByText('notes', { exact: true }).click();
-    assert.equal(await page.locator('.scratch-tab-choice').count(), 1);
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .click();
+    assert.equal(await page.locator('.scratch-tab-window').count(), 1);
     await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
     await page.locator('textarea').fill('Draft survives chat change');
     await page.evaluate(() => window.dispose());
@@ -281,10 +278,6 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
       window.mount();
     });
     await page.getByText('notes', { exact: true }).click();
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .click();
     await page.waitForFunction(
       () => document.querySelector('textarea')?.value === 'Draft survives chat change',
     );
@@ -295,10 +288,6 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
       window.disk = '';
     });
     await page.getByText('notes', { exact: true }).click();
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .click();
     await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
     assert.equal(await page.locator('textarea').inputValue(), '');
     await page.locator('textarea').fill('Write an empty file');
@@ -309,10 +298,6 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
       window.disk = 'one\r\ntwo\r\n';
     });
     await page.getByText('notes', { exact: true }).click();
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .click();
     await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
     assert.equal(await page.locator('textarea').inputValue(), 'one\ntwo\n');
     await page.locator('textarea').fill('changed\n');
@@ -344,21 +329,15 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
       };
     });
     await page.getByText('notes', { exact: true }).click();
-    assert.equal(await page.locator('.scratch-tab-choice').count(), 1);
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .click();
+    assert.equal(await page.locator('.scratch-tab-window').count(), 1);
     await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
     assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'README.md');
-    await page.getByRole('button', { name: 'Open in Code Server' }).click();
+    await page.getByRole('button', { name: 'Open with default editor' }).click();
     assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.getByText('notes', { exact: true }).click();
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Code Server', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Open with default editor' }).click();
+    await page.getByRole('button', { name: 'Close window', exact: true }).click();
     assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
     await page.evaluate(() => {
       const pane = document.createElement('aside');
@@ -394,29 +373,20 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
     });
     await page.locator('#manager-file span').click();
     assert.equal(await page.evaluate(() => window.originalOpens), 0);
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .click();
     await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
     assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'guide.md');
     assert.equal(await page.evaluate(() => window.lastFilePath), '/workspace/docs/guide.md');
-    await page.getByRole('button', { name: 'Open in Code Server' }).click();
+    await page.getByRole('button', { name: 'Open with default editor' }).click();
     assert.equal(await page.evaluate(() => window.originalOpens), 1);
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.locator('#manager-file').focus();
     await page.locator('#manager-file').press('Enter');
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Code Server', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Open with default editor' }).click();
+    await page.getByRole('button', { name: 'Close window', exact: true }).click();
     assert.equal(await page.evaluate(() => window.originalOpens), 2);
     await page.locator('#manager-file').focus();
     await page.locator('#manager-file').press('Space');
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .press('Escape');
+    await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.locator('#manager-file a').click();
     assert.equal(await page.evaluate(() => window.downloads), 1);
     await page.locator('#manager-folder span').click();
@@ -425,7 +395,7 @@ test('browser choice, content, controls, modified clicks and disposal', async ()
     assert.equal(await page.evaluate(() => window.mediaOpens), 1);
     assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
     await page.getByText('notes', { exact: true }).click();
-    assert.equal(await page.locator('.scratch-tab-choice').count(), 1);
+    assert.equal(await page.locator('.scratch-tab-window').count(), 1);
     await page.evaluate(() => window.dispose());
     assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
   } finally {
@@ -446,7 +416,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       return route.fulfill({
         contentType: 'text/html',
@@ -455,39 +425,40 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
     });
     await page.goto('https://remote.test/');
     await page.addStyleTag({
-      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
     });
     await page.evaluate(async () => {
-      const { createEditorWindow } = await import('/views/editorWindow.js');
+      const { mountEditorWindow } = await import('/app/editor.js');
+      const { EditorDocument } = await import('/services/editorDocument.js');
       const { windowGeometry } = await import('/adapters/windowGeometry.js');
-      const { createButton } = await import('/views/button.js');
-      window.lifetime = new AbortController();
       window.saved = '';
       window.opened = 0;
-      window.view = createEditorWindow({
+      const documentModel = new EditorDocument('/workspace/README.md', 'phone', new Map(), {
+        async read() {
+          return { content: '# README\n\nEditable on a phone.', revision: 'initial' };
+        },
+        async save(_path, content) {
+          window.saved = content;
+          return { revision: 'saved' };
+        },
+      });
+      window.view = mountEditorWindow({
         target: { name: 'a-very-long-file-name-in-a-deep-folder.md', path: '/workspace/README.md' },
+        documentModel,
         index: 5,
         layoutPersistence: windowGeometry(undefined),
-        signal: window.lifetime.signal,
-        button: (text, action, parent) =>
-          createButton(text, action, parent, window.lifetime.signal),
         nextLayer: () => 201,
-        onClose: () => {
-          window.lifetime.abort();
-          window.view.remove();
-        },
-        onSave: () => {
-          window.saved = window.view.text;
-        },
-        onOpenIde: () => window.opened++,
-        onEdit: () => {},
+        launchIde: () => window.opened++,
+        onClosed: () => {},
       });
-      window.view.setText('# README\n\nEditable on a phone.');
-      window.view.allowEditing();
-      window.view.render({ canSave: true, dirty: false });
-      window.view.setStatus('UTF-8 · Ctrl/Cmd+S to save');
-      window.view.focus();
     });
+    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    assert.equal(await page.evaluate(() => document.activeElement.tagName), 'ARTICLE');
+    await page.getByRole('button', { name: 'Show Markdown source' }).tap();
+    await page.locator('.scratch-tab-header').focus();
     assert.equal(await page.evaluate(() => document.activeElement.tagName), 'HEADER');
     async function assertFits(width, height, top = 0, left = 0) {
       // Browser resize events arrive asynchronously after setViewportSize resolves.
@@ -535,7 +506,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
     await page.locator('textarea').fill('Mobile edit');
     await page.getByRole('button', { name: 'Save', exact: true }).tap();
     assert.equal(await page.evaluate(() => window.saved), 'Mobile edit');
-    await page.getByRole('button', { name: 'Open in Code Server' }).tap();
+    await page.getByRole('button', { name: 'Open with default editor' }).tap();
     assert.equal(await page.evaluate(() => window.opened), 1);
     // Model the visual viewport shrinking and panning while Safari's keyboard is open.
     await page.evaluate(() => {
@@ -587,13 +558,14 @@ test('GitHub updater checks versions, protects drafts, uploads, and reports part
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       return route.fulfill({ contentType: 'text/html', body: '<div id="updates"></div>' });
     });
     await page.goto('https://remote.test/');
     await page.evaluate(async () => {
-      const { mountUpdates, isNewer } = await import('/views/updates.js');
+      const { mountUpdates } = await import('/app/updates.js');
+      const { isNewer } = await import('/services/releaseVersion.js');
       window.comparisons = [
         isNewer('0.10.0', '0.9.0'),
         isNewer('0.3.2', '0.4.0'),
@@ -722,7 +694,7 @@ test('unsupported Word and binary files offer a download instead of an empty edi
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       if (path.endsWith('/files/download'))
         return route.fulfill({
@@ -739,13 +711,15 @@ test('unsupported Word and binary files offer a download instead of an empty edi
     });
     await page.goto('https://remote.test/');
     await page.addStyleTag({
-      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
     });
     await page.evaluate(async () => {
-      const { mountEditor } = await import('/presenters/editor.js');
-      const { createEditorWindow } = await import('/views/editorWindow.js');
+      const { mountEditorWindow } = await import('/app/editor.js');
+      const { EditorDocument } = await import('/services/editorDocument.js');
       const { windowGeometry } = await import('/adapters/windowGeometry.js');
-      const { createButton } = await import('/views/button.js');
       window.reads = 0;
       window.showFile = (name, error) => {
         window.editor?.close(true);
@@ -754,31 +728,24 @@ test('unsupported Word and binary files offer a download instead of an empty edi
           path: '/workspace/' + name,
           download: '/api/chats/a/files/download?path=' + encodeURIComponent(name),
         };
-        window.editor = mountEditor({
+        const documentModel = new EditorDocument(target.path, name, new Map(), {
+          read() {
+            window.reads++;
+            return Promise.reject(new Error(error));
+          },
+          save() {
+            throw new Error('Unsupported files cannot be saved');
+          },
+        });
+        window.editor = mountEditorWindow({
           target,
+          documentModel,
           launchIde: () => {},
           onClosed: () => {},
-          documentModel: {
-            dirty: false,
-            discardDraft() {},
-            remember() {},
-            read() {
-              window.reads++;
-              return Promise.reject(new Error(error));
-            },
-          },
-          createView: handlers =>
-            createEditorWindow({
-              target,
-              index: 0,
-              layoutPersistence: windowGeometry(undefined),
-              nextLayer: () => 201,
-              button: (label, action, parent) =>
-                createButton(label, action, parent, handlers.signal),
-              ...handlers,
-            }),
+          index: 0,
+          layoutPersistence: windowGeometry(undefined),
+          nextLayer: () => 201,
         });
-        window.editor.start();
       };
       window.showFile('report.DOCX');
     });
@@ -787,7 +754,7 @@ test('unsupported Word and binary files offer a download instead of an empty edi
     assert.equal(await page.locator('textarea').count(), 0);
     assert.equal(await page.getByRole('button', { name: 'Save', exact: true }).isVisible(), false);
     assert.equal(
-      await page.getByRole('button', { name: 'Open in Code Server' }).isVisible(),
+      await page.getByRole('button', { name: 'Open with default editor' }).isVisible(),
       false,
     );
     const download = page.getByRole('link', { name: 'Download file' });
@@ -843,7 +810,7 @@ test('updater belongs only to Scratch Tab card and closes with its owner', async
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       return route.fulfill({
         contentType: 'text/html',
@@ -921,7 +888,7 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       return route.fulfill({
         contentType: 'text/html',
@@ -930,7 +897,10 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     });
     await page.goto('https://remote.test/');
     await page.addStyleTag({
-      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
     });
     await page.evaluate(async () => {
       const { mountChat } = await import('/app/chat.js');
@@ -959,10 +929,6 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     });
     const open = async name => {
       await page.getByRole('link', { name }).click({ force: true });
-      await page
-        .locator('.scratch-tab-choice')
-        .getByRole('button', { name: 'Scratch Tab', exact: true })
-        .click();
     };
     const visible = page.locator('.scratch-tab-window:visible');
     await open('First file');
@@ -1051,7 +1017,7 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     assert.equal(await first.locator('textarea').inputValue(), 'first draft');
     assert.equal(await first.getByRole('tab').count(), 1);
     // setViewportSize resolves before Chromium necessarily delivers its resize event.
-    // Wait for that event before opening a chooser, which dismisses on resize.
+    // Wait for the viewport resize before opening the next file.
     await page.evaluate(() => {
       window.desktopResize = new Promise(resolve => {
         window.addEventListener('resize', () => requestAnimationFrame(resolve), { once: true });
@@ -1115,7 +1081,7 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       return route.fulfill({
         contentType: 'text/html',
@@ -1124,7 +1090,10 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
     });
     await page.goto('https://remote.test/');
     await page.addStyleTag({
-      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
     });
     await page.evaluate(async () => {
       const { default: activate } = await import('/main.js');
@@ -1174,10 +1143,6 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
           `/api/chats/${window.chatId}/ide-open?path=/workspace/${path}`;
       }, path);
       await page.getByRole('link', { name: 'File', exact: true }).click({ force: true });
-      await page
-        .locator('.scratch-tab-choice')
-        .getByRole('button', { name: 'Scratch Tab', exact: true })
-        .click();
     };
     await open('one.txt');
     await page.locator('textarea:visible').fill('keep my draft');
@@ -1198,10 +1163,6 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
       document.body.append(pane);
     });
     await page.locator('#row').click({ force: true });
-    await page
-      .locator('.scratch-tab-choice')
-      .getByRole('button', { name: 'Scratch Tab', exact: true })
-      .click();
     await page.getByRole('tab', { name: 'one.txt', exact: false }).click();
     await page.locator('.scratch-tab-window:visible').evaluate(node => {
       node.style.left = '140px';
@@ -1226,14 +1187,14 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
     );
     assert.equal(await page.evaluate(() => window.reads), 2);
     await page.getByRole('tab', { name: 'two.txt', exact: true }).click();
-    await page.getByRole('button', { name: 'Open in Code Server', exact: true }).click();
+    await page.getByRole('button', { name: 'Open with default editor', exact: true }).click();
     assert.equal(await page.evaluate(() => window.oldRowOpens), 0);
     assert.match(await page.evaluate(() => window.ideUrls.at(-1)), /\/api\/chats\/b\/ide-open/);
     await page.getByRole('tab', { name: 'one.txt', exact: false }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForFunction(() => window.writes.length === 1);
     assert.equal(await page.evaluate(() => window.writes[0].projectId), 'p1');
-    await page.getByRole('button', { name: 'Open in Code Server', exact: true }).click();
+    await page.getByRole('button', { name: 'Open with default editor', exact: true }).click();
     assert.match(await page.evaluate(() => window.ideUrls.at(-1)), /\/api\/chats\/b\/ide-open/);
     const oldIntercepted = await page.evaluate(() => {
       const anchor = document.querySelector('#file');
@@ -1287,7 +1248,7 @@ test('chat update notice checks in background, opens updater, and cleans up acro
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       return route.fulfill({
         contentType: 'text/html',
@@ -1456,8 +1417,8 @@ test('chat update notice checks in background, opens updater, and cleans up acro
 });
 
 test('syntax languages follow extensions and escape source markup', async () => {
-  const { languageFor } = await import('../ui/scripts/presenters/syntax.js');
-  const { highlightCode } = await import('../ui/scripts/vendor/syntax.js');
+  const { languageFor } = await import(new URL('presenters/syntax.js', fixtureRoot));
+  const { highlightCode } = await import(new URL('vendor/syntax.js', fixtureRoot));
   for (const [name, language] of Object.entries({
     'APP.TSX': 'typescript',
     'app.jsx': 'javascript',
@@ -1500,7 +1461,7 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       return route.fulfill({
         contentType: 'text/html',
@@ -1509,7 +1470,10 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     });
     await page.goto('https://remote.test/');
     await page.addStyleTag({
-      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
     });
     await page.evaluate(async () => {
       const { mountChat } = await import('/app/chat.js');
@@ -1537,10 +1501,6 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
         name,
       );
       await page.getByRole('link', { name: 'Source file' }).click({ force: true });
-      await page
-        .locator('.scratch-tab-choice')
-        .getByRole('button', { name: 'Scratch Tab', exact: true })
-        .click();
     };
     await open('main.js');
     const visible = page.locator('.scratch-tab-window:visible');
@@ -1576,7 +1536,7 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     assert.equal(await input.inputValue(), 'const value = "مرحبا 😀";\n');
     await visible.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForFunction(() => window.disk === 'const value = "مرحبا 😀";\r\n');
-    // Check plain-text fallback before viewport changes can dismiss the chooser.
+    // Check plain-text fallback before changing the viewport.
     await open('notes.unknown');
     assert.equal(await visible.locator('pre').count(), 0);
     assert.equal(
@@ -1651,7 +1611,7 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
 });
 
 test('Markdown preview renders safely and resolves workspace resources', async () => {
-  const { markdownPreview } = await import('../ui/scripts/presenters/markdown.js');
+  const { markdownPreview } = await import(new URL('presenters/markdown.js', fixtureRoot));
   const target = {
     path: '/workspace/docs/README.MD',
     download: '/api/chats/a/files/download?path=docs%2FREADME.MD',
@@ -1687,7 +1647,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
       if (path.endsWith('.js'))
         return route.fulfill({
           contentType: 'text/javascript',
-          body: await readFile(new URL('../ui/scripts' + path, import.meta.url), 'utf8'),
+          body: await runtimeModule(path),
         });
       if (path.endsWith('/files/download'))
         return route.fulfill({
@@ -1701,9 +1661,13 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     });
     await page.goto('https://remote.test/');
     await page.addStyleTag({
-      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
     });
     await page.evaluate(async () => {
+      localStorage.setItem('scratch-tab:markdown-view', 'source');
       const { mountChat } = await import('/app/chat.js');
       window.disk = '# Original\r\n\r\n**bold** and *italic*\r\n';
       window.cleanup = mountChat({
@@ -1727,10 +1691,6 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     });
     const open = async name => {
       await page.getByRole('link', { name, exact: true }).click({ force: true });
-      await page
-        .locator('.scratch-tab-choice')
-        .getByRole('button', { name: 'Scratch Tab', exact: true })
-        .click();
     };
     await open('Markdown file');
     const visible = page.locator('.scratch-tab-window:visible');
@@ -1750,12 +1710,23 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     await visible.getByRole('button', { name: 'Show Markdown source' }).press('Enter');
     assert.equal(await input.inputValue(), '# Original\n\n**bold** and *italic*\n');
     const edited =
-      '# Updated\n\n**unsaved**\n\n| Name | Value |\n| - | - |\n| Test | 42 |\n\n```js\nconst text = "<img src=x onerror=alert(1)>";\n```\n\n<script>window.bad = true</script>\n';
+      '# Updated\n\n**unsaved**\n\n| Name | Value |\n| - | - |\n| Test | 42 |\n\n```js\nconst text = "<img src=x onerror=alert(1)>";\n```\n\n```mermaid\nflowchart TD\n  A[Install] --> B[Ready]\n```\n\n```mermaid\nnot a diagram\n```\n\n<script>window.bad = true</script>\n';
     await input.fill(edited);
     await showPreview.click();
     await preview.getByRole('heading', { name: 'Updated' }).waitFor();
     assert.equal(await preview.locator('script,img').count(), 0);
     assert.equal(await preview.locator('table').count(), 1);
+    await preview.locator('.scratch-tab-mermaid svg').waitFor({ timeout: 5000 });
+    assert.match(
+      await preview.getByRole('img', { name: 'Mermaid diagram' }).textContent(),
+      /Install/,
+    );
+    await preview.getByText('Unable to render Mermaid diagram.').waitFor();
+    const lightDiagramId = await preview.locator('.scratch-tab-mermaid svg').getAttribute('id');
+    assert.match(
+      await preview.locator('pre:not([hidden]) > code.language-mermaid').textContent(),
+      /not a diagram/,
+    );
     assert.equal(
       await visible.getByRole('button', { name: 'Save', exact: true }).isEnabled(),
       true,
@@ -1784,6 +1755,11 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     await page.waitForFunction(
       () => document.querySelector('.scratch-tab-window').getBoundingClientRect().width <= 320,
     );
+    await page.waitForFunction(previous => {
+      const diagram = document.querySelector('.scratch-tab-mermaid svg');
+      return diagram && diagram.id !== previous;
+    }, lightDiagramId);
+    assert.equal(await preview.locator('.scratch-tab-mermaid svg').isVisible(), true);
     assert.equal(
       await preview.locator('table').evaluate(node => getComputedStyle(node).color),
       await preview.evaluate(node => getComputedStyle(node).color),
@@ -1792,7 +1768,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
       preview,
       visible.getByRole('button', { name: 'Show Markdown source' }),
       visible.getByRole('button', { name: 'Save', exact: true }),
-      visible.getByRole('button', { name: 'Open in Code Server' }),
+      visible.getByRole('button', { name: 'Open with default editor' }),
     ]) {
       const box = await locator.boundingBox();
       assert.ok(box.x >= 0 && box.x + box.width <= 320);
@@ -1813,7 +1789,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
 });
 
 test('window geometry is project-scoped and tolerates invalid or unavailable storage', async () => {
-  const { windowGeometry } = await import('../ui/scripts/adapters/windowGeometry.js');
+  const { windowGeometry } = await import(new URL('adapters/windowGeometry.js', fixtureRoot));
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const values = new Map();
   try {
@@ -1849,5 +1825,455 @@ test('window geometry is project-scoped and tolerates invalid or unavailable sto
   } finally {
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
     else delete globalThis.localStorage;
+  }
+});
+
+test('updater shares installation ownership across popups and releases it after cancellation', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage();
+    await page.route('https://remote.test/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('.js'))
+        return route.fulfill({ contentType: 'text/javascript', body: await runtimeModule(path) });
+      return route.fulfill({
+        contentType: 'text/html',
+        body: '<div id="first"></div><div id="second"></div>',
+      });
+    });
+    await page.goto('https://remote.test/');
+    await page.evaluate(async () => {
+      const { mountUpdates } = await import('/app/updates.js');
+      window.downloads = 0;
+      window.uploads = 0;
+      window.reloads = 0;
+      const remote = {
+        application: { version: '1.0.0' },
+        backend: {
+          async call() {
+            return { version: '1.1.0' };
+          },
+          async fetch(_path, options) {
+            window.downloads++;
+            if (window.downloads === 1) {
+              window.firstSignal = options.signal;
+              return new Promise(resolve => {
+                window.finishDownload = () => resolve(new Response('verified zip'));
+              });
+            }
+            return new Response('verified zip');
+          },
+        },
+      };
+      window.fetch = async (_url, options = {}) => {
+        if (options.method === 'POST') {
+          window.uploads++;
+          return new Response(
+            JSON.stringify({ id: 'scratch-tab', version: '1.1.0', upgraded: [] }),
+          );
+        }
+        return new Response(JSON.stringify([{ id: 'scratch-tab', version: '1.0.0' }]));
+      };
+      const options = {
+        remote,
+        projectId: 'p1',
+        drafts: new Map(),
+        reload: () => window.reloads++,
+      };
+      window.closeFirst = mountUpdates(document.querySelector('#first'), options);
+      window.closeSecond = mountUpdates(document.querySelector('#second'), options);
+    });
+    let confirmations = 0;
+    page.on('dialog', async dialog => {
+      confirmations++;
+      await dialog.accept();
+    });
+    const first = page.locator('#first');
+    const second = page.locator('#second');
+    await first.getByText('Version 1.1.0 is available', { exact: false }).waitFor();
+    await second.getByText('Version 1.1.0 is available', { exact: false }).waitFor();
+    await first.getByRole('button', { name: 'Update', exact: true }).click();
+    await page.waitForFunction(() => typeof window.finishDownload === 'function');
+    await page.evaluate(() => window.closeFirst());
+    assert.equal(await page.evaluate(() => window.firstSignal.aborted), true);
+    await second.getByRole('button', { name: 'Update', exact: true }).click();
+    assert.equal(confirmations, 1);
+    assert.equal(await page.evaluate(() => window.downloads), 1);
+    await page.evaluate(async () => {
+      window.finishDownload();
+      // Let the cancelled request unwind through beforeUpload and release the lock.
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    assert.equal(await page.evaluate(() => window.uploads), 0);
+    await second.getByRole('button', { name: 'Update', exact: true }).click();
+    await page.waitForFunction(() => window.reloads === 1);
+    assert.equal(confirmations, 2);
+    assert.equal(await page.evaluate(() => window.downloads), 2);
+    assert.equal(await page.evaluate(() => window.uploads), 1);
+    await page.evaluate(() => window.closeSecond());
+    assert.equal(await page.locator('.scratch-tab-updates').count(), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('editor hooks load once, normalize newlines and ignore reads after disposal', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('https://remote.test/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('.js'))
+        return route.fulfill({ contentType: 'text/javascript', body: await runtimeModule(path) });
+      return route.fulfill({
+        contentType: 'text/html',
+        body: '<a href="/api/chats/a/ide-open?path=/workspace/notes.txt">Notes</a>',
+      });
+    });
+    await page.goto('https://remote.test/');
+    await page.addStyleTag({
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
+    });
+    await page.evaluate(async () => {
+      const { mountChat } = await import('/app/chat.js');
+      window.reads = 0;
+      window.drafts = new Map();
+      window.cleanup = mountChat({
+        context: { projectId: 'p1', chatId: 'a' },
+        drafts: window.drafts,
+        launchIde: () => {},
+        files: {
+          read() {
+            window.reads++;
+            return new Promise(resolve => {
+              window.finishRead = content => resolve({ content, revision: 'original' });
+            });
+          },
+          async save(_path, content) {
+            window.saved = content;
+            return { revision: 'saved' };
+          },
+        },
+      });
+    });
+    async function open() {
+      await page.getByRole('link', { name: 'Notes', exact: true }).click();
+    }
+    await open();
+    await page.waitForFunction(() => window.reads === 1);
+    assert.equal(await page.locator('textarea').evaluate(node => node.readOnly), true);
+    await page.evaluate(() => window.finishRead('one\r\ntwo\rthree\n'));
+    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    assert.equal(await page.locator('textarea').inputValue(), 'one\ntwo\nthree\n');
+    await page.locator('textarea').fill('edited\ntext\n');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.waitForFunction(() => window.saved === 'edited\r\ntext\r\n');
+    assert.equal(await page.evaluate(() => window.reads), 1);
+    await page.getByRole('button', { name: 'Close window', exact: true }).click();
+    await open();
+    await page.waitForFunction(() => window.reads === 2);
+    await page.getByRole('button', { name: 'Close window', exact: true }).click();
+    await page.evaluate(async () => {
+      window.finishRead('late content');
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    assert.equal(await page.locator('.scratch-tab-window').count(), 0);
+    assert.equal(await page.evaluate(() => window.drafts.size), 0);
+    await page.evaluate(() => window.cleanup());
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('responsive toolbar mounts share one Scratch Tab update notice', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage();
+    await page.route('https://remote.test/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('.js'))
+        return route.fulfill({ contentType: 'text/javascript', body: await runtimeModule(path) });
+      return route.fulfill({
+        contentType: 'text/html',
+        body: '<div id="desktop"></div><div id="mobile" hidden></div>',
+      });
+    });
+    await page.goto('https://remote.test/');
+    await page.evaluate(async () => {
+      const { default: activate } = await import('/main.js');
+      const hosts = [document.querySelector('#desktop'), document.querySelector('#mobile')];
+      window.checks = 0;
+      window.timers = new Set();
+      const setInterval = window.setInterval;
+      const clearInterval = window.clearInterval;
+      window.setInterval = (...args) => {
+        const id = setInterval(...args);
+        window.timers.add(id);
+        return id;
+      };
+      window.clearInterval = id => {
+        window.timers.delete(id);
+        clearInterval(id);
+      };
+      window.fetch = async () =>
+        new Response(JSON.stringify([{ id: 'scratch-tab', version: '0.6.3' }]));
+      const remote = {
+        application: { id: 'scratch-tab', version: '0.6.3' },
+        slots: {
+          chatHeaderActions: 'chat',
+          applicationCardActions: 'card',
+          sidebarHeaderActions: 'sidebar',
+        },
+        backend: {
+          async call() {
+            window.checks++;
+            return { version: '0.7.0' };
+          },
+        },
+        ui: {
+          register(slot, mount) {
+            if (slot === 'chat') window.mountChatActions = mount;
+            if (slot === 'sidebar') window.ownerCleanup = mount(document.createElement('div'), {});
+          },
+          // Remote registers one icon contribution globally and renders it in every slot host.
+          addIconButton(_slot, options) {
+            const buttons = hosts.map(host => {
+              const button = document.createElement('button');
+              button.setAttribute('aria-label', options.label);
+              button.innerHTML = options.icon;
+              host.append(button);
+              return button;
+            });
+            return () => buttons.forEach(button => button.remove());
+          },
+        },
+      };
+      activate(remote);
+      const context = { projectId: 'p1', chatId: 'a' };
+      window.desktopCleanup = window.mountChatActions(hosts[0], context);
+      window.mobileCleanup = window.mountChatActions(hosts[1], context);
+    });
+    await page.waitForFunction(() => document.querySelectorAll('#desktop button').length > 0);
+    assert.equal(
+      await page.locator('#desktop button').count(),
+      1,
+      'one visible icon despite two mounted toolbar slots',
+    );
+    assert.equal(await page.locator('#mobile button').count(), 1);
+    assert.equal(await page.evaluate(() => window.checks), 1);
+    assert.equal(await page.evaluate(() => window.timers.size), 1);
+    await page.evaluate(() => window.mobileCleanup());
+    assert.equal(
+      await page.locator('#desktop button').count(),
+      1,
+      'the remaining owner keeps its notice',
+    );
+    assert.equal(await page.evaluate(() => window.timers.size), 1);
+    await page.evaluate(() => {
+      window.nextCleanup = window.mountChatActions(document.querySelector('#mobile'), {
+        projectId: 'p2',
+        chatId: 'b',
+      });
+    });
+    await page.waitForFunction(
+      () => window.checks === 2 && document.querySelectorAll('#desktop button').length === 1,
+    );
+    await page.evaluate(() => window.desktopCleanup());
+    assert.equal(
+      await page.locator('#desktop button').count(),
+      1,
+      'old project cleanup cannot remove the new notice',
+    );
+    assert.equal(await page.evaluate(() => window.timers.size), 1);
+    await page.evaluate(() => {
+      window.lastCleanup = window.mountChatActions(document.querySelector('#desktop'), {
+        projectId: 'p2',
+        chatId: 'c',
+      });
+    });
+    await page.waitForFunction(() => document.querySelectorAll('#desktop button').length === 1);
+    await page.evaluate(() => window.nextCleanup());
+    assert.equal(
+      await page.locator('#desktop button').count(),
+      1,
+      'old chat cleanup cannot remove the new notice',
+    );
+    assert.equal(await page.evaluate(() => window.timers.size), 1);
+    await page.evaluate(() => {
+      window.ownerCleanup();
+      window.lastCleanup();
+    });
+    assert.equal(await page.locator('#desktop button').count(), 0);
+    assert.equal(await page.evaluate(() => window.timers.size), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('production bundle renders Mermaid diagrams after an invalid block and disposes cleanly', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('https://remote.test/**', async route => {
+      if (new URL(route.request().url()).pathname === '/main.js')
+        return route.fulfill({
+          contentType: 'text/javascript',
+          body: await runtimeModule('/main.js'),
+        });
+      return route.fulfill({
+        contentType: 'text/html',
+        body: '<a href="/api/chats/a/ide-open?path=/workspace/diagram.md">Diagram</a>',
+      });
+    });
+    await page.goto('https://remote.test/');
+    await page.addStyleTag({
+      content: await readFile(
+        new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+        'utf8',
+      ),
+    });
+    await page.evaluate(async () => {
+      localStorage.setItem('scratch-tab:markdown-view', 'source');
+      const { default: activate } = await import('/main.js');
+      activate({
+        slots: { chatHeaderActions: 'chat', sidebarHeaderActions: 'sidebar' },
+        backend: {
+          async call() {
+            return {
+              content:
+                '```mermaid\nnot a diagram\n```\n\n```mermaid\nflowchart TD\n A[Install] --> B[Ready]\n```\n\n```mermaid\nsequenceDiagram\n Alice->>Bob: Hello\n```',
+              revision: 'initial',
+            };
+          },
+        },
+        ui: {
+          register(slot, mount) {
+            if (slot === 'sidebar') window.dispose = mount();
+            if (slot === 'chat') mount(document.body, { chatId: 'a', projectId: 'p1' });
+          },
+        },
+      });
+    });
+    await page.getByRole('link', { name: 'Diagram', exact: true }).click();
+    const toggle = page.getByRole('button', { name: 'Show Markdown preview', exact: true });
+    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await toggle.click();
+    await page.getByText('Unable to render Mermaid diagram.').waitFor();
+    await page.waitForFunction(
+      () => document.querySelectorAll('.scratch-tab-mermaid svg').length === 2,
+    );
+    assert.match(await page.getByRole('article').textContent(), /Install/);
+    assert.match(await page.locator('.scratch-tab-mermaid').last().textContent(), /Alice/);
+    const ids = await page
+      .locator('.scratch-tab-mermaid svg')
+      .evaluateAll(nodes => nodes.map(node => node.id));
+    assert.equal(new Set(ids).size, 2);
+    await page.getByRole('button', { name: 'Show Markdown source' }).click();
+    await toggle.click();
+    // Closing during async rendering must not restore content or leak staging elements.
+    await page.evaluate(() => window.dispose());
+    await page.waitForFunction(() => !document.querySelector('[id^="scratch-mermaid-"]'));
+    assert.equal(await page.locator('.scratch-tab-window').count(), 0);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Markdown defaults to preview and remembers both choices across files and reloads', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage();
+    await page.route('https://remote.test/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('.js'))
+        return route.fulfill({ contentType: 'text/javascript', body: await runtimeModule(path) });
+      return route.fulfill({
+        contentType: 'text/html',
+        body: '<a id="file" href="/api/chats/a/ide-open?path=/workspace/one.md">File</a>',
+      });
+    });
+    const mount = async () => {
+      await page.goto('https://remote.test/');
+      await page.addStyleTag({
+        content: await readFile(
+          new URL('../dev/frontend/ui/style/scratch.css', import.meta.url),
+          'utf8',
+        ),
+      });
+      await page.evaluate(async () => {
+        const { mountChat } = await import('/app/chat.js');
+        window.cleanup = mountChat({
+          context: { chatId: 'a', projectId: 'p1' },
+          drafts: new Map(),
+          launchIde: () => {},
+          files: {
+            async read() {
+              return { content: '# Remembered', revision: 'initial' };
+            },
+            async save() {
+              return { revision: 'saved' };
+            },
+          },
+        });
+      });
+    };
+    const open = async name => {
+      await page.locator('#file').evaluate((node, name) => {
+        node.href = '/api/chats/a/ide-open?path=/workspace/' + name;
+      }, name);
+      await page.getByRole('link', { name: 'File', exact: true }).click({ force: true });
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll('.scratch-tab-window')].some(
+          node =>
+            node.style.display !== 'none' && node.querySelector('textarea')?.readOnly === false,
+        ),
+      );
+    };
+    const visible = page.locator('.scratch-tab-window:visible');
+    await mount();
+    await open('one.md');
+    await visible.getByRole('heading', { name: 'Remembered' }).waitFor();
+    assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
+    await visible.getByRole('button', { name: 'Show Markdown source' }).click();
+    await open('two.markdown');
+    assert.equal(await visible.locator('textarea').isVisible(), true);
+    await page.evaluate(() => window.cleanup());
+    await mount();
+    await open('three.md');
+    assert.equal(await visible.locator('textarea').isVisible(), true);
+    await visible.getByRole('button', { name: 'Show Markdown preview' }).click();
+    await page.evaluate(() => window.cleanup());
+    await mount();
+    await open('four.md');
+    await visible.getByRole('heading', { name: 'Remembered' }).waitFor();
+    await open('plain.txt');
+    assert.equal(await visible.locator('textarea').isVisible(), true);
+    assert.equal(await visible.getByRole('button', { name: 'Show Markdown source' }).count(), 0);
+    await page.evaluate(() => window.cleanup());
+    await page.addInitScript(() =>
+      Object.defineProperty(window, 'localStorage', {
+        get() {
+          throw new Error('Storage blocked');
+        },
+      }),
+    );
+    await mount();
+    await open('blocked.md');
+    await visible.getByRole('heading', { name: 'Remembered' }).waitFor();
+    await visible.getByRole('button', { name: 'Show Markdown source' }).click();
+    await open('blocked-two.md');
+    assert.equal(await visible.locator('textarea').isVisible(), true);
+    await page.evaluate(() => window.cleanup());
+  } finally {
+    await browser.close();
   }
 });

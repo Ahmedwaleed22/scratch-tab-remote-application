@@ -1,5 +1,8 @@
 """Check the host backend against a Remote checkout, including its generated builder."""
 import argparse
+import json
+import zipfile
+from package import build_package
 import os
 from pathlib import Path
 import shutil
@@ -38,7 +41,13 @@ func main() {
 }
 ''')
     with tempfile.TemporaryDirectory(prefix='scratch-build-') as cache:
-        subprocess.run([go, 'run', str(helper / 'main.go'), str(root), cache, go], cwd=remote, check=True)
+        cache_path = Path(cache)
+        version = json.loads((root / 'application.json').read_text())['version']
+        archive = build_package(root, cache_path / 'package', f'v{version}')
+        runtime = cache_path / 'runtime'
+        with zipfile.ZipFile(archive) as package:
+            package.extractall(runtime)
+        subprocess.run([go, 'run', str(helper / 'main.go'), str(runtime), cache, go], cwd=remote, check=True)
 with tempfile.TemporaryDirectory(prefix='scratch-host-tests-') as temporary:
     target = Path(temporary)
     shutil.copytree(root / 'backend', target, dirs_exist_ok=True, ignore=shutil.ignore_patterns('container'))

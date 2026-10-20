@@ -10,23 +10,21 @@ Download the installable ZIP, upload it through **Settings → Applications**, t
 
 ## Open a file
 
-Click a workspace file link in an agent message, or select a text file in the file manager. Choose **Scratch Tab** or **Code Server** from the small menu beside the file. File-manager search results work the same way.
-
-![Choose Scratch Tab or Code Server beside a file link](docs/images/editor-choice.png)
+Click a workspace file link in an agent message, or select a text file in the file manager. Supported files open directly in Scratch Tab. File-manager search results work the same way.
 
 ## Edit and save
 
 Programming files get syntax highlighting based on their extension: JavaScript/JSX, TypeScript/TSX, Python, Go, JSON, shell, HTML/XML, CSS, Markdown, YAML, SQL, Rust, Java, C/C++, and PHP. Unknown extensions stay plain text. Highlighting updates as you type and does not reformat or change the file. Very large drafts and lines over 8,192 characters display without colors to keep editing responsive.
 
-For `.md` and `.markdown` files, click **Preview** to read formatted Markdown, then **Source** to return to the editable text. Preview shows your current unsaved edits, including headings, emphasis, lists, tables, images, links, and code blocks. Switching views does not save or rewrite the file. Embedded HTML is displayed as text.
+Files ending in `.md` or `.markdown` open in Preview initially. Use **Source** to edit or **Preview** to read; Scratch Tab remembers your last choice in this browser for newly opened Markdown files, including after a refresh. If browser storage is blocked, the choice lasts for the current page session. Preview shows your current unsaved edits, including headings, emphasis, lists, tables, images, links, code blocks, and Mermaid diagrams. Switching views does not save or rewrite the file. Embedded HTML is displayed as text.
 
-Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open in Code Server** opens the same file in the full editor.
+Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open with default editor** opens the same file using Remote’s configured editor.
 
 ![Edit a file in a movable Scratch Tab window](docs/images/editor-window.png)
 
 On phones, the editor fits the visible screen and keeps its controls above the keyboard. Tap the text to start editing. On desktop, drag the title bar to move the window and resize it from the corner. Open several files as tabs in the active window. Select a tab to switch files, or click **Separate window** to split the active tab into its own movable window. Selecting an already open file brings its tab and window forward. Each file keeps its own edits and Save action. Click the X beside a tab name to close only that file. Click the red dot or press Escape to close the whole window and all its tabs. If there are unsaved changes, Scratch Tab asks before discarding them.
 
-For keyboard navigation, use the arrow keys in the editor-choice menu. Use Left/Right or Home/End on the file tabs to switch between them. Focus a window’s title bar and use the arrow keys to move it.
+For keyboard navigation, use Left/Right or Home/End on the file tabs to switch between them. Focus a window’s title bar and use the arrow keys to move it.
 
 ## Files and drafts
 
@@ -38,6 +36,30 @@ For keyboard navigation, use the arrow keys in the editor-choice menu. Use Left/
 - CRLF line endings are preserved. Mixed line endings normalize when saved. Symlinks and binary files are not editable; hard links and extended file attributes are not preserved on save.
 
 Stopping or uninstalling Scratch Tab keeps your workspace files.
+
+## Development
+
+Requires Node.js 22.18 or later. The frontend uses Preact and TypeScript:
+
+```text
+dev/frontend/src/
+├── pages/          # Editor.tsx, Updates.tsx
+├── components/    # Shared Preact UI
+├── App.tsx        # Remote integration and application composition
+└── index.tsx      # Entry point
+```
+
+Document services, API calls, adapters, presenters and configuration also live in `dev/frontend/src/` as `.ts` files. Styles stay in `dev/frontend/ui/style/`.
+
+```sh
+npm ci
+npx playwright install chromium
+npm test
+npm run format:check
+python3 -B infra/test_package.py
+```
+
+`npm run build` bundles the frontend into `dist/main.js`. Only JavaScript is emitted in `dist`; TypeScript checking runs separately with `npm run typecheck`. The ZIP packager places that bundle at the existing `ui/scripts/main.js` runtime entry, alongside CSS, backend files and third-party license notices. Run the build before packaging. See [maintenance notes](docs/maintenance.md) for backend and release checks.
 
 ## License
 

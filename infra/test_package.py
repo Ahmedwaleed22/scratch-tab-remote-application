@@ -17,12 +17,16 @@ class PackageTests(unittest.TestCase):
                 self.assertIsNone(package.testzip())
                 names = package.namelist()
                 self.assertIn('LICENSE', names)
-                self.assertIn('ui/scripts/vendor/LICENSE.txt', names)
-                self.assertIn('ui/scripts/vendor/LICENSE.markdown.txt', names)
-                self.assertIn('ui/scripts/vendor/markdown.js', names)
-                self.assertIn('ui/scripts/vendor/syntax.js', names)
-                self.assertIn(b'BSD 3-Clause', package.read('ui/scripts/vendor/LICENSE.txt'))
-                self.assertLess(archive.stat().st_size, 512 * 1024)
+                self.assertIn('ui/licenses/THIRD-PARTY.txt', names)
+                self.assertIn(b'BSD 3-Clause', package.read('ui/licenses/THIRD-PARTY.txt'))
+                self.assertIn(b'preact', package.read('ui/licenses/THIRD-PARTY.txt'))
+                manifest = json.loads(package.read('application.json'))
+                self.assertIn('ui/' + manifest['ui']['entry'], names)
+                self.assertEqual([name for name in names if name.endswith('.js')], ['ui/scripts/main.js'])
+                self.assertEqual(package.read('ui/scripts/main.js'), (root / 'dist/main.js').read_bytes())
+                # Mermaid exceeds the automatic updater cap; this package is uploaded manually.
+                self.assertLess(archive.stat().st_size, 8 * 1024 * 1024)
+                self.assertIn(b'mermaid', package.read('ui/licenses/THIRD-PARTY.txt'))
                 self.assertIn('backend/container/main.go', names)
                 self.assertIn('backend/container/storage.go', names)
                 self.assertNotIn('docs/maintenance.md', names)
@@ -33,7 +37,18 @@ class PackageTests(unittest.TestCase):
                             self.assertIn(dependency, names)
                 for image in re.findall(r'!\[[^]]*\]\(([^)]+)\)', package.read('README.md').decode()):
                     self.assertIn(image, names)
-                self.assertTrue(all(not name.endswith(('_test.go', '.mjs', '.py')) for name in names))
+                self.assertTrue(all(not name.endswith(('_test.go', '.mjs', '.py', '.ts', '.tsx')) for name in names))
+
+    def test_missing_bundle_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'dev/frontend/ui/licenses').mkdir(parents=True)
+            for name, content in [('application.json', '{"version":"1.0.0"}'),
+                                  ('README.md', 'readme'), ('LICENSE', 'license'),
+                                  ('dev/frontend/ui/licenses/THIRD-PARTY.txt', 'notices')]:
+                (root / name).write_text(content)
+            with self.assertRaisesRegex(ValueError, 'run npm run build first'):
+                build_package(root, root / 'output', 'v1.0.0')
 
     def test_wrong_tag_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
