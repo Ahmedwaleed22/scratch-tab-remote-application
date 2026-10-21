@@ -8,19 +8,14 @@ import (
 	"unicode/utf8"
 )
 
-// The browser matches missingFile exactly to offer recreating a deleted file.
-const missingFile = "File not found. It may have been deleted or moved."
-const unsavableContent = "Only UTF-8 text up to 128 KiB can be saved."
-
 func savable(content string) bool {
 	return len(content) <= limit && utf8.ValidString(content) && !strings.ContainsRune(content, 0)
 }
 
 func digest(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeToString(sum[:]) }
 
-// operate owns the command's validation, revision policy and public error mapping.
+// operate owns the command's validation, revision policy and file workflows.
 func operate(workspace string, request Request) Result {
-	fail := func(status int, message string) Result { return Result{Status: status, Error: message} }
 	if !strings.HasPrefix(request.Path, "/workspace/") {
 		return fail(400, "Choose a workspace file.")
 	}
@@ -44,7 +39,7 @@ func operate(workspace string, request Request) Result {
 		return fail(400, "Choose an existing regular file, not a symlink or directory.")
 	}
 	if request.Create {
-		return fail(409, "A file already exists at this path. Reopen it before saving; copy your edits first.")
+		return fail(409, fileAlreadyExists)
 	}
 	data, err := file.Read()
 	if err != nil {
@@ -60,40 +55,13 @@ func operate(workspace string, request Request) Result {
 	if !savable(request.Content) {
 		return fail(400, unsavableContent)
 	}
-	switch file.Replace(request.Content, revision) {
-	case savePreparationFailed:
-		return fail(500, "Cannot prepare save.")
-	case saveCreationFailed:
-		return fail(500, "Cannot create save file.")
-	case saveWriteFailed:
-		return fail(500, "Cannot write file. Original file was kept.")
-	case saveRevisionChanged:
-		return fail(409, "File changed during save. Copy your edits and reopen it.")
-	case saveDirectoryFailed:
-		return fail(500, "Cannot open save directory. Original file was kept.")
-	case saveReplacementFailed:
-		return fail(500, "Cannot replace file. Original file was kept.")
-	}
-	return Result{Status: 200, Revision: digest([]byte(request.Content))}
+	return replacementResult(file.Replace(request.Content, revision), request.Content)
 }
 
 // create recreates a missing file without replacing one that appeared meanwhile.
 func create(files *workspaceFiles, name, content string) Result {
-	fail := func(status int, message string) Result { return Result{Status: status, Error: message} }
 	if !savable(content) {
 		return fail(400, unsavableContent)
 	}
-	switch files.Create(name, content) {
-	case saveFolderMissing:
-		return fail(404, "Folder not found. Recreate the folder first; copy your edits.")
-	case saveAlreadyExists:
-		return fail(409, "A file already exists at this path. Reopen it before saving; copy your edits first.")
-	case savePreparationFailed:
-		return fail(500, "Cannot prepare save.")
-	case saveCreationFailed, saveWriteFailed:
-		return fail(500, "Cannot create file.")
-	case saveDirectoryFailed, saveReplacementFailed:
-		return fail(500, "Cannot create file in its folder.")
-	}
-	return Result{Status: 200, Revision: digest([]byte(content))}
+	return creationResult(files.Create(name, content), content)
 }

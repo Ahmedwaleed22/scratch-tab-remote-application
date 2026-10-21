@@ -39,8 +39,8 @@ The files remain in one root Go package, which Remote installs as `/usr/local/bi
 - `main.go`: process composition.
 - `command.go`: command lock and JSON stdin/stdout transport.
 - `protocol.go`: existing request/response DTOs.
-- `workspace.go`: path/content validation, revision policy, and public result mapping. A missing path returns 404 with the exact message the browser matches in `MISSING_FILE_MESSAGE`; any other non-regular path keeps the 400 response.
-- `storage.go`: rooted reads, file metadata, temporary writes, revision recheck, and directory-relative rename. `Create` recreates a deleted file: it writes a temporary file in the existing parent, owned like that folder, then `linkat`s it into place so a file that appeared meanwhile is never replaced. `linkat` uses the raw syscall because package `syscall` lacks a wrapper.
+- `workspace.go`: path/content validation and revision policy. `results.go` maps replacement and creation outcomes to the existing public statuses and messages. A missing path returns 404 with the exact message the browser matches in `MISSING_FILE_MESSAGE`; any other non-regular path keeps the 400 response.
+- `storage.go`: rooted reads, file metadata, temporary writes, revision recheck, and directory-relative rename. `Create` recreates a deleted file: it writes a temporary file in the existing parent, owned like that folder, then `linkat`s it into place so a file that appeared meanwhile is never replaced. `link_linux.go` isolates the raw `linkat` syscall because package `syscall` lacks a wrapper.
 - `config.go`: container limits and fixed runtime paths.
 
 The container command supports Go 1.24.7 and later. Keep its Linux `renameat` operation: `os.Root.Rename` is unavailable in Remote's Go 1.24.7 installer.
