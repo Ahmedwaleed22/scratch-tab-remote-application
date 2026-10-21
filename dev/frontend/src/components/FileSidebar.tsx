@@ -1,16 +1,19 @@
 import type { DirectoryEntry } from '../model/files/application/directory.js';
-import type { JSX } from 'preact';
-import { useLayoutEffect, useRef, useState } from 'preact/hooks';
+import type { JSX, RefObject } from 'preact';
 import Button from './Button.js';
 import FileIcon from './FileIcon.js';
 import type { FileTreeSnapshot } from '../model/files/application/tree.js';
 import { MEDIA_OR_ARCHIVE } from '../config/editor.js';
+import { FILE_TREE_ICONS } from '../config/constants/files.js';
 
 export interface FileSidebarProps {
   snapshot: Readonly<FileTreeSnapshot>;
   /** The /workspace path of the file shown in this window. */
   activePath: string;
   visible: boolean;
+  treeRef: RefObject<HTMLDivElement | null>;
+  busy: boolean;
+  refreshStatus: string;
   downloadUrl(entry: DirectoryEntry): string;
   onToggleFolder(entry: DirectoryEntry): void;
   onOpenFile(entry: DirectoryEntry): void;
@@ -22,28 +25,9 @@ const icon = (path: string): JSX.Element => (
     <path d={path} fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
   </svg>
 );
-const CHEVRON = 'M6 4l4 4-4 4';
-const FOLDER = 'M2 4.5h4l1.5 1.5H14v6.5H2z';
-const REFRESH = 'M13 8a5 5 0 1 1-1.5-3.5M13 2.5V5h-2.5';
 
 export default function FileSidebar(props: FileSidebarProps): JSX.Element {
-  const { snapshot, visible, onRefresh } = props;
-  const treeRef = useRef<HTMLDivElement>(null);
-  const [refreshRequested, setRefreshRequested] = useState(false);
-  const busy = snapshot.loading.size > 0;
-  const refreshStatus = !refreshRequested
-    ? ''
-    : busy
-      ? 'Refreshing…'
-      : snapshot.errors.size
-        ? 'Refresh failed. Try again.'
-        : 'Files refreshed.';
-  useLayoutEffect(() => {
-    if (!visible) return;
-    treeRef.current
-      ?.querySelector<HTMLElement>('[aria-current="page"]')
-      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [visible, props.activePath, snapshot.children, snapshot.expanded]);
+  const { snapshot, visible, onRefresh, treeRef, busy, refreshStatus } = props;
   return (
     <nav class="scratch-tab-sidebar" aria-label="Workspace files" hidden={!visible}>
       <div class="scratch-tab-sidebar-header">
@@ -53,12 +37,9 @@ export default function FileSidebar(props: FileSidebarProps): JSX.Element {
           title={busy ? 'Refreshing files…' : 'Refresh files'}
           aria-busy={busy}
           disabled={busy}
-          onClick={() => {
-            setRefreshRequested(true);
-            onRefresh();
-          }}
+          onClick={onRefresh}
         >
-          {icon(REFRESH)}
+          {icon(FILE_TREE_ICONS.refresh)}
         </Button>
       </div>
       <div class="scratch-tab-tree" ref={treeRef} aria-busy={busy}>
@@ -120,8 +101,8 @@ function Entry(
           aria-busy={snapshot.loading.has(entry.path) || undefined}
           onClick={() => props.onToggleFolder(entry)}
         >
-          <span class="scratch-tab-tree-chevron">{icon(CHEVRON)}</span>
-          <span class="scratch-tab-tree-folder">{icon(FOLDER)}</span>
+          <span class="scratch-tab-tree-chevron">{icon(FILE_TREE_ICONS.chevron)}</span>
+          <span class="scratch-tab-tree-folder">{icon(FILE_TREE_ICONS.folder)}</span>
           <span class="scratch-tab-tree-name">{entry.name}</span>
         </Button>
         {expanded && <Folder {...props} path={entry.path} depth={depth + 1} />}
