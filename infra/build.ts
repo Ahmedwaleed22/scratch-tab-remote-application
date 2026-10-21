@@ -17,6 +17,14 @@ const result = await build({
     js: '/* Scratch Tab — Preact, Highlight.js, Markdown-it, Mermaid. See ui/licenses/THIRD-PARTY.txt. */',
   },
 });
+const styles = (await readdir('dev/frontend/ui/style')).filter(name => name.endsWith('.css'));
+await build({
+  entryPoints: styles.map(name => `dev/frontend/ui/style/${name}`),
+  bundle: true,
+  minify: true,
+  legalComments: 'inline',
+  outdir: 'dist/style',
+});
 
 // Collect notices for every package that contributes code to the runtime bundle.
 const packages = new Set<string>();

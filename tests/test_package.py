@@ -24,6 +24,10 @@ class PackageTests(unittest.TestCase):
                 self.assertIn('ui/' + manifest['ui']['entry'], names)
                 self.assertEqual([name for name in names if name.endswith('.js')], ['ui/scripts/main.js'])
                 self.assertEqual(package.read('ui/scripts/main.js'), (root / 'dist/main.js').read_bytes())
+                self.assertEqual(package.read('ui/style/scratch.css'), (root / 'dist/style/scratch.css').read_bytes())
+                self.assertLess(len(package.read('ui/style/scratch.css')),
+                                (root / 'dev/frontend/ui/style/scratch.css').stat().st_size * 0.9)
+                self.assertEqual([name for name in names if name.endswith('.css')], ['ui/style/scratch.css'])
                 self.assertLess(archive.stat().st_size, 2 * 1024 * 1024)
                 self.assertIn(b'mermaid', package.read('ui/licenses/THIRD-PARTY.txt'))
                 self.assertIn('backend/container/main.go', names)
