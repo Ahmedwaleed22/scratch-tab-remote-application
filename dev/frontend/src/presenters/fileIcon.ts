@@ -1,4 +1,4 @@
-import type { FileIconStyle } from '../config/fileIcons.js';
+import type { FileIconStyle } from '../model/files/application/icon.js';
 import { ICON_BY_LANGUAGE, NODE_ICON, NODE_PACKAGE_FILE } from '../config/fileIcons.js';
 import { languageFor } from './syntax.js';
 

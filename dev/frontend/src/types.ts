@@ -67,15 +67,6 @@ export interface Files {
   read(path: string): Promise<FileRead>;
   save(path: string, content: string, revision: string, create?: boolean): Promise<FileSaved>;
 }
-export interface DirectoryEntry {
-  name: string;
-  /** Path relative to /workspace, as Remote's file manager reports it. */
-  path: string;
-  isDir: boolean;
-}
-export interface Directories {
-  list(chatId: string, relative: string, signal?: AbortSignal): Promise<DirectoryEntry[]>;
-}
 export interface Draft extends FileRead {
   baseline: string;
   crlf: boolean;

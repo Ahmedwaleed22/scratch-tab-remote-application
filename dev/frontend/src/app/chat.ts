@@ -1,4 +1,5 @@
-import type { ChatContext, Directories, Drafts, Files, FileTarget } from '../types.js';
+import type { Directories } from '../port/files/outbound/directories.js';
+import type { ChatContext, Drafts, Files, FileTarget } from '../types.js';
 import type { EditorWindowView } from '../port/editor/outbound/view.js';
 interface Group {
   items: Map<string, Item>;
@@ -16,7 +17,8 @@ import { captureFileOpenings } from '../adapters/fileOpenings.js';
 import { mountEditorWindow } from './editor.js';
 import { EditorDocument } from '../services/editorDocument.js';
 import { createFileTree } from '../services/fileTree.js';
-import { sidebarPreference } from '../services/sidebarPreference.js';
+import { FileTreeState } from '../state/fileTree.js';
+import { sidebarPreference } from '../adapters/sidebarPreference.js';
 import { createDirectories } from '../api/directories.js';
 import { fileTarget } from '../links.js';
 
@@ -44,6 +46,7 @@ export function mountChat({
     directories,
     chatId: context.chatId,
     preference: sidebarPreference,
+    state: new FileTreeState(sidebarPreference.read()),
   });
   const windows = new Map<string, Item>();
   let layer = FIRST_WINDOW_LAYER;

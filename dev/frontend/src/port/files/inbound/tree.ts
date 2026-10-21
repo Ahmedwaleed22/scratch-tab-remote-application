@@ -1,4 +1,4 @@
-import type { FileTreeSnapshot } from '../../../model/files/tree.js';
+import type { FileTreeSnapshot } from '../../../model/files/application/tree.js';
 
 export interface FileTree {
   readonly snapshot: Readonly<FileTreeSnapshot>;

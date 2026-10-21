@@ -1,4 +1,4 @@
-import type { DirectoryEntry } from '../../types.js';
+import type { DirectoryEntry } from './directory.js';
 
 /** Folder keys are paths relative to /workspace; '' is the workspace root. */
 export interface FileTreeSnapshot {

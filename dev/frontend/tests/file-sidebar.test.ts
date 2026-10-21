@@ -37,6 +37,8 @@ async function mountWorkspace(page: Page, links: string[], workspace: Record<str
         drafts: window.drafts,
         launchIde: () => {},
         directories: {
+          downloadUrl: (chatId, relative) =>
+            `/api/chats/${encodeURIComponent(chatId)}/files/download?path=${encodeURIComponent(relative)}`,
           async list(chatId, relative) {
             window.listings.push(`${chatId}:${relative}`);
             await new Promise(resolve => setTimeout(resolve, 80));
@@ -294,7 +296,11 @@ test('a remembered draft of a deleted file reopens ready to recreate', async () 
         context: { chatId: 'a', projectId: 'p1' },
         drafts: window.drafts,
         launchIde: () => {},
-        directories: { list: async () => [] },
+        directories: {
+          list: async () => [],
+          downloadUrl: (chatId, relative) =>
+            `/api/chats/${encodeURIComponent(chatId)}/files/download?path=${encodeURIComponent(relative)}`,
+        },
         files: {
           read: async () => {
             throw new Error('File not found. It may have been deleted or moved.');

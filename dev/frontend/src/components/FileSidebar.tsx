@@ -1,9 +1,9 @@
+import type { DirectoryEntry } from '../model/files/application/directory.js';
 import type { JSX } from 'preact';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import Button from './Button.js';
 import FileIcon from './FileIcon.js';
-import type { DirectoryEntry } from '../types.js';
-import type { FileTreeSnapshot } from '../model/files/tree.js';
+import type { FileTreeSnapshot } from '../model/files/application/tree.js';
 import { MEDIA_OR_ARCHIVE } from '../config/editor.js';
 
 export interface FileSidebarProps {

@@ -1,6 +1,6 @@
+import type { DirectoryEntry } from '../model/files/application/directory.js';
 import { useLayoutEffect, useReducer, useState } from 'preact/hooks';
 import type { FileTree } from '../port/files/inbound/tree.js';
-import type { DirectoryEntry } from '../types.js';
 import type { FileSidebarProps } from '../components/FileSidebar.js';
 import { WINDOW_LAYOUT } from '../config/windowLayout.js';
 

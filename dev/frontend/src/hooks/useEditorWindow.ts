@@ -1,3 +1,4 @@
+import type { DirectoryEntry } from '../model/files/application/directory.js';
 import { createRef } from 'preact';
 import type { Ref } from 'preact';
 import { useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from 'preact/hooks';
@@ -7,7 +8,7 @@ import type { FileTree } from '../port/files/inbound/tree.js';
 import type { EditorBinding } from './useEditor.js';
 import type { EditorElements, EditorWindowProps } from '../components/EditorWindow.js';
 import type { EditorWindowView } from '../port/editor/outbound/view.js';
-import type { DirectoryEntry, FileTarget, Tab } from '../types.js';
+import type { FileTarget, Tab } from '../types.js';
 import type { WindowGeometryPersistence } from '../port/editor/outbound/layout.js';
 import type { WindowLayoutBinding } from '../presenters/windowLayout.js';
 import { restoreWindowLayout, bindWindowLayout } from '../presenters/windowLayout.js';

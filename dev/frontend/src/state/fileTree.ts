@@ -1,8 +1,9 @@
-import type { DirectoryEntry } from '../types.js';
-import type { FileTreeSnapshot } from '../model/files/tree.js';
+import type { FileTreeProgress } from '../port/files/outbound/progress.js';
+import type { DirectoryEntry } from '../model/files/application/directory.js';
+import type { FileTreeSnapshot } from '../model/files/application/tree.js';
 
 // Owns folder listings and sidebar visibility; workflows live in services/fileTree.ts.
-export class FileTreeState {
+export class FileTreeState implements FileTreeProgress {
   #snapshot: FileTreeSnapshot;
   #listeners = new Set<() => void>();
   constructor(open: boolean) {

@@ -1,11 +1,14 @@
-import type { Directories, DirectoryEntry } from '../types.js';
+import type { Directories } from '../port/files/outbound/directories.js';
+import type { DirectoryEntry } from '../model/files/application/directory.js';
 import type { FileTree } from '../port/files/inbound/tree.js';
-import { FileTreeState } from '../state/fileTree.js';
+import type { FileTreeProgress } from '../port/files/outbound/progress.js';
+import type { SidebarPreference } from '../port/files/outbound/preference.js';
 
 interface Dependencies {
   directories: Directories;
   chatId: string;
-  preference: { read(): boolean; write(open: boolean): void };
+  preference: Pick<SidebarPreference, 'write'>;
+  state: FileTreeProgress;
 }
 
 const byFoldersThenName = (left: DirectoryEntry, right: DirectoryEntry): number =>
@@ -13,8 +16,7 @@ const byFoldersThenName = (left: DirectoryEntry, right: DirectoryEntry): number 
   left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' });
 
 // Loads one folder level at a time, like Remote's file manager.
-export function createFileTree({ directories, chatId, preference }: Dependencies): FileTree {
-  const state = new FileTreeState(preference.read());
+export function createFileTree({ directories, chatId, preference, state }: Dependencies): FileTree {
   const lifetime = new AbortController();
   // Only the latest request for a folder may publish, so refreshes cannot be overtaken.
   const requests = new Map<string, number>();
@@ -69,8 +71,7 @@ export function createFileTree({ directories, chatId, preference }: Dependencies
           load(folder);
     },
     refresh,
-    downloadUrl: relative =>
-      `/api/chats/${encodeURIComponent(chatId)}/files/download?path=${encodeURIComponent(relative)}`,
+    downloadUrl: relative => directories.downloadUrl(chatId, relative),
     setChat(next) {
       chatId = next;
     },

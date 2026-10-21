@@ -1,12 +1,5 @@
+import type { FileIconStyle } from '../model/files/application/icon.js';
 import type { SyntaxLanguage } from '../model/editor/application/syntax.js';
-
-export interface FileIconStyle {
-  /** Short glyph drawn inside the badge. */
-  label: string;
-  color: string;
-  /** Node package files use the hexagon badge. */
-  shape: 'badge' | 'hexagon';
-}
 
 export const NODE_PACKAGE_FILE: RegExp = /^(package(-lock)?\.json|npm-shrinkwrap\.json)$/i;
 

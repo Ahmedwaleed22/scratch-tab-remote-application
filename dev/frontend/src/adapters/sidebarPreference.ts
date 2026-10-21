@@ -1,16 +1,13 @@
+import type { SidebarPreference } from '../port/files/outbound/preference.js';
+import { SIDEBAR_STORAGE_KEY } from '../config/constants/files.js';
+
 // Closed until the user opens it, then remembered in this browser.
 let remembered = false;
-const key = 'scratch-tab:file-sidebar';
-
-interface SidebarPreference {
-  read(): boolean;
-  write(open: boolean): void;
-}
 
 export const sidebarPreference: SidebarPreference = {
   read(): boolean {
     try {
-      const value = localStorage.getItem(key);
+      const value = localStorage.getItem(SIDEBAR_STORAGE_KEY);
       if (value === 'open' || value === 'closed') remembered = value === 'open';
     } catch {
       // Keep the choice in memory when browser storage is unavailable.
@@ -20,7 +17,7 @@ export const sidebarPreference: SidebarPreference = {
   write(open: boolean): void {
     remembered = open;
     try {
-      localStorage.setItem(key, open ? 'open' : 'closed');
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, open ? 'open' : 'closed');
     } catch {
       // Storage restrictions must not prevent toggling the sidebar.
     }
