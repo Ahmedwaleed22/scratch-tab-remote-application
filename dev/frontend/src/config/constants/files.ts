@@ -1,4 +1,5 @@
 export const SIDEBAR_STORAGE_KEY: string = 'scratch-tab:file-sidebar';
+export const FILE_REFRESH_ANNOUNCEMENT_MS: number = 3000;
 
 export const FILE_TREE_ICONS: Readonly<Record<'chevron' | 'folder' | 'refresh', string>> = {
   chevron: 'M6 4l4 4-4 4',

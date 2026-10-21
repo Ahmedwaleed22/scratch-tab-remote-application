@@ -3,6 +3,7 @@ import { useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { FileTree } from '../port/files/inbound/tree.js';
 import type { FileSidebarProps } from '../components/FileSidebar.js';
 import { WINDOW_LAYOUT } from '../config/windowLayout.js';
+import { FILE_REFRESH_ANNOUNCEMENT_MS } from '../config/constants/files.js';
 
 export interface FileSidebarController {
   visible: boolean;
@@ -37,6 +38,11 @@ export function useFileSidebar(
       : snapshot?.errors.size
         ? 'Refresh failed. Try again.'
         : 'Files refreshed.';
+  useLayoutEffect(() => {
+    if (busy || !refreshRequested) return;
+    const timer = window.setTimeout(() => setRefreshRequested(false), FILE_REFRESH_ANNOUNCEMENT_MS);
+    return () => window.clearTimeout(timer);
+  }, [busy, refreshRequested]);
   useLayoutEffect(() => {
     if (!visible) return;
     treeRef.current

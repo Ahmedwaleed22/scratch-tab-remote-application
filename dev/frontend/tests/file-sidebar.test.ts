@@ -328,6 +328,7 @@ test('tabs reveal nested files without scrollbars and refresh reports progress a
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.clock.install();
     const workspace: Record<string, string> = {
       'top.txt': 'top',
       'z-folder/deep/target.txt': 'target',
@@ -373,6 +374,20 @@ test('tabs reveal nested files without scrollbars and refresh reports progress a
     await files.getByRole('status').getByText('Refreshing…', { exact: true }).waitFor();
     assert.equal(await refresh.isDisabled(), true);
     await files.getByRole('status').getByText('Files refreshed.', { exact: true }).waitFor();
+    // A new refresh cancels the old announcement timer and gets its full window.
+    await page.clock.fastForward(2000);
+    await refresh.click();
+    await files.getByRole('status').getByText('Refreshing…', { exact: true }).waitFor();
+    await files.getByRole('status').getByText('Files refreshed.', { exact: true }).waitFor();
+    await page.clock.fastForward(1100);
+    assert.equal(await files.getByRole('status').textContent(), 'Files refreshed.');
+    await page.clock.fastForward(2000);
+    assert.equal(await files.getByRole('status').textContent(), '');
+    // Loading another folder must not revive the completed refresh announcement.
+    await files.getByRole('button', { name: 'folder-0', exact: true }).click();
+    assert.equal(await files.getByRole('status').textContent(), '');
+    await files.getByRole('button', { name: 'note.txt', exact: true }).waitFor();
+    assert.equal(await files.getByRole('status').textContent(), '');
     await page.evaluate(() => {
       delete window.workspace['z-folder/deep/target.txt'];
     });
@@ -382,6 +397,8 @@ test('tabs reveal nested files without scrollbars and refresh reports progress a
       .getByText('Refresh failed. Try again.', { exact: true })
       .waitFor();
     assert.equal(await refresh.isEnabled(), true);
+    await page.clock.fastForward(3100);
+    assert.equal(await files.getByRole('status').textContent(), '');
   } finally {
     await browser.close();
   }
