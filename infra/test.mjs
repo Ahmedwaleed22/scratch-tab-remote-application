@@ -2111,6 +2111,21 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
       });
     });
     await page.goto('https://remote.test/');
+    const interceptsFile = chatId =>
+      page.evaluate(chatId => {
+        const link = document.createElement('a');
+        link.href = `/api/chats/${chatId}/ide-open?path=/workspace/note.txt`;
+        document.body.append(link);
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        let intercepted = true;
+        link.addEventListener('click', event => {
+          intercepted = false;
+          event.preventDefault();
+        });
+        link.dispatchEvent(click);
+        link.remove();
+        return intercepted;
+      }, chatId);
     await page.evaluate(async () => {
       const { default: activate } = await import('/main.js');
       const hosts = [document.querySelector('#desktop'), document.querySelector('#mobile')];
@@ -2137,7 +2152,8 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
           sidebarHeaderActions: 'sidebar',
         },
         backend: {
-          async call() {
+          async call(path) {
+            if (path === 'file') return { content: 'note', revision: 'initial' };
             window.checks++;
             return { version: '0.7.0' };
           },
@@ -2175,6 +2191,7 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
     assert.equal(await page.evaluate(() => window.checks), 1);
     assert.equal(await page.evaluate(() => window.timers.size), 1);
     await page.evaluate(() => window.mobileCleanup());
+    assert.equal(await interceptsFile('a'), true, 'remaining header keeps file capture active');
     assert.equal(
       await page.locator('#desktop button').count(),
       1,
@@ -2191,6 +2208,7 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
       () => window.checks === 2 && document.querySelectorAll('#desktop button').length === 1,
     );
     await page.evaluate(() => window.desktopCleanup());
+    assert.equal(await interceptsFile('b'), true, 'stale project cleanup keeps new capture active');
     assert.equal(
       await page.locator('#desktop button').count(),
       1,
@@ -2205,16 +2223,16 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
     });
     await page.waitForFunction(() => document.querySelectorAll('#desktop button').length === 1);
     await page.evaluate(() => window.nextCleanup());
+    assert.equal(await interceptsFile('c'), true, 'remaining chat owner keeps capture active');
     assert.equal(
       await page.locator('#desktop button').count(),
       1,
       'old chat cleanup cannot remove the new notice',
     );
     assert.equal(await page.evaluate(() => window.timers.size), 1);
-    await page.evaluate(() => {
-      window.ownerCleanup();
-      window.lastCleanup();
-    });
+    await page.evaluate(() => window.lastCleanup());
+    assert.equal(await interceptsFile('c'), false, 'last header cleanup suspends file capture');
+    await page.evaluate(() => window.ownerCleanup());
     assert.equal(await page.locator('#desktop button').count(), 0);
     assert.equal(await page.evaluate(() => window.timers.size), 0);
   } finally {

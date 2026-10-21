@@ -45,6 +45,7 @@ export default function activate(remote: Remote): void {
     { when: context => context.instance?.applicationId === remote.application.id },
   );
   let session: ChatSession | null;
+  let chatOwners = 0;
   let projectId: string | undefined;
   // The sidebar survives keyed chat remounts; its scope owns final cleanup.
   remote.ui.register(remote.slots.sidebarHeaderActions, () => () => {
@@ -72,6 +73,8 @@ export default function activate(remote: Remote): void {
             ? target.openIde()
             : window.open(target.ide, '_blank', 'noopener,noreferrer'),
       });
+    const ownerSession = session;
+    chatOwners++;
     // Desktop and mobile slots stay mounted together; the icon registration is global.
     if (
       !updateNotice ||
@@ -99,7 +102,8 @@ export default function activate(remote: Remote): void {
         notice.dispose();
         updateNotice = undefined;
       }
-      session?.suspend();
+      chatOwners--;
+      if (chatOwners === 0 && session === ownerSession) ownerSession.suspend();
     };
   });
 }
