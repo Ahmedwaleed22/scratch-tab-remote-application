@@ -57,7 +57,7 @@ export function createUpdates(
         signal,
       });
       if (!response.ok) {
-        const error: unknown = await response.json();
+        const error: unknown = await response.json().catch(() => null);
         throw new Error(
           isJsonObject(error) && typeof error.error === 'string' && error.error
             ? error.error
