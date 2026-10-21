@@ -578,11 +578,12 @@
 
 .scratch-tab-mermaid {
   overflow-x: auto;
+  max-width: 100%;
   margin: 1em 0;
 }
 .scratch-tab-mermaid svg {
   display: block;
-  max-width: 100%;
+  max-width: none;
   height: auto;
   margin: auto;
 }

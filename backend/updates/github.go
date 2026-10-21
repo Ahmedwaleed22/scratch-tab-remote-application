@@ -21,7 +21,7 @@ import (
 const releaseURL = "https://api.github.com/repos/Ahmedwaleed22/scratch-tab-remote-application/releases/latest"
 
 // Bound in-memory downloads; larger packages remain available by manual upload.
-const maxArchiveBytes = 512 * 1024
+const maxArchiveBytes = 2 * 1024 * 1024
 
 var versionPattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
@@ -104,7 +104,7 @@ func (c *Client) Latest(ctx context.Context) (Release, error) {
 		}
 		digest, err := hex.DecodeString(strings.TrimPrefix(a.Digest, "sha256:"))
 		if a.URL != expected || !strings.HasPrefix(a.Digest, "sha256:") || err != nil || len(digest) != 32 || a.Size <= 0 || a.Size > maxArchiveBytes {
-			return Release{}, errors.New("Release ZIP has invalid metadata or exceeds the 512 KiB automatic update limit")
+			return Release{}, errors.New("Release ZIP has invalid metadata or exceeds the 2 MiB automatic update limit")
 		}
 		c.cached = Release{version, name, expected, a.Digest, a.Size}
 		c.expires = time.Now().Add(time.Hour)

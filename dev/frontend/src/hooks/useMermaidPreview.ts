@@ -28,6 +28,10 @@ export function useMermaidPreview(preview: RefObject<HTMLElement>, html: string,
             diagram.innerHTML = svg;
             diagram.setAttribute('role', 'img');
             diagram.setAttribute('aria-label', 'Mermaid diagram');
+            diagram.tabIndex = 0;
+            const drawing = diagram.querySelector('svg')!;
+            drawing.style.maxWidth = 'none';
+            drawing.style.width = `${Math.max(280, Math.min(drawing.viewBox.baseVal.width, 1600))}px`;
             pre.hidden = true;
           },
           () => {

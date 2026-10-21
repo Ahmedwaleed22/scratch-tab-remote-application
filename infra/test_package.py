@@ -24,8 +24,7 @@ class PackageTests(unittest.TestCase):
                 self.assertIn('ui/' + manifest['ui']['entry'], names)
                 self.assertEqual([name for name in names if name.endswith('.js')], ['ui/scripts/main.js'])
                 self.assertEqual(package.read('ui/scripts/main.js'), (root / 'dist/main.js').read_bytes())
-                # Mermaid exceeds the automatic updater cap; this package is uploaded manually.
-                self.assertLess(archive.stat().st_size, 8 * 1024 * 1024)
+                self.assertLess(archive.stat().st_size, 2 * 1024 * 1024)
                 self.assertIn(b'mermaid', package.read('ui/licenses/THIRD-PARTY.txt'))
                 self.assertIn('backend/container/main.go', names)
                 self.assertIn('backend/container/storage.go', names)
