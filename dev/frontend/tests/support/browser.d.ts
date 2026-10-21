@@ -6,6 +6,7 @@ export interface FixtureModules {
   '/services/editorDocument.js': typeof import('../../src/services/editorDocument.js');
   '/services/releaseVersion.js': typeof import('../../src/services/releaseVersion.js');
   '/adapters/windowGeometry.js': typeof import('../../src/adapters/windowGeometry.js');
+  '/presenters/markdown.js': typeof import('../../src/presenters/markdown.js');
   'api/files.js': typeof import('../../src/api/files.js');
   'api/updates.js': typeof import('../../src/api/updates.js');
   'links.js': typeof import('../../src/links.js');
