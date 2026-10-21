@@ -1,6 +1,6 @@
 import type { TestProject } from 'vitest/node';
 import { build } from 'esbuild';
-import { mkdtemp, readdir, rm, mkdir, copyFile } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, mkdir, copyFile, cp } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -16,6 +16,7 @@ export default async function setup(project: TestProject): Promise<() => Promise
   async function compile(): Promise<void> {
     await execute('npm', ['run', 'build'], { cwd: fileURLToPath(root) });
     await copyFile(new URL('dist/main.js', root), fixture + '/production.js');
+    await cp(new URL('dist/chunks/', root), fixture + '/chunks/', { recursive: true });
     const sourceFiles = await readdir(new URL('src/', frontend), { recursive: true });
     await build({
       absWorkingDir: fileURLToPath(root),

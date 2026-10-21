@@ -14,13 +14,15 @@ def build_package(root, output_dir, tag):
     files = ['README.md', 'LICENSE', 'application.json', 'dev/frontend/ui/licenses/THIRD-PARTY.txt']
     files.extend(str(path.relative_to(root)) for path in sorted((root / 'backend').rglob('*.go'))
                  if path.is_file() and not path.name.endswith('_test.go'))
-    files.extend(str(path.relative_to(root)) for path in sorted((root / 'docs/images').glob('*.png')))
     for name in files:
         if not (root / name).is_file() or (root / name).is_symlink():
             raise ValueError(f'missing regular package file: {name}')
     bundle = root / 'dist/main.js'
     if not bundle.is_file() or bundle.is_symlink():
         raise ValueError('missing JavaScript bundle: run npm run build first')
+    chunks = sorted((root / 'dist/chunks').glob('*.js'))
+    if any(chunk.is_symlink() for chunk in chunks):
+        raise ValueError('JavaScript chunks must be regular files')
     styles = {f'ui/style/{path.name}': root / 'dist/style' / path.name
               for path in sorted((root / 'dev/frontend/ui/style').glob('*.css'))}
     for style in styles.values():
@@ -32,6 +34,8 @@ def build_package(root, output_dir, tag):
         for name in files:
             package.write(root / name, name.removeprefix('dev/frontend/'))
         package.write(bundle, 'ui/scripts/main.js')
+        for chunk in chunks:
+            package.write(chunk, f'ui/scripts/chunks/{chunk.name}')
         for name, style in styles.items():
             package.write(style, name)
     return archive

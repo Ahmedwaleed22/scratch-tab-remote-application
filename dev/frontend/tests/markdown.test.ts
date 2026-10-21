@@ -377,11 +377,9 @@ test('production bundle renders Mermaid diagrams after an invalid block and disp
     page.on('pageerror', error => errors.push(error.message));
     await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
-      if (new URL(route.request().url()).pathname === '/main.js')
-        return route.fulfill({
-          contentType: 'text/javascript',
-          body: await runtimeModule('/main.js'),
-        });
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('.js'))
+        return route.fulfill({ contentType: 'text/javascript', body: await runtimeModule(path) });
       return route.fulfill({
         contentType: 'text/html',
         body: '<a href="/api/chats/a/ide-open?path=/workspace/diagram.md">Diagram</a>',
