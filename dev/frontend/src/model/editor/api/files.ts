@@ -8,4 +8,5 @@ export interface FileSaveRequest {
   content: string;
   revision: string;
   save: true;
+  create?: true;
 }

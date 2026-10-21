@@ -1,3 +1,4 @@
+import type { Directories } from '../port/files/outbound/directories.js';
 import type { ChatContext, Drafts, Files, FileTarget } from '../types.js';
 import type { EditorWindowView } from '../port/editor/outbound/view.js';
 interface Group {
@@ -15,6 +16,11 @@ import { FIRST_WINDOW_LAYER } from '../config/editor.js';
 import { captureFileOpenings } from '../adapters/fileOpenings.js';
 import { mountEditorWindow } from './editor.js';
 import { EditorDocument } from '../services/editorDocument.js';
+import { createFileTree } from '../services/fileTree.js';
+import { FileTreeState } from '../state/fileTree.js';
+import { sidebarPreference } from '../adapters/sidebarPreference.js';
+import { createDirectories } from '../api/directories.js';
+import { fileTarget } from '../links.js';
 
 export interface ChatSession {
   (): void;
@@ -26,13 +32,22 @@ export function mountChat({
   context,
   drafts,
   files,
+  directories = createDirectories(),
   launchIde,
 }: {
   context: ChatContext;
   drafts: Drafts;
   files: Files;
+  directories?: Directories;
   launchIde(target: FileTarget): void;
 }): ChatSession {
+  // One tree per project session, shared by every window's sidebar.
+  const fileTree = createFileTree({
+    directories,
+    chatId: context.chatId,
+    preference: sidebarPreference,
+    state: new FileTreeState(sidebarPreference.read()),
+  });
   const windows = new Map<string, Item>();
   let layer = FIRST_WINDOW_LAYER;
   const nextLayer = () => ++layer;
@@ -79,13 +94,17 @@ export function mountChat({
       return;
     for (const item of items) item.window.close(false, true);
   }
-  function open(target: FileTarget) {
+  function open(target: FileTarget, into?: Group) {
     const existing = windows.get(target.path);
     if (existing) {
       existing.window.restore();
       return;
     }
-    const group = activeGroup?.items.size ? activeGroup : { items: new Map(), active: null };
+    const group = into?.items.size
+      ? into
+      : activeGroup?.items.size
+        ? activeGroup
+        : { items: new Map(), active: null };
     const documentModel = new EditorDocument(
       target.path,
       `${context.projectId}:${target.path}`,
@@ -125,6 +144,17 @@ export function mountChat({
       },
       onSeparate: () => separate(item),
       onStateChange: () => renderGroup(item.group),
+      fileTree,
+      onOpenFile(entry) {
+        const opened = fileTarget(
+          `/api/chats/${encodeURIComponent(context.chatId)}/ide-open?path=${encodeURIComponent('/workspace/' + entry.path)}`,
+          location.origin,
+          context.chatId,
+          context.cwd,
+        );
+        // Sidebar files join the window they were picked from.
+        if (opened) open(opened, item.group);
+      },
     });
     group.items.set(target.path, item);
     windows.set(target.path, item);
@@ -155,6 +185,7 @@ export function mountChat({
       }
     }
     context = next;
+    fileTree.setChat(next.chatId);
     for (const item of windows.values())
       item.window.setVisible(item.group.active === item.target.path);
     capture = new AbortController();
@@ -164,6 +195,7 @@ export function mountChat({
   const dispose = () => {
     suspend();
     for (const item of [...windows.values()]) item.window.close(true);
+    fileTree.dispose();
   };
   dispose.setContext = setContext;
   dispose.suspend = suspend;

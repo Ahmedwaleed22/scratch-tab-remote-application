@@ -12,6 +12,8 @@ Download the installable ZIP, upload it through **Settings → Applications**, t
 
 Click a workspace file link in an agent message, or select a text file in the file manager. Supported files open directly in Scratch Tab. File-manager search results work the same way.
 
+Each window has a **Files** sidebar on the left that browses the workspace like Remote's file manager. Folders load as you expand them, and the folders containing the current file open automatically with that file highlighted. Select a file to open it as a tab in the same window; images, media and archives download instead. The sidebar starts closed: use the panel button at the left of the tab bar to show or hide it, and Scratch Tab remembers that choice in this browser. Tabs show a file-type icon beside the name; the close button appears on the active tab and on hover. On phones the sidebar opens as a drawer over the editor and closes after you pick a file. The tab strip and file tree scroll without visible scrollbars. Selecting a tab expands its parent folders and scrolls the selected file into view. Use the refresh button to pick up files created or deleted elsewhere; it shows progress and a success or failure message.
+
 ## Edit and save
 
 Programming files get syntax highlighting based on their extension: JavaScript/JSX, TypeScript/TSX, Python, Go, JSON, shell, HTML/XML, CSS, Markdown, YAML, SQL, Rust, Java, C/C++, and PHP. Unknown extensions stay plain text. Highlighting updates as you type and does not reformat or change the file. Very large drafts and lines over 8,192 characters display without colors to keep editing responsive.
@@ -22,7 +24,7 @@ Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the fil
 
 ![Edit a file in a movable Scratch Tab window](docs/images/editor-window.png)
 
-On phones, the editor fits the visible screen and keeps its controls above the keyboard. Tap the text to start editing. On desktop, drag the title bar to move the window and resize it from the corner. Open several files as tabs in the active window. Select a tab to switch files, or click **Separate window** to split the active tab into its own movable window. Selecting an already open file brings its tab and window forward. Each file keeps its own edits and Save action. Click the X beside a tab name to close only that file. Click the red dot or press Escape to close the whole window and all its tabs. If there are unsaved changes, Scratch Tab asks before discarding them.
+On phones, the editor fits the visible screen and keeps its controls above the keyboard. Tap the text to start editing. On desktop, drag the title bar to move the window and resize it from the corner. Open several files as tabs in the active window. Select a tab to switch files. On desktop, click **Separate window** to split the active tab into its own movable window; this action is hidden on phones. Selecting an already open file brings its tab and window forward. Each file keeps its own edits and Save action. Click the X beside a tab name to close only that file. Click the red dot or press Escape to close the whole window and all its tabs. If there are unsaved changes, Scratch Tab asks before discarding them.
 
 For keyboard navigation, use Left/Right or Home/End on the file tabs to switch between them. Focus a window’s title bar and use the arrow keys to move it.
 
@@ -30,8 +32,9 @@ For keyboard navigation, use Left/Right or Home/End on the file tabs to switch b
 
 - Supports existing UTF-8 text files up to **128 KiB** inside `/workspace`. Word documents and files rejected by the text reader show **File not supported** with a **Download file** action.
 - Folders, downloads, images, audio, video, PDFs and archives keep Remote’s usual behavior.
-- Save is explicit; there is no autosave or automatic backup. Creating, renaming and deleting files stays in Remote or Code Server.
+- Save is explicit; there is no autosave or automatic backup. Apart from recreating a deleted file, creating, renaming and deleting files stays in Remote or Code Server.
 - If a file changed on disk since you opened it, saving reports a conflict. Copy your edits before reopening the file.
+- If a file was deleted or moved, opening it shows **File not found** with **Try again** and **Close tab**. If it is deleted while open, your text stays in the editor and **Save** becomes **Recreate**, which writes the text back to the same path. Recreating needs the folder to exist and never overwrites a file that has appeared there since. An unsaved draft of a deleted file reopens ready to recreate.
 - Windows, tabs, edits and their positions stay open when switching chats within the same project. Leaving the project closes the windows and keeps unsaved drafts in browser memory. Refreshing or closing the browser loses those drafts, so save your work before leaving.
 - CRLF line endings are preserved. Mixed line endings normalize when saved. Symlinks and binary files are not editable; hard links and extended file attributes are not preserved on save.
 

@@ -65,7 +65,7 @@ export interface FileSaved {
 }
 export interface Files {
   read(path: string): Promise<FileRead>;
-  save(path: string, content: string, revision: string): Promise<FileSaved>;
+  save(path: string, content: string, revision: string, create?: boolean): Promise<FileSaved>;
 }
 export interface Draft extends FileRead {
   baseline: string;

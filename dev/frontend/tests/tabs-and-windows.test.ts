@@ -126,9 +126,9 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     const bar = await first.locator('.scratch-tab-tabbar').boundingBox();
     assert.ok(bar);
     assert.ok(bar.x >= 0 && bar.x + bar.width <= 320);
-    assert.ok(
-      (await first.getByRole('button', { name: 'Separate window', exact: true }).boundingBox())!
-        .height >= 44,
+    assert.equal(
+      await first.getByRole('button', { name: 'Separate window', exact: true }).count(),
+      0,
     );
     if (process.env.SCRATCH_TAB_SCREENSHOTS)
       await page.screenshot({ path: process.env.SCRATCH_TAB_SCREENSHOTS + '-tabs-mobile.png' });

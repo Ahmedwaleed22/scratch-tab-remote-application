@@ -16,8 +16,12 @@ export function createFiles(backend: Remote['backend'], projectId: string): File
         throw new Error('Unexpected file response.');
       return { content: result.content, revision: result.revision };
     },
-    async save(path, content, revision): Promise<FileSaved> {
-      const result = await call({ path, content, revision, save: true });
+    async save(path, content, revision, create = false): Promise<FileSaved> {
+      const result = await call(
+        create
+          ? { path, content, revision, save: true, create: true }
+          : { path, content, revision, save: true },
+      );
       if (!isJsonObject(result) || typeof result.revision !== 'string')
         throw new Error('Unexpected save response.');
       return { revision: result.revision };
