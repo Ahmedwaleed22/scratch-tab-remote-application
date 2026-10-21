@@ -5,6 +5,7 @@ export interface EditorProgress {
   subscribe(listener: (change: EditorChange) => void): () => void;
   loaded(): void;
   unsupported(): void;
+  notFound(found: boolean): void;
   refresh(): void;
   showMessage(message: string): void;
   setError(failed: boolean): void;

@@ -7,6 +7,7 @@ export interface FixtureModules {
   '/services/releaseVersion.js': typeof import('../../src/services/releaseVersion.js');
   '/adapters/windowGeometry.js': typeof import('../../src/adapters/windowGeometry.js');
   'api/files.js': typeof import('../../src/api/files.js');
+  'api/directories.js': typeof import('../../src/api/directories.js');
   'api/updates.js': typeof import('../../src/api/updates.js');
   'links.js': typeof import('../../src/links.js');
   'presenters/syntax.js': typeof import('../../src/presenters/syntax.js');
@@ -117,5 +118,8 @@ declare global {
     uploads: number;
     view: import('../../src/port/editor/outbound/view.js').EditorWindowView;
     writes: import('../../src/types.js').BackendOptions[];
+    workspace: Record<string, string>;
+    listings: string[];
+    creates: string[];
   }
 }

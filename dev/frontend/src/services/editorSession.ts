@@ -1,4 +1,4 @@
-import { UNSUPPORTED_DOCUMENT } from '../config/editor.js';
+import { MISSING_FILE_MESSAGE, UNSUPPORTED_DOCUMENT } from '../config/editor.js';
 import type { EditorDocument } from './editorDocument.js';
 import type { EditorProgress } from '../port/editor/outbound/progress.js';
 import type { EditorSession } from '../port/editor/inbound/session.js';
@@ -9,7 +9,12 @@ interface Dependencies {
   state: EditorProgress;
   isCancelled(): boolean;
   confirm(message: string): boolean;
+  /** Called when the file disappears or is recreated, so file listings can refresh. */
+  onFilesChanged?(): void;
 }
+
+const isMissing = (error: unknown): boolean =>
+  error instanceof Error && error.message === MISSING_FILE_MESSAGE;
 
 export function createEditorSession({
   documentModel,
@@ -17,8 +22,9 @@ export function createEditorSession({
   state,
   isCancelled,
   confirm,
+  onFilesChanged,
 }: Dependencies): EditorSession {
-  return {
+  const session: EditorSession = {
     get snapshot() {
       return state.snapshot;
     },
@@ -50,7 +56,15 @@ export function createEditorSession({
         })
         .catch(error => {
           if (isCancelled()) return;
-          if (
+          if (isMissing(error)) {
+            onFilesChanged?.();
+            if (documentModel.loadMissing()) {
+              state.loaded();
+              state.refresh();
+              state.showMessage('File was deleted · Recreate it to keep your unsaved draft');
+              state.setError(true);
+            } else state.notFound(true);
+          } else if (
             error instanceof Error &&
             error.message === 'Only UTF-8 text files up to 128 KiB are supported.'
           )
@@ -60,6 +74,12 @@ export function createEditorSession({
             state.setError(true);
           }
         });
+    },
+    retry() {
+      state.notFound(false);
+      state.showMessage('Loading…');
+      state.setError(false);
+      session.start();
     },
     edit(text) {
       documentModel.edit(text);
@@ -75,15 +95,24 @@ export function createEditorSession({
         return;
       }
       state.refresh();
-      state.showMessage('Saving…');
+      state.showMessage(command.create ? 'Recreating…' : 'Saving…');
       try {
         await documentModel.commitSave(command);
+        if (command.create) onFilesChanged?.();
         state.showMessage(
-          documentModel.dirty ? 'Saved earlier changes · Unsaved edits remain' : 'Saved · UTF-8',
+          documentModel.dirty
+            ? 'Saved earlier changes · Unsaved edits remain'
+            : command.create
+              ? 'Recreated · UTF-8'
+              : 'Saved · UTF-8',
         );
         state.setError(false);
       } catch (error) {
-        state.showMessage(error instanceof Error ? error.message : String(error));
+        if (isMissing(error)) {
+          documentModel.markMissing();
+          onFilesChanged?.();
+          state.showMessage('File was deleted on disk · Recreate it to keep your edits');
+        } else state.showMessage(error instanceof Error ? error.message : String(error));
         state.setError(true);
       } finally {
         documentModel.finishSave();
@@ -103,4 +132,5 @@ export function createEditorSession({
       return true;
     },
   };
+  return session;
 }

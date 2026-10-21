@@ -2,10 +2,12 @@ import { createRef } from 'preact';
 import type { Ref } from 'preact';
 import { useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from 'preact/hooks';
 import { useEditor } from './useEditor.js';
+import { useFileSidebar } from './useFileSidebar.js';
+import type { FileTree } from '../port/files/inbound/tree.js';
 import type { EditorBinding } from './useEditor.js';
 import type { EditorElements, EditorWindowProps } from '../components/EditorWindow.js';
 import type { EditorWindowView } from '../port/editor/outbound/view.js';
-import type { FileTarget, Tab } from '../types.js';
+import type { DirectoryEntry, FileTarget, Tab } from '../types.js';
 import type { WindowGeometryPersistence } from '../port/editor/outbound/layout.js';
 import type { WindowLayoutBinding } from '../presenters/windowLayout.js';
 import { restoreWindowLayout, bindWindowLayout } from '../presenters/windowLayout.js';
@@ -24,6 +26,9 @@ export interface EditorWindowBinding extends EditorBinding {
   onClose?(): void;
   onActivate?(): void;
   onSeparate?(): void;
+  /** Windows mounted outside a chat session have no sidebar. */
+  fileTree?: FileTree;
+  onOpenFile?(entry: DirectoryEntry): void;
 }
 
 export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps {
@@ -34,6 +39,7 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
       textarea: createRef(),
       preview: createRef(),
       download: createRef(),
+      retry: createRef(),
       tabs: createRef(),
     }),
     [],
@@ -48,13 +54,16 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
   const [, refresh] = useReducer((value: number) => value + 1, 0);
   const focus = () => {
     if (elements.panel.current?.style.display === 'none') return;
-    const target = binding.session.snapshot.unsupported
-      ? elements.download.current
-      : windowState.current.preview
-        ? elements.preview.current
-        : layout.current?.isCompact
-          ? elements.header.current
-          : elements.textarea.current;
+    const { unsupported, notFound } = binding.session.snapshot;
+    const target = notFound
+      ? elements.retry.current
+      : unsupported
+        ? elements.download.current
+        : windowState.current.preview
+          ? elements.preview.current
+          : layout.current?.isCompact
+            ? elements.header.current
+            : elements.textarea.current;
     target?.focus({ preventScroll: true });
   };
   const raise = () => {
@@ -78,6 +87,13 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
     if (editor.state.unsupported) focus();
   }, [editor.state.unsupported]);
   useLayoutEffect(() => {
+    // Retrying remounts the textarea, which needs the text a finished read already delivered.
+    if (!editor.state.notFound && elements.textarea.current && editor.state.editable)
+      elements.textarea.current.value = binding.session.text;
+    if (editor.state.notFound) focus();
+  }, [editor.state.notFound]);
+  const sidebar = useFileSidebar(binding.fileTree, binding.target.path, binding.onOpenFile);
+  useLayoutEffect(() => {
     if (!focusPreview.current) return;
     focusPreview.current = false;
     (windowState.current.preview ? elements.preview.current : elements.textarea.current)?.focus({
@@ -90,6 +106,9 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
       close: editor.close,
       restore() {
         raise();
+        const tree = binding.fileTree;
+        if (tree && (tree.snapshot.open || tree.snapshot.drawerOpen))
+          tree.reveal(binding.target.path);
         focus();
       },
       focus,
@@ -147,6 +166,9 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
       onEdit: editor.edit,
       onOpenIde: () => binding.launchIde(binding.target),
       onSeparate: binding.onSeparate,
+      onCloseFile: () => editor.close(),
+      onRetry: () => binding.session.retry(),
     },
+    sidebar,
   };
 }

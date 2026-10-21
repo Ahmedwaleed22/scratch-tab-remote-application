@@ -22,6 +22,7 @@ export function mountEditorWindow(options: WindowOptions): EditorWindowView {
   const state = new EditorState(() => ({
     canSave: documentModel.canSave,
     dirty: documentModel.dirty,
+    missing: documentModel.missing,
   }));
   const session = createEditorSession({
     documentModel,
@@ -29,6 +30,7 @@ export function mountEditorWindow(options: WindowOptions): EditorWindowView {
     state,
     isCancelled: () => lifetime.signal.aborted,
     confirm: message => confirm(message),
+    onFilesChanged: () => options.fileTree?.refresh(),
   });
   document.body.append(root);
   render(

@@ -6,6 +6,7 @@ export interface EditorSession {
   readonly supportsFile: boolean;
   subscribe(listener: (change: EditorChange) => void): () => void;
   start(): void;
+  retry(): void;
   edit(text: string): void;
   save(): Promise<void>;
   close(force?: boolean, confirmed?: boolean): boolean;

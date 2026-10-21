@@ -3,6 +3,8 @@ import Button from './Button.js';
 import FileTabs from './FileTabs.js';
 import SyntaxSurface from './SyntaxSurface.js';
 import MarkdownPreview from './MarkdownPreview.js';
+import FileSidebar from './FileSidebar.js';
+import type { FileSidebarController } from '../hooks/useFileSidebar.js';
 import type { FileTarget } from '../types.js';
 import type { EditorWindowState } from '../model/editor/application/window.js';
 import type { SyntaxLanguage } from '../model/editor/application/syntax.js';
@@ -13,6 +15,7 @@ export interface EditorElements {
   textarea: RefObject<HTMLTextAreaElement>;
   preview: RefObject<HTMLElement>;
   download: RefObject<HTMLAnchorElement>;
+  retry: RefObject<HTMLButtonElement>;
   tabs: RefObject<HTMLDivElement>;
 }
 export interface EditorWindowProps {
@@ -23,7 +26,10 @@ export interface EditorWindowProps {
     onOpenIde(): void;
     onEdit(text: string): void;
     onSeparate?(): void;
+    onCloseFile(): void;
+    onRetry(): void;
   };
+  sidebar: FileSidebarController | null;
   language: SyntaxLanguage | null;
   markdown: boolean;
   previewHtml: string;
@@ -43,8 +49,10 @@ export default function EditorWindow({
   state,
   elements,
   onToggle,
+  sidebar,
 }: EditorWindowProps): JSX.Element {
-  const { onClose, onSave, onOpenIde, onEdit, onSeparate } = actions;
+  const { onClose, onSave, onOpenIde, onEdit, onSeparate, onCloseFile, onRetry } = actions;
+  const settled = state.unsupported || state.notFound;
   const input = (
     <textarea
       ref={elements.textarea}
@@ -86,11 +94,15 @@ export default function EditorWindow({
         <strong title={target.path}>{`${state.dirty ? '● ' : ''}${target.name}`}</strong>
         <div
           class="scratch-tab-actions"
-          hidden={state.unsupported}
-          style={state.unsupported ? { display: 'none' } : undefined}
+          hidden={settled}
+          style={settled ? { display: 'none' } : undefined}
         >
-          <Button disabled={!state.canSave} onClick={onSave}>
-            Save
+          <Button
+            disabled={!state.canSave}
+            onClick={onSave}
+            title={state.missing ? `Recreate ${target.path} with this text` : undefined}
+          >
+            {state.missing ? 'Recreate' : 'Save'}
           </Button>
           {markdown && !state.unsupported && (
             <Button
@@ -115,45 +127,76 @@ export default function EditorWindow({
         activePath={state.activePath}
         tabsRef={elements.tabs}
         onSeparate={onSeparate}
+        sidebarOpen={sidebar?.visible}
+        onToggleSidebar={sidebar?.toggle}
       />
-      {state.unsupported ? (
-        <div class="scratch-tab-unsupported">
-          <div role="status">
-            <h2>File not supported</h2>
-            <p>
-              Scratch Tab can only edit small UTF-8 text files. Download this file to open it in
-              another app.
-            </p>
-          </div>
-          <a href={target.download} download={target.name} ref={elements.download}>
-            Download file
-          </a>
-        </div>
-      ) : (
-        <>
-          {language ? (
-            <SyntaxSurface
-              language={language}
-              textarea={elements.textarea}
-              revision={state.revision}
-              hidden={state.preview}
-            >
-              {input}
-            </SyntaxSurface>
+      <div class="scratch-tab-body">
+        {sidebar && <FileSidebar {...sidebar.props} />}
+        <div class="scratch-tab-main">
+          {state.missing && (
+            <div class="scratch-tab-missing" role="alert">
+              <span>
+                This file was deleted or moved. Your text is still here; Recreate writes it back to{' '}
+                <code>{target.path}</code>.
+              </span>
+            </div>
+          )}
+          {state.notFound ? (
+            <div class="scratch-tab-unsupported">
+              <div role="status">
+                <h2>File not found</h2>
+                <p>
+                  <code>{target.path}</code> no longer exists. It may have been deleted, moved or
+                  renamed. Pick another file from Files, or try again.
+                </p>
+              </div>
+              <div class="scratch-tab-not-found-actions">
+                <Button ref={elements.retry} onClick={onRetry}>
+                  Try again
+                </Button>
+                <Button onClick={onCloseFile}>Close tab</Button>
+              </div>
+            </div>
+          ) : state.unsupported ? (
+            <div class="scratch-tab-unsupported">
+              <div role="status">
+                <h2>File not supported</h2>
+                <p>
+                  Scratch Tab can only edit small UTF-8 text files. Download this file to open it in
+                  another app.
+                </p>
+              </div>
+              <a href={target.download} download={target.name} ref={elements.download}>
+                Download file
+              </a>
+            </div>
           ) : (
-            input
+            <>
+              {language ? (
+                <SyntaxSurface
+                  language={language}
+                  textarea={elements.textarea}
+                  revision={state.revision}
+                  hidden={state.preview}
+                >
+                  {input}
+                </SyntaxSurface>
+              ) : (
+                input
+              )}
+              {markdown && (
+                <MarkdownPreview
+                  name={target.name}
+                  html={previewHtml}
+                  visible={state.preview}
+                  previewRef={elements.preview}
+                />
+              )}
+            </>
           )}
-          {markdown && (
-            <MarkdownPreview
-              name={target.name}
-              html={previewHtml}
-              visible={state.preview}
-              previewRef={elements.preview}
-            />
-          )}
-        </>
-      )}
-      <footer hidden={state.unsupported} class={state.failed ? 'scratch-tab-error' : ''}>
+        </div>
+      </div>
+      <footer hidden={settled} class={state.failed ? 'scratch-tab-error' : ''}>
         <span role="status">{state.status}</span>
       </footer>
     </section>

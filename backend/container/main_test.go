@@ -78,3 +78,59 @@ func TestSaveNestedFileWithGo124Rename(t *testing.T) {
 		t.Fatal(entries, err)
 	}
 }
+
+func TestDeletedFileReportsMissingAndCanBeRecreated(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "notes"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	name := filepath.Join(root, "notes", "draft.md")
+	os.WriteFile(name, []byte("before"), 0600)
+	read := operate(root, Request{Path: "/workspace/notes/draft.md"})
+	os.Remove(name)
+	if got := operate(root, Request{Path: "/workspace/notes/draft.md"}); got.Status != 404 || got.Error != missingFile {
+		t.Fatal(got)
+	}
+	if got := operate(root, Request{Path: "/workspace/notes/draft.md", Save: true, Content: "kept", Revision: read.Revision}); got.Status != 404 || got.Error != missingFile {
+		t.Fatal(got)
+	}
+	created := operate(root, Request{Path: "/workspace/notes/draft.md", Save: true, Create: true, Content: "kept"})
+	if created.Status != 200 || created.Revision != digest([]byte("kept")) {
+		t.Fatal(created)
+	}
+	data, err := os.ReadFile(name)
+	if err != nil || string(data) != "kept" {
+		t.Fatal(string(data), err)
+	}
+	if entries, _ := os.ReadDir(filepath.Dir(name)); len(entries) != 1 {
+		t.Fatal("temporary file left behind", entries)
+	}
+	if got := operate(root, Request{Path: "/workspace/notes/draft.md", Save: true, Create: true, Content: "clobber"}); got.Status != 409 {
+		t.Fatal(got)
+	}
+	if data, _ = os.ReadFile(name); string(data) != "kept" {
+		t.Fatal("create overwrote an existing file")
+	}
+	saved := operate(root, Request{Path: "/workspace/notes/draft.md", Save: true, Content: "edited", Revision: created.Revision})
+	if saved.Status != 200 {
+		t.Fatal(saved)
+	}
+}
+
+func TestRecreateRejectsMissingFolderAndUnsafePaths(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	os.Symlink(outside, filepath.Join(root, "escape"))
+	if got := operate(root, Request{Path: "/workspace/gone/file.txt", Save: true, Create: true, Content: "x"}); got.Status != 404 {
+		t.Fatal(got)
+	}
+	if got := operate(root, Request{Path: "/workspace/escape/file.txt", Save: true, Create: true, Content: "x"}); got.Status == 200 {
+		t.Fatal(got)
+	}
+	if entries, _ := os.ReadDir(outside); len(entries) != 0 {
+		t.Fatal("created a file outside the workspace", entries)
+	}
+	if got := operate(root, Request{Path: "/workspace/bad.txt", Save: true, Create: true, Content: "a\x00b"}); got.Status != 400 {
+		t.Fatal(got)
+	}
+}
