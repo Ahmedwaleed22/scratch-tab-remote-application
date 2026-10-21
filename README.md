@@ -24,7 +24,7 @@ Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the fil
 
 ![Edit a file in a movable Scratch Tab window](docs/images/editor-window.png)
 
-On phones, the editor fits the visible screen and keeps its controls above the keyboard. Tap the text to start editing. On desktop, drag the title bar to move the window and resize it from the corner. Open several files as tabs in the active window. Select a tab to switch files, or click **Separate window** to split the active tab into its own movable window. Selecting an already open file brings its tab and window forward. Each file keeps its own edits and Save action. Click the X beside a tab name to close only that file. Click the red dot or press Escape to close the whole window and all its tabs. If there are unsaved changes, Scratch Tab asks before discarding them.
+On phones, the editor fits the visible screen and keeps its controls above the keyboard. Tap the text to start editing. On desktop, drag the title bar to move the window and resize it from the corner. Open several files as tabs in the active window. Select a tab to switch files. On desktop, click **Separate window** to split the active tab into its own movable window; this action is hidden on phones. Selecting an already open file brings its tab and window forward. Each file keeps its own edits and Save action. Click the X beside a tab name to close only that file. Click the red dot or press Escape to close the whole window and all its tabs. If there are unsaved changes, Scratch Tab asks before discarding them.
 
 For keyboard navigation, use Left/Right or Home/End on the file tabs to switch between them. Focus a window’s title bar and use the arrow keys to move it.
 

@@ -136,6 +136,9 @@
   cursor: default;
 }
 @media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
+  .scratch-tab-separate {
+    display: none;
+  }
   .scratch-tab-window {
     min-width: 0;
     min-height: 0;
