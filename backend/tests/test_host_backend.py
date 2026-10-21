@@ -2,7 +2,7 @@
 import argparse
 import json
 import zipfile
-from package import build_package
+import sys
 import os
 from pathlib import Path
 import shutil
@@ -12,7 +12,9 @@ import tempfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--remote-root', type=Path, required=True)
 args = parser.parse_args()
-root = Path(__file__).resolve().parents[1]
+root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(root))
+from infra.package import build_package
 remote = args.remote_root.resolve() / 'backend'
 go_version = next(line.split()[1] for line in (remote / 'go.mod').read_text().splitlines() if line.startswith('go '))
 go = shutil.which('go') or '/usr/local/go/bin/go'

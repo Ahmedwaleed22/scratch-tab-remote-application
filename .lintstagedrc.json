@@ -1,5 +1,6 @@
 {
   "dev/frontend/src/**/*.{ts,tsx}": "prettier --write",
   "dev/frontend/ui/style/**/*.css": "prettier --write",
-  "infra/*.{ts,mjs}": "prettier --write"
+  "infra/*.{ts,mjs}": "prettier --write",
+  "dev/frontend/tests/**/*.mjs": "prettier --write"
 }

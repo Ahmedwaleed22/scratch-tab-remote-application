@@ -56,7 +56,7 @@ npm ci
 npx playwright install chromium
 npm test
 npm run format:check
-python3 -B infra/test_package.py
+npm run test:infra
 ```
 
 `npm run build` bundles the frontend into `dist/main.js`. Only JavaScript is emitted in `dist`; TypeScript checking runs separately with `npm run typecheck`. The ZIP packager places that bundle at the existing `ui/scripts/main.js` runtime entry, alongside CSS, backend files and third-party license notices. Run the build before packaging. See [maintenance notes](docs/maintenance.md) for backend and release checks.

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from package import build_package
+from infra.package import build_package
 
 
 class PackageTests(unittest.TestCase):
@@ -37,22 +37,6 @@ class PackageTests(unittest.TestCase):
                 for image in re.findall(r'!\[[^]]*\]\(([^)]+)\)', package.read('README.md').decode()):
                     self.assertIn(image, names)
                 self.assertTrue(all(not name.endswith(('_test.go', '.mjs', '.py', '.ts', '.tsx')) for name in names))
-
-    def test_missing_bundle_rejected(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            (root / 'dev/frontend/ui/licenses').mkdir(parents=True)
-            for name, content in [('application.json', '{"version":"1.0.0"}'),
-                                  ('README.md', 'readme'), ('LICENSE', 'license'),
-                                  ('dev/frontend/ui/licenses/THIRD-PARTY.txt', 'notices')]:
-                (root / name).write_text(content)
-            with self.assertRaisesRegex(ValueError, 'run npm run build first'):
-                build_package(root, root / 'output', 'v1.0.0')
-
-    def test_wrong_tag_rejected(self):
-        with tempfile.TemporaryDirectory() as temp:
-            with self.assertRaisesRegex(ValueError, 'tag must match'):
-                build_package(Path(__file__).resolve().parents[1], Path(temp), 'v0.0.0')
 
 
 if __name__ == '__main__':

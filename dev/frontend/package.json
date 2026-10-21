@@ -1,0 +1,9 @@
+{
+  "name": "scratch-tab-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix ../.. run build",
+    "test": "npm run build && node tests/support/run.mjs"
+  }
+}

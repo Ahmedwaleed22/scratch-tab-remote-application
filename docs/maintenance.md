@@ -52,14 +52,16 @@ npm run format:check
 npm run typecheck
 npm run build
 npx playwright install chromium
-node --test infra/test.mjs
+npm run test:frontend
 GO111MODULE=off go test ./backend/container
 GO111MODULE=off go vet ./backend/container
-python3 -B infra/test_package.py
-python3 -B infra/test_backend.py --remote-root /path/to/remote.futrx
+npm run test:infra
+python3 -B backend/tests/test_host_backend.py --remote-root /path/to/remote.futrx
 ```
 
-Run `npm ci` after cloning to install the shared Git hooks, then `npx playwright install chromium` for browser tests. The pre-commit hook formats staged TypeScript, CSS and test files, then runs `npm test` (type checking, production build and browser tests). This keeps formatting inside the original signed commit, including when staging only part of a file.
+Tests follow their deployment unit: `dev/frontend/tests/*.test.mjs` contains one frontend scenario per file, `backend/` contains Go tests and `backend/tests/test_host_backend.py`, and root `tests/test_*.py` contains one packaging check per file. Run `npm test` at the app root for type checking and all local suites, or `npm test` inside `dev/frontend` for frontend tests alone. The frontend package reuses dependencies installed by root `npm ci`. Use `npm run test:backend` and `npm run test:infra` for the other local suites. The host integration harness separately requires a Remote checkout. Historical v0.6.0/v0.6.1 publishing workflows pin their legacy harness because those tags predate this test layout.
+
+Run `npm ci` after cloning to install the shared Git hooks, then `npx playwright install chromium` for browser tests. The pre-commit hook formats staged TypeScript, CSS and test files, then runs `npm test` (type checking, production build, frontend tests, container tests and packaging tests). This keeps formatting inside the original signed commit, including when staging only part of a file.
 
 The Prettier workflow runs on every push and pull request: it formats the checkout and fails if that creates a diff. It has read-only repository permissions and never commits or pushes, so it cannot put local branches behind or create formatting-only merge conflicts. Fix failures locally with `npm run format` and include them in the next commit. Changes made by other people still require the usual fetch and merge/rebase.
 
@@ -71,7 +73,7 @@ Public frontend constants and functions declare their types explicitly. Syntax l
 
 `dev/frontend/src/config/syntax.ts` owns the extension catalog and line-length limit. `dev/frontend/src/presenters/syntax.ts` owns language detection and literal-text fallback. `dev/frontend/src/components/SyntaxSurface.tsx` renders the paint layer; `dev/frontend/src/hooks/useSyntaxHighlight.ts` paints behind the native textarea and synchronizes scroll and size. Plain-text files use the textarea directly.
 
-Set `PLAYWRIGHT_BROWSERS_PATH` when using an existing Chromium cache. The browser fixture exercises links, file-manager click/keyboard activation, direct opening and the default editor action, text editing, save errors, in-flight edits, CRLF, drafts, close protection and disposal. Activation scenarios serve the actual `dist/main.js` production bundle. Component scenarios compile TypeScript entry points into a temporary shared module graph under `.test-build/`, removed after testing. Remote and LXD are replaced at their boundaries. The backend script validates the catalog, compiles through Remote's generated-module builder, and tests/vets the host packages using the checkout's required Go version.
+Set `PLAYWRIGHT_BROWSERS_PATH` when using an existing Chromium cache. The browser fixture exercises links, file-manager click/keyboard activation, direct opening and the default editor action, text editing, save errors, in-flight edits, CRLF, drafts, close protection and disposal. Activation scenarios serve the actual `dist/main.js` production bundle. Component scenarios compile TypeScript entry points into a temporary shared module graph under `dev/frontend/.test-build/`, removed after testing. Remote and LXD are replaced at their boundaries. The backend script validates the catalog, compiles through Remote's generated-module builder, and tests/vets the host packages using the checkout's required Go version.
 
 CI runs container tests, vet and an installer-style build on Go 1.24.7 and 1.25, then browser/package checks. Live installation, actual LXD execution, project membership enforcement, and theme integration still need a Remote server.
 
