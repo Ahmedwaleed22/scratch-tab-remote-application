@@ -5,6 +5,7 @@ export interface FileTreeProgress {
   readonly snapshot: Readonly<FileTreeSnapshot>;
   subscribe(listener: () => void): () => void;
   setOpen(open: boolean, compact: boolean): void;
+  resetListings(): void;
   expand(paths: readonly string[]): void;
   collapse(path: string): void;
   loading(path: string): void;

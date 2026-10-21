@@ -73,7 +73,11 @@ export function createFileTree({ directories, chatId, preference, state }: Depen
     refresh,
     downloadUrl: relative => directories.downloadUrl(chatId, relative),
     setChat(next) {
+      if (next === chatId) return;
       chatId = next;
+      requests.clear();
+      state.resetListings();
+      refresh();
     },
     dispose() {
       lifetime.abort();

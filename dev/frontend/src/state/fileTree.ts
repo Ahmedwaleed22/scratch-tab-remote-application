@@ -33,6 +33,9 @@ export class FileTreeState implements FileTreeProgress {
   setOpen(open: boolean, compact: boolean): void {
     this.#update(compact ? { drawerOpen: open } : { open });
   }
+  resetListings(): void {
+    this.#update({ children: new Map(), loading: new Set(), errors: new Map() });
+  }
   expand(paths: readonly string[]): void {
     this.#update({ expanded: new Set([...this.#snapshot.expanded, ...paths]) });
   }

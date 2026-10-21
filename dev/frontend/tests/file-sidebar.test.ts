@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import type { Page } from 'playwright';
-import { installBrowserImports, runtimeModule } from './support/runtime.js';
+import { importFixtureModule, installBrowserImports, runtimeModule } from './support/runtime.js';
+import type { DirectoryEntry } from '../src/model/files/application/directory.js';
 
 const MISSING = 'File not found. It may have been deleted or moved.';
 
@@ -401,5 +402,113 @@ test('tabs reveal nested files without scrollbars and refresh reports progress a
     assert.equal(await files.getByRole('status').textContent(), '');
   } finally {
     await browser.close();
+  }
+});
+
+test('chat changes discard stale listings and errors and reload the visible tree', async () => {
+  const { createFileTree } = await importFixtureModule('services/fileTree.js');
+  const { FileTreeState } = await importFixtureModule('state/fileTree.js');
+  const state = new FileTreeState(true);
+  const pending: {
+    chat: string;
+    path: string;
+    resolve(entries: DirectoryEntry[]): void;
+    reject(error: Error): void;
+  }[] = [];
+  const tree = createFileTree({
+    chatId: 'a',
+    state,
+    preference: { write() {} },
+    directories: {
+      list: (chat, path) =>
+        new Promise((resolve, reject) => pending.push({ chat, path, resolve, reject })),
+      downloadUrl: (chat, path) => `${chat}:${path}`,
+    },
+  });
+  try {
+    tree.refresh();
+    pending[0]!.resolve([{ name: 'old.txt', path: 'old.txt', isDir: false }]);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    tree.toggleFolder('slow');
+    tree.toggleFolder('late-error');
+    tree.toggleFolder('broken');
+    pending[3]!.reject(new Error('old listing error'));
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(state.snapshot.children.size, 1);
+    assert.equal(state.snapshot.errors.size, 1);
+
+    tree.setChat('b');
+    assert.equal(state.snapshot.children.size, 0);
+    assert.equal(state.snapshot.errors.size, 0);
+    assert.deepEqual([...state.snapshot.expanded], ['slow', 'late-error', 'broken']);
+    assert.equal(state.snapshot.open, true);
+    assert.deepEqual(
+      pending.slice(4).map(({ chat, path }) => `${chat}:${path}`),
+      ['b:', 'b:slow', 'b:late-error', 'b:broken'],
+    );
+    pending[1]!.resolve([{ name: 'stale.txt', path: 'slow/stale.txt', isDir: false }]);
+    pending[2]!.reject(new Error('late old chat error'));
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(state.snapshot.children.size, 0);
+    assert.equal(state.snapshot.errors.size, 0);
+    assert.deepEqual([...state.snapshot.loading], ['', 'slow', 'late-error', 'broken']);
+
+    for (const request of pending.slice(4))
+      request.resolve([
+        {
+          name: 'fresh.txt',
+          path: request.path ? `${request.path}/fresh.txt` : 'fresh.txt',
+          isDir: false,
+        },
+      ]);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(state.snapshot.children.size, 4);
+    assert.equal(state.snapshot.loading.size, 0);
+    assert.equal(state.snapshot.errors.size, 0);
+    assert.equal(state.snapshot.children.get('slow')?.[0]?.name, 'fresh.txt');
+    assert.equal(tree.downloadUrl('note.txt'), 'b:note.txt');
+    const current = state.snapshot;
+    tree.setChat('b');
+    assert.equal(state.snapshot, current);
+    assert.equal(pending.length, 8);
+  } finally {
+    tree.dispose();
+  }
+});
+
+test('chat changes invalidate hidden tree requests without loading until it opens', async () => {
+  const { createFileTree } = await importFixtureModule('services/fileTree.js');
+  const { FileTreeState } = await importFixtureModule('state/fileTree.js');
+  const state = new FileTreeState(false);
+  const requests: string[] = [];
+  const complete: ((entries: DirectoryEntry[]) => void)[] = [];
+  const tree = createFileTree({
+    chatId: 'a',
+    state,
+    preference: { write() {} },
+    directories: {
+      list(chat, path) {
+        requests.push(`${chat}:${path}`);
+        return new Promise(resolve => complete.push(resolve));
+      },
+      downloadUrl: (chat, path) => `${chat}:${path}`,
+    },
+  });
+  try {
+    tree.setOpen(true, false);
+    tree.toggleFolder('src');
+    tree.setOpen(false, false);
+    tree.setChat('b');
+    assert.equal(state.snapshot.open, false);
+    assert.equal(state.snapshot.loading.size, 0);
+    assert.deepEqual(requests, ['a:', 'a:src']);
+    for (const resolve of complete)
+      resolve([{ name: 'stale.txt', path: 'src/stale.txt', isDir: false }]);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(state.snapshot.children.size, 0);
+    tree.setOpen(true, false);
+    assert.deepEqual(requests, ['a:', 'a:src', 'b:', 'b:src']);
+  } finally {
+    tree.dispose();
   }
 });
