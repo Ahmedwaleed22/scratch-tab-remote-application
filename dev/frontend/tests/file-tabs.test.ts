@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('file tabs retain independent edits, detach into windows, and protect dirty closes', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -27,30 +27,30 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     });
     await page.evaluate(async () => {
       const { mountChat } = await window.importModule('/app/chat.js');
-      window.disk = {
+      window.fileContents = {
         '/workspace/one.txt': 'first',
         '/workspace/two.txt': 'second',
         '/workspace/three.txt': 'third',
       };
       window.reads = 0;
       window.drafts = new Map();
-      window.cleanup = mountChat({
+      window.chatCleanup = mountChat({
         context: { chatId: 'a', projectId: 'p1' },
         drafts: window.drafts,
         launchIde: () => {},
         files: {
           async read(path) {
             window.reads++;
-            return { content: window.disk[path], revision: 'initial' };
+            return { content: window.fileContents[path]!, revision: 'initial' };
           },
           async save(path, content) {
-            window.disk[path] = content;
+            window.fileContents[path] = content;
             return { revision: 'saved' };
           },
         },
       });
     });
-    const open = async name => {
+    const open = async (name: string) => {
       await page.getByRole('link', { name }).click({ force: true });
     };
     const visible = page.locator('.scratch-tab-window:visible');
@@ -78,8 +78,8 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
       true,
     );
     await visible.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.waitForFunction(() => window.disk['/workspace/two.txt'] === 'second draft');
-    assert.equal(await page.evaluate(() => window.disk['/workspace/one.txt']), 'first');
+    await page.waitForFunction(() => window.fileContents['/workspace/two.txt'] === 'second draft');
+    assert.equal(await page.evaluate(() => window.fileContents['/workspace/one.txt']), 'first');
     await visible.getByRole('tab', { name: 'one.txt', exact: false }).click();
     page.once('dialog', dialog => dialog.dismiss());
     await visible.getByRole('button', { name: 'Close tab one.txt', exact: true }).click();
@@ -96,7 +96,9 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     assert.equal(await first.locator('textarea').inputValue(), 'first draft');
     assert.equal(await second.locator('textarea').inputValue(), 'second draft');
     const firstBounds = await first.boundingBox();
+    assert.ok(firstBounds);
     const secondBounds = await second.boundingBox();
+    assert.ok(secondBounds);
     assert.equal(firstBounds.x, secondBounds.x + 24);
     assert.equal(firstBounds.y, secondBounds.y + 24);
     assert.equal(firstBounds.width, secondBounds.width);
@@ -114,14 +116,18 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
         ':root{--bg-surface-rgb:20 21 25;--bg-raised-rgb:27 28 33;--fg:227 227 231;--accent-blue:138 180 255;--line:#424349}',
     });
     await page.waitForFunction(
-      () => document.querySelector('.scratch-tab-window').getBoundingClientRect().width <= 320,
+      () =>
+        document.querySelector<HTMLElement>('.scratch-tab-window')!.getBoundingClientRect().width <=
+        320,
     );
     const bounds = await first.boundingBox();
+    assert.ok(bounds);
     assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 320);
     const bar = await first.locator('.scratch-tab-tabbar').boundingBox();
+    assert.ok(bar);
     assert.ok(bar.x >= 0 && bar.x + bar.width <= 320);
     assert.ok(
-      (await first.getByRole('button', { name: 'Separate window', exact: true }).boundingBox())
+      (await first.getByRole('button', { name: 'Separate window', exact: true }).boundingBox())!
         .height >= 44,
     );
     if (process.env.SCRATCH_TAB_SCREENSHOTS)
@@ -131,7 +137,7 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
       true,
     );
     assert.ok(
-      (await first.getByRole('button', { name: 'Close tab three.txt', exact: true }).boundingBox())
+      (await first.getByRole('button', { name: 'Close tab three.txt', exact: true }).boundingBox())!
         .width >= 44,
     );
     // Closing an inactive tab must leave the active draft intact.
@@ -143,7 +149,9 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     // Wait for the viewport resize before opening the next file.
     await page.evaluate(() => {
       window.desktopResize = new Promise(resolve => {
-        window.addEventListener('resize', () => requestAnimationFrame(resolve), { once: true });
+        window.addEventListener('resize', () => requestAnimationFrame(() => resolve()), {
+          once: true,
+        });
       });
     });
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -173,12 +181,13 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     await second.getByRole('button', { name: 'Close tab two.txt', exact: true }).click();
     assert.equal(await visible.count(), 0);
     const savedGeometry = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem('scratch-tab:window-geometry:p1')),
+      JSON.parse(localStorage.getItem('scratch-tab:window-geometry:p1')!),
     );
     assert.ok(savedGeometry.width >= 280);
     assert.ok(savedGeometry.height >= 180);
     await open('First file');
     const restoredGeometry = await visible.boundingBox();
+    assert.ok(restoredGeometry);
     assert.equal(restoredGeometry.x, savedGeometry.left);
     assert.equal(restoredGeometry.y, savedGeometry.top);
     assert.equal(restoredGeometry.width, savedGeometry.width);
@@ -188,7 +197,7 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
     // Clean groups close together without confirmation.
     await visible.getByRole('button', { name: 'Close window', exact: true }).click();
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
-    await page.evaluate(() => window.cleanup());
+    await page.evaluate(() => window.chatCleanup());
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
   } finally {
     await browser.close();

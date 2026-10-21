@@ -2,6 +2,6 @@
   "dev/frontend/src/**/*.{ts,tsx}": "prettier --write",
   "dev/frontend/ui/style/**/*.css": "prettier --write",
   "infra/*.{ts,mjs}": "prettier --write",
-  "dev/frontend/tests/**/*.mjs": "prettier --write",
-  "dev/frontend/vitest.config.mjs": "prettier --write"
+  "dev/frontend/tests/**/*.ts": "prettier --write",
+  "dev/frontend/vitest.config.ts": "prettier --write"
 }

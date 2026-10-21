@@ -2,13 +2,13 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('Markdown source and preview retain unsaved edits, save exact source and fit phones', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    const errors = [];
+    const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
@@ -36,7 +36,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
       localStorage.setItem('scratch-tab:markdown-view', 'source');
       const { mountChat } = await window.importModule('/app/chat.js');
       window.disk = '# Original\r\n\r\n**bold** and *italic*\r\n';
-      window.cleanup = mountChat({
+      window.chatCleanup = mountChat({
         context: { chatId: 'a', projectId: 'p1' },
         drafts: new Map(),
         launchIde: () => {},
@@ -55,7 +55,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
         },
       });
     });
-    const open = async name => {
+    const open = async (name: string) => {
       await page.getByRole('link', { name, exact: true }).click({ force: true });
     };
     await open('Markdown file');
@@ -63,12 +63,14 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     const input = visible.locator('textarea');
     const preview = visible.getByRole('article', { name: 'README.md Markdown preview' });
     const showPreview = visible.getByRole('button', { name: 'Show Markdown preview', exact: true });
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
     assert.equal(await showPreview.isVisible(), true);
     await showPreview.click();
     await preview.getByRole('heading', { name: 'Original' }).waitFor();
     assert.equal(await input.isVisible(), false);
-    assert.equal(await preview.locator('strong').textContent(), 'bold');
+    assert.equal((await preview.locator('strong').textContent())!, 'bold');
     assert.equal(
       await visible.getByRole('button', { name: 'Save', exact: true }).isDisabled(),
       true,
@@ -84,13 +86,13 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     assert.equal(await preview.locator('table').count(), 1);
     await preview.locator('.scratch-tab-mermaid svg').waitFor({ timeout: 5000 });
     assert.match(
-      await preview.getByRole('img', { name: 'Mermaid diagram' }).textContent(),
+      (await preview.getByRole('img', { name: 'Mermaid diagram' }).textContent())!,
       /Install/,
     );
     await preview.getByText('Unable to render Mermaid diagram.').waitFor();
     const lightDiagramId = await preview.locator('.scratch-tab-mermaid svg').getAttribute('id');
     assert.match(
-      await preview.locator('pre:not([hidden]) > code.language-mermaid').textContent(),
+      (await preview.locator('pre:not([hidden]) > code.language-mermaid').textContent())!,
       /not a diagram/,
     );
     assert.equal(
@@ -110,7 +112,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     assert.equal(await visible.getByRole('button', { name: 'Show Markdown preview' }).count(), 0);
     await visible.getByRole('tab', { name: 'README.md', exact: true }).click();
     assert.equal(await preview.isVisible(), true);
-    await page.evaluate(() => window.cleanup.setContext({ chatId: 'b', projectId: 'p1' }));
+    await page.evaluate(() => window.chatCleanup.setContext({ chatId: 'b', projectId: 'p1' }));
     assert.equal(await preview.isVisible(), true);
     await page.setViewportSize({ width: 320, height: 568 });
     await page.evaluate(() => {
@@ -119,10 +121,12 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
         '--bg-surface-rgb:20 21 25;--bg-raised-rgb:27 28 33;--fg:227 227 231;--accent-blue:138 180 255;--line:#424349';
     });
     await page.waitForFunction(
-      () => document.querySelector('.scratch-tab-window').getBoundingClientRect().width <= 320,
+      () =>
+        document.querySelector<HTMLElement>('.scratch-tab-window')!.getBoundingClientRect().width <=
+        320,
     );
     await page.waitForFunction(previous => {
-      const diagram = document.querySelector('.scratch-tab-mermaid svg');
+      const diagram = document.querySelector<HTMLElement>('.scratch-tab-mermaid svg')!;
       return diagram && diagram.id !== previous;
     }, lightDiagramId);
     assert.equal(await preview.locator('.scratch-tab-mermaid svg').isVisible(), true);
@@ -137,6 +141,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
       visible.getByRole('button', { name: 'Open with default editor' }),
     ]) {
       const box = await locator.boundingBox();
+      assert.ok(box);
       assert.ok(box.x >= 0 && box.x + box.width <= 320);
     }
     if (process.env.SCRATCH_TAB_SCREENSHOTS)
@@ -146,7 +151,7 @@ test('Markdown source and preview retain unsaved edits, save exact source and fi
     await visible.getByRole('button', { name: 'Show Markdown source' }).click();
     assert.equal(await input.inputValue(), edited);
     assert.equal(await input.isVisible(), true);
-    await page.evaluate(() => window.cleanup());
+    await page.evaluate(() => window.chatCleanup());
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     assert.deepEqual(errors, []);
   } finally {

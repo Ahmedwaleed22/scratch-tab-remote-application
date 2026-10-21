@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fixtureRoot } from './support/runtime.mjs';
-const { fileTarget } = await import(new URL('links.js', fixtureRoot));
+import { importFixtureModule } from './support/runtime.js';
+const { fileTarget } = await importFixtureModule('links.js');
 
 test('does not intercept Code Server links for other projects or domains', () => {
   const cwd = '/var/lib/remote/projects/alpha/workspace';

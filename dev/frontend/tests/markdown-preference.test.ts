@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('Markdown defaults to preview and remembers both choices across files and reloads', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -25,7 +25,7 @@ test('Markdown defaults to preview and remembers both choices across files and r
       });
       await page.evaluate(async () => {
         const { mountChat } = await window.importModule('/app/chat.js');
-        window.cleanup = mountChat({
+        window.chatCleanup = mountChat({
           context: { chatId: 'a', projectId: 'p1' },
           drafts: new Map(),
           launchIde: () => {},
@@ -40,13 +40,13 @@ test('Markdown defaults to preview and remembers both choices across files and r
         });
       });
     };
-    const open = async name => {
-      await page.locator('#file').evaluate((node, name) => {
+    const open = async (name: string) => {
+      await page.locator('#file').evaluate((node: HTMLAnchorElement, name: string) => {
         node.href = '/api/chats/a/ide-open?path=/workspace/' + name;
       }, name);
       await page.getByRole('link', { name: 'File', exact: true }).click({ force: true });
       await page.waitForFunction(() =>
-        [...document.querySelectorAll('.scratch-tab-window')].some(
+        [...document.querySelectorAll<HTMLElement>('.scratch-tab-window')].some(
           node =>
             node.style.display !== 'none' && node.querySelector('textarea')?.readOnly === false,
         ),
@@ -60,19 +60,19 @@ test('Markdown defaults to preview and remembers both choices across files and r
     await visible.getByRole('button', { name: 'Show Markdown source' }).click();
     await open('two.markdown');
     assert.equal(await visible.locator('textarea').isVisible(), true);
-    await page.evaluate(() => window.cleanup());
+    await page.evaluate(() => window.chatCleanup());
     await mount();
     await open('three.md');
     assert.equal(await visible.locator('textarea').isVisible(), true);
     await visible.getByRole('button', { name: 'Show Markdown preview' }).click();
-    await page.evaluate(() => window.cleanup());
+    await page.evaluate(() => window.chatCleanup());
     await mount();
     await open('four.md');
     await visible.getByRole('heading', { name: 'Remembered' }).waitFor();
     await open('plain.txt');
     assert.equal(await visible.locator('textarea').isVisible(), true);
     assert.equal(await visible.getByRole('button', { name: 'Show Markdown source' }).count(), 0);
-    await page.evaluate(() => window.cleanup());
+    await page.evaluate(() => window.chatCleanup());
     await page.addInitScript(() =>
       Object.defineProperty(window, 'localStorage', {
         get() {
@@ -86,7 +86,7 @@ test('Markdown defaults to preview and remembers both choices across files and r
     await visible.getByRole('button', { name: 'Show Markdown source' }).click();
     await open('blocked-two.md');
     assert.equal(await visible.locator('textarea').isVisible(), true);
-    await page.evaluate(() => window.cleanup());
+    await page.evaluate(() => window.chatCleanup());
   } finally {
     await browser.close();
   }

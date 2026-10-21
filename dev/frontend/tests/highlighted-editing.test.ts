@@ -2,13 +2,13 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('highlighted editing preserves content, native undo, scrolling and phone layout', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    const errors = [];
+    const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
@@ -31,7 +31,7 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
       const { mountChat } = await window.importModule('/app/chat.js');
       window.disk =
         'const greeting = "hello <img src=x onerror=alert(1)>";\r\n// comment\r\nconst count = 42;\r\n';
-      window.cleanup = mountChat({
+      window.chatCleanup = mountChat({
         context: { chatId: 'a', projectId: 'p1' },
         drafts: new Map(),
         launchIde: () => {},
@@ -46,10 +46,11 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
         },
       });
     });
-    const open = async name => {
+    const open = async (name: string) => {
       await page.evaluate(
         name =>
-          (document.querySelector('#file').href = '/api/chats/a/ide-open?path=/workspace/' + name),
+          (document.querySelector<HTMLAnchorElement>('#file')!.href =
+            '/api/chats/a/ide-open?path=/workspace/' + name),
         name,
       );
       await page.getByRole('link', { name: 'Source file' }).click({ force: true });
@@ -65,7 +66,7 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
       await visible.getByRole('button', { name: 'Save', exact: true }).isDisabled(),
       true,
     );
-    assert.equal(await paint.textContent(), (await input.inputValue()) + '\n');
+    assert.equal((await paint.textContent())!, (await input.inputValue()) + '\n');
     assert.equal(
       await input.inputValue(),
       'const greeting = "hello <img src=x onerror=alert(1)>";\n// comment\nconst count = 42;\n',
@@ -104,8 +105,8 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     await input.fill(long);
     await page.waitForFunction(
       () =>
-        document.querySelector('.scratch-tab-window pre').textContent ===
-        document.querySelector('textarea').value + '\n',
+        document.querySelector<HTMLElement>('.scratch-tab-window pre')!.textContent ===
+        document.querySelector<HTMLTextAreaElement>('textarea')!.value + '\n',
     );
     await input.evaluate(node => {
       node.scrollTop = 400;
@@ -123,8 +124,8 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     });
     await page.waitForFunction(
       () =>
-        document.querySelector('pre').clientWidth ===
-        document.querySelector('textarea').clientWidth,
+        document.querySelector<HTMLElement>('pre')!.clientWidth ===
+        document.querySelector<HTMLTextAreaElement>('textarea')!.clientWidth,
     );
     const mobileKeyword = await paint
       .locator('.hljs-keyword')
@@ -132,6 +133,7 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
       .evaluate(node => getComputedStyle(node).color);
     assert.notEqual(mobileKeyword, keyword);
     const box = await visible.boundingBox();
+    assert.ok(box);
     assert.ok(box.x >= 0 && box.x + box.width <= 320);
     const metrics = await input.evaluate(node => ({
       height: node.scrollHeight,
@@ -147,14 +149,14 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     // Long minified input remains editable and unmodified without tokenization.
     await input.fill('const value = "' + 'x'.repeat(9000) + '";');
     await page.waitForFunction(
-      () => document.querySelector('pre').querySelectorAll('span').length === 0,
+      () => document.querySelector<HTMLElement>('pre')!.querySelectorAll('span').length === 0,
     );
-    assert.equal(await paint.textContent(), (await input.inputValue()) + '\n');
+    assert.equal((await paint.textContent())!, (await input.inputValue()) + '\n');
     await page.emulateMedia({ forcedColors: 'active' });
     assert.equal(await paint.isVisible(), false);
     assert.notEqual(await input.evaluate(node => getComputedStyle(node).color), 'rgba(0, 0, 0, 0)');
     await page.emulateMedia({ forcedColors: 'none' });
-    await page.evaluate(() => window.cleanup());
+    await page.evaluate(() => window.chatCleanup());
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     assert.deepEqual(errors, []);
   } finally {

@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('phone editor stays inside the visible viewport through keyboard and rotation changes', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -34,7 +34,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
       const { EditorDocument } = await window.importModule('/services/editorDocument.js');
       const { windowGeometry } = await window.importModule('/adapters/windowGeometry.js');
       window.saved = '';
-      window.opened = 0;
+      window.openCount = 0;
       const documentModel = new EditorDocument('/workspace/README.md', 'phone', new Map(), {
         async read() {
           return { content: '# README\n\nEditable on a phone.', revision: 'initial' };
@@ -45,25 +45,34 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
         },
       });
       window.view = mountEditorWindow({
-        target: { name: 'a-very-long-file-name-in-a-deep-folder.md', path: '/workspace/README.md' },
+        target: {
+          name: 'a-very-long-file-name-in-a-deep-folder.md',
+          path: '/workspace/README.md',
+          ide: '',
+          download: '',
+        },
         documentModel,
         index: 5,
         layoutPersistence: windowGeometry(undefined),
         nextLayer: () => 201,
-        launchIde: () => window.opened++,
+        launchIde: () => window.openCount++,
         onClosed: () => {},
       });
     });
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
-    assert.equal(await page.evaluate(() => document.activeElement.tagName), 'ARTICLE');
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
+    assert.equal(await page.evaluate(() => document.activeElement!.tagName), 'ARTICLE');
     await page.getByRole('button', { name: 'Show Markdown source' }).tap();
     await page.locator('.scratch-tab-header').focus();
-    assert.equal(await page.evaluate(() => document.activeElement.tagName), 'HEADER');
-    async function assertFits(width, height, top = 0, left = 0) {
+    assert.equal(await page.evaluate(() => document.activeElement!.tagName), 'HEADER');
+    async function assertFits(width: number, height: number, top = 0, left = 0) {
       // Browser resize events arrive asynchronously after setViewportSize resolves.
       await page.waitForFunction(
         ({ width, height, top, left }) => {
-          const box = document.querySelector('.scratch-tab-window').getBoundingClientRect();
+          const box = document
+            .querySelector<HTMLElement>('.scratch-tab-window')!
+            .getBoundingClientRect();
           return (
             box.x >= left &&
             box.y >= top &&
@@ -83,6 +92,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
         'footer',
       ]) {
         const box = await page.locator(selector).boundingBox();
+        assert.ok(box);
         assert.ok(
           box.x >= left &&
             box.y >= top &&
@@ -100,16 +110,16 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
         '16px',
       );
       for (const button of await page.locator('.scratch-tab-window button:visible').all())
-        assert.ok((await button.boundingBox()).height >= 44);
+        assert.ok((await button.boundingBox())!.height >= 44);
     }
     await page.locator('textarea').fill('Mobile edit');
     await page.getByRole('button', { name: 'Save', exact: true }).tap();
     assert.equal(await page.evaluate(() => window.saved), 'Mobile edit');
     await page.getByRole('button', { name: 'Open with default editor' }).tap();
-    assert.equal(await page.evaluate(() => window.opened), 1);
+    assert.equal(await page.evaluate(() => window.openCount), 1);
     // Model the visual viewport shrinking and panning while Safari's keyboard is open.
     await page.evaluate(() => {
-      const viewport = window.visualViewport;
+      const viewport = window.visualViewport!;
       for (const [key, value] of Object.entries({
         width: 430,
         height: 340,
@@ -122,18 +132,18 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
     await assertFits(430, 340, 160);
     assert.equal(await page.locator('textarea').inputValue(), 'Mobile edit');
     await page.evaluate(() => {
-      Object.assign(window.visualViewport, {
+      Object.assign(window.visualViewport!, {
         width: 390,
         height: 300,
         offsetLeft: 20,
         offsetTop: 180,
       });
-      window.visualViewport.dispatchEvent(new Event('scroll'));
+      window.visualViewport!.dispatchEvent(new Event('scroll'));
     });
     await assertFits(390, 300, 180, 20);
     await page.evaluate(() => {
       for (const key of ['width', 'height', 'offsetLeft', 'offsetTop'])
-        delete window.visualViewport[key];
+        Reflect.deleteProperty(window.visualViewport!, key);
     });
     await page.setViewportSize({ width: 844, height: 390 });
     await assertFits(844, 390);

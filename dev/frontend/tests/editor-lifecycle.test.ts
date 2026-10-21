@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('direct file opening, content, controls, modified clicks and disposal', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -39,13 +39,13 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       window.disk = 'A small file\n<script>safe</script>';
       window.revision = 'original';
       window.failSave = false;
-      const backend = {
+      const backend: NonNullable<RemoteTestFixture['backend']> = {
         async call(path, { body }) {
           window.lastFilePath = body.path;
           if (body.save) {
             if (window.failSave) throw new Error('File changed on disk');
             if (window.deferSave)
-              await new Promise(resolve => {
+              await new Promise<void>(resolve => {
                 window.completeSave = resolve;
               });
             window.disk = body.content;
@@ -55,36 +55,36 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
           return { content: window.disk, revision: window.revision };
         },
       };
-      const remote = {
+      const remote: RemoteTestFixture = {
         backend,
         slots: { chatHeaderActions: 'header', sidebarHeaderActions: 'sidebar' },
         ui: {
           register(slot, render) {
             if (slot === 'sidebar') {
-              window.ownerCleanup = render();
+              window.ownerCleanup = render()!;
               return;
             }
             if (slot !== 'header') return () => {};
-            const cleanup = render(document.querySelector('#host'), {
+            const cleanup = render(document.querySelector<HTMLElement>('#host')!, {
               chatId: 'a',
               projectId: 'p1',
               cwd: '/var/lib/remote/projects/alpha/workspace',
-            });
+            })!;
             window.dispose = () => {
-              cleanup();
+              cleanup!();
               window.ownerCleanup();
             };
           },
         },
       };
-      window.mount = () => activate(remote);
+      window.mount = () => activate(window.createRemote(remote));
       window.mount();
     });
     assert.equal(await page.locator('#host button').count(), 0);
     await page.getByText('notes', { exact: true }).click();
     assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
     await page.waitForFunction(() =>
-      document.querySelector('textarea')?.value.includes('A small file'),
+      document.querySelector<HTMLTextAreaElement>('textarea')!?.value.includes('A small file'),
     );
     if (process.env.SCRATCH_TAB_SCREENSHOTS)
       await page.screenshot({ path: process.env.SCRATCH_TAB_SCREENSHOTS + '-editor.png' });
@@ -110,7 +110,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     await page.waitForFunction(() => window.disk === 'Unsaved conflict');
     assert.equal(await page.locator('.scratch-tab-controls button').count(), 1);
     assert.equal(
-      await page.getByRole('button', { name: 'Close window', exact: true }).textContent(),
+      (await page.getByRole('button', { name: 'Close window', exact: true }).textContent())!,
       '',
     );
     assert.equal(
@@ -127,9 +127,11 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     );
     const header = page.locator('.scratch-tab-header');
     const before = await page.locator('.scratch-tab-window').boundingBox();
+    assert.ok(before);
     await header.focus();
     await header.press('ArrowRight');
     const after = await page.locator('.scratch-tab-window').boundingBox();
+    assert.ok(after);
     assert.equal(
       after.x,
       before.x + (Number(process.env.SCRATCH_TAB_WIDTH || 1280) <= 600 ? 0 : 20),
@@ -140,6 +142,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
           node.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
       });
       const outside = await page.locator('.scratch-tab-window').boundingBox();
+      assert.ok(outside);
       assert.ok(outside.x < 0);
       assert.ok(outside.x + outside.width >= 72);
       await header.evaluate(node => {
@@ -149,11 +152,13 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
         }
       });
       const farEdge = await page.locator('.scratch-tab-window').boundingBox();
+      assert.ok(farEdge);
       const viewport = page.viewportSize();
+      assert.ok(viewport);
       assert.ok(farEdge.x + farEdge.width > viewport.width);
       assert.ok(farEdge.y + farEdge.height > viewport.height);
       assert.ok(farEdge.x <= viewport.width - 72);
-      assert.ok(farEdge.y + (await header.boundingBox()).height <= viewport.height - 8);
+      assert.ok(farEdge.y + (await header.boundingBox())!.height <= viewport.height - 8);
       await page.locator('.scratch-tab-window').evaluate((node, bounds) => {
         node.style.left = `${bounds.x}px`;
         node.style.top = `${bounds.y}px`;
@@ -163,13 +168,15 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     await page.getByText('notes', { exact: true }).click();
     assert.equal(await page.locator('.scratch-tab-window').count(), 1);
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
     await page.locator('textarea').fill('Draft survives chat change');
-    await page.evaluate(() => window.dispose());
+    await page.evaluate(() => window.dispose!());
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     assert.equal(
       await page.evaluate(() => {
-        const a = document.querySelector('a');
+        const a = document.querySelector<HTMLAnchorElement>('a')!;
         const event = new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
         a.dispatchEvent(event);
         return event.defaultPrevented;
@@ -177,12 +184,14 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       false,
     );
     await page.evaluate(() => {
-      document.querySelector('#host').replaceChildren();
+      document.querySelector<HTMLElement>('#host')!.replaceChildren();
       window.mount();
     });
     await page.getByText('notes', { exact: true }).click();
     await page.waitForFunction(
-      () => document.querySelector('textarea')?.value === 'Draft survives chat change',
+      () =>
+        document.querySelector<HTMLTextAreaElement>('textarea')!?.value ===
+        'Draft survives chat change',
     );
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForFunction(() => window.disk === 'Draft survives chat change');
@@ -191,7 +200,9 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       window.disk = '';
     });
     await page.getByText('notes', { exact: true }).click();
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
     assert.equal(await page.locator('textarea').inputValue(), '');
     await page.locator('textarea').fill('Write an empty file');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -201,7 +212,9 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       window.disk = 'one\r\ntwo\r\n';
     });
     await page.getByText('notes', { exact: true }).click();
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
     assert.equal(await page.locator('textarea').inputValue(), 'one\ntwo\n');
     await page.locator('textarea').fill('changed\n');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -224,7 +237,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     await page.waitForFunction(() => window.disk === 'newer\r\n');
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.evaluate(() => {
-      document.querySelector('a').href =
+      document.querySelector<HTMLAnchorElement>('a')!.href =
         'https://code--alpha.remote.test/_static/remote-open.html?folder=%2Fworkspace&file=%2Fworkspace%2FREADME.md&line=3';
       window.open = (...args) => {
         window.opened = args;
@@ -233,15 +246,23 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     });
     await page.getByText('notes', { exact: true }).click();
     assert.equal(await page.locator('.scratch-tab-window').count(), 1);
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
     assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'README.md');
     await page.getByRole('button', { name: 'Open with default editor' }).click();
-    assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
+    assert.match(
+      await page.evaluate(() => String(window.opened[0]!)),
+      /code--alpha.*README.md&line=3/,
+    );
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.getByText('notes', { exact: true }).click();
     await page.getByRole('button', { name: 'Open with default editor' }).click();
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
-    assert.match(await page.evaluate(() => window.opened[0]), /code--alpha.*README.md&line=3/);
+    assert.match(
+      await page.evaluate(() => String(window.opened[0]!)),
+      /code--alpha.*README.md&line=3/,
+    );
     await page.evaluate(() => {
       const pane = document.createElement('aside');
       pane.id = 'workspace-files-pane';
@@ -252,7 +273,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       window.folderOpens = 0;
       window.mediaOpens = 0;
       window.downloads = 0;
-      const row = document.querySelector('#manager-file');
+      const row = document.querySelector<HTMLElement>('#manager-file')!;
       row.onclick = () => {
         window.originalOpens++;
         window.open(
@@ -266,17 +287,19 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
           row.click();
         }
       };
-      row.querySelector('a').onclick = event => {
+      row.querySelector('a')!.onclick = event => {
         event.preventDefault();
         event.stopPropagation();
         window.downloads++;
       };
-      document.querySelector('#manager-folder').onclick = () => window.folderOpens++;
-      document.querySelector('#manager-media').onclick = () => window.mediaOpens++;
+      document.querySelector<HTMLElement>('#manager-folder')!.onclick = () => window.folderOpens++;
+      document.querySelector<HTMLElement>('#manager-media')!.onclick = () => window.mediaOpens++;
     });
     await page.locator('#manager-file span').click();
     assert.equal(await page.evaluate(() => window.originalOpens), 0);
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
     assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'guide.md');
     assert.equal(await page.evaluate(() => window.lastFilePath), '/workspace/docs/guide.md');
     await page.getByRole('button', { name: 'Open with default editor' }).click();
@@ -299,7 +322,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
     await page.getByText('notes', { exact: true }).click();
     assert.equal(await page.locator('.scratch-tab-window').count(), 1);
-    await page.evaluate(() => window.dispose());
+    await page.evaluate(() => window.dispose!());
     assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
   } finally {
     await browser.close();

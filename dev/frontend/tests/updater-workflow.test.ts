@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('GitHub updater checks versions, protects drafts, uploads, and reports partial failures', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -33,14 +33,20 @@ test('GitHub updater checks versions, protects drafts, uploads, and reports part
       window.partial = false;
       window.denied = false;
       window.badDownload = false;
-      const remote = {
+      const remote: RemoteTestFixture = {
         application: { version: '0.3.2' },
         backend: {
           async call() {
             return { version: '0.4.0' };
           },
           async fetch() {
-            if (window.draftDuringDownload) window.drafts.set('new', { content: 'new edit' });
+            if (window.draftDuringDownload)
+              window.drafts.set('new', {
+                content: 'new edit',
+                revision: '',
+                baseline: '',
+                crlf: false,
+              });
             return window.badDownload
               ? new Response(JSON.stringify({ error: 'Checksum mismatch' }), { status: 502 })
               : new Response('verified zip', { headers: { 'Content-Type': 'application/zip' } });
@@ -51,7 +57,9 @@ test('GitHub updater checks versions, protects drafts, uploads, and reports part
         if (window.denied) return new Response('{}', { status: 403 });
         if (options.method === 'POST') {
           window.uploads++;
+          if (!(options.body instanceof FormData)) throw new Error('Expected upload FormData');
           const zip = options.body.get('package');
+          if (!(zip instanceof File)) throw new Error('Expected package file');
           window.archiveName = zip.name;
           return new Response(
             JSON.stringify({
@@ -65,8 +73,8 @@ test('GitHub updater checks versions, protects drafts, uploads, and reports part
       };
       window.remount = () => {
         window.cleanup?.();
-        window.cleanup = mountUpdates(document.querySelector('#updates'), {
-          remote,
+        window.cleanup = mountUpdates(document.querySelector<HTMLElement>('#updates')!, {
+          remote: window.createRemote(remote),
           projectId: 'p1',
           drafts: window.drafts,
           reload: () => window.reloads++,
@@ -76,7 +84,9 @@ test('GitHub updater checks versions, protects drafts, uploads, and reports part
     });
     assert.deepEqual(await page.evaluate(() => window.comparisons), [true, false, false, false]);
     await page.getByText('Version 0.4.0 is available', { exact: false }).waitFor();
-    await page.evaluate(() => window.drafts.set('a', { content: 'unsaved' }));
+    await page.evaluate(() =>
+      window.drafts.set('a', { content: 'unsaved', revision: '', baseline: '', crlf: false }),
+    );
     await page.getByRole('button', { name: 'Update', exact: true }).click();
     await page
       .getByText('Save or discard all Scratch Tab drafts in this tab before updating.', {

@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('same-project chat navigation preserves open tabs, geometry and saves without rereading', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -31,45 +31,50 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
       window.writes = [];
       window.originals = [];
       window.ideUrls = [];
-      window.open = url => window.ideUrls.push(url);
-      activate({
-        application: { id: 'scratch-tab' },
-        slots: {
-          chatHeaderActions: 'header',
-          applicationCardActions: 'card',
-          sidebarHeaderActions: 'sidebar',
-        },
-        backend: {
-          async call(path, options) {
-            if (options.body.save) {
-              window.writes.push(options);
-              return { revision: 'saved' };
-            }
-            window.reads++;
-            return { content: 'content ' + options.body.path, revision: 'original' };
+      window.open = url => {
+        window.ideUrls.push(String(url));
+        return null;
+      };
+      activate(
+        window.createRemote({
+          application: { id: 'scratch-tab' },
+          slots: {
+            chatHeaderActions: 'header',
+            applicationCardActions: 'card',
+            sidebarHeaderActions: 'sidebar',
           },
-        },
-        ui: {
-          register(slot, render) {
-            if (slot === 'header') window.render = render;
-            if (slot === 'sidebar') window.ownerCleanup = render();
+          backend: {
+            async call(path, options) {
+              if (options.body.save) {
+                window.writes.push(options);
+                return { revision: 'saved' };
+              }
+              window.reads++;
+              return { content: 'content ' + options.body.path, revision: 'original' };
+            },
           },
-        },
-      });
+          ui: {
+            register(slot, render) {
+              if (slot === 'header') window.render = render;
+              if (slot === 'sidebar') window.ownerCleanup = render()!;
+            },
+          },
+        }),
+      );
       window.navigate = (chatId, projectId = 'p1') => {
         window.dispose?.();
         window.chatId = chatId;
-        window.dispose = window.render(document.querySelector('#host'), {
+        window.dispose = window.render(document.querySelector<HTMLElement>('#host')!, {
           chatId,
           projectId,
           cwd: `/var/lib/remote/projects/${projectId}/workspace`,
-        });
+        })!;
       };
       window.navigate('a');
     });
-    const open = async path => {
+    const open = async (path: string) => {
       await page.evaluate(path => {
-        document.querySelector('#file').href =
+        document.querySelector<HTMLAnchorElement>('#file')!.href =
           `/api/chats/${window.chatId}/ide-open?path=/workspace/${path}`;
       }, path);
       await page.getByRole('link', { name: 'File', exact: true }).click({ force: true });
@@ -100,7 +105,7 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
     });
     await page.evaluate(() => {
       window.originals = [...document.querySelectorAll('.scratch-tab-window')];
-      window.dispose();
+      window.dispose!();
     });
     // Keyed chat unmounts clean up before the new chat's effects are mounted.
     await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0)));
@@ -119,15 +124,15 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
     await page.getByRole('tab', { name: 'two.txt', exact: true }).click();
     await page.getByRole('button', { name: 'Open with default editor', exact: true }).click();
     assert.equal(await page.evaluate(() => window.oldRowOpens), 0);
-    assert.match(await page.evaluate(() => window.ideUrls.at(-1)), /\/api\/chats\/b\/ide-open/);
+    assert.match(await page.evaluate(() => window.ideUrls.at(-1)!), /\/api\/chats\/b\/ide-open/);
     await page.getByRole('tab', { name: 'one.txt', exact: false }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForFunction(() => window.writes.length === 1);
-    assert.equal(await page.evaluate(() => window.writes[0].projectId), 'p1');
+    assert.equal(await page.evaluate(() => window.writes[0]!.projectId), 'p1');
     await page.getByRole('button', { name: 'Open with default editor', exact: true }).click();
-    assert.match(await page.evaluate(() => window.ideUrls.at(-1)), /\/api\/chats\/b\/ide-open/);
+    assert.match(await page.evaluate(() => window.ideUrls.at(-1)!), /\/api\/chats\/b\/ide-open/);
     const oldIntercepted = await page.evaluate(() => {
-      const anchor = document.querySelector('#file');
+      const anchor = document.querySelector<HTMLAnchorElement>('#file')!;
       anchor.href = '/api/chats/a/ide-open?path=/workspace/stale.txt';
       window.oldIntercepted = undefined;
       anchor.addEventListener(
@@ -160,7 +165,7 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
     await open('one.txt');
     assert.equal(await page.locator('textarea:visible').inputValue(), 'content /workspace/one.txt');
     await page.evaluate(() => {
-      window.dispose();
+      window.dispose!();
       window.ownerCleanup();
     });
     await page.waitForFunction(() => document.querySelectorAll('.scratch-tab-window').length === 0);

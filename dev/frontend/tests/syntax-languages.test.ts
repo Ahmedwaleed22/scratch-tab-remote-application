@@ -1,10 +1,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fixtureRoot } from './support/runtime.mjs';
+import { importFixtureModule } from './support/runtime.js';
 
 test('syntax languages follow extensions and escape source markup', async () => {
-  const { languageFor } = await import(new URL('presenters/syntax.js', fixtureRoot));
-  const { highlightCode } = await import(new URL('vendor/syntax.js', fixtureRoot));
+  const { languageFor } = await importFixtureModule('presenters/syntax.js');
+  const { highlightCode } = await importFixtureModule('vendor/syntax.js');
   for (const [name, language] of Object.entries({
     'APP.TSX': 'typescript',
     'app.jsx': 'javascript',

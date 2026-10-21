@@ -1,24 +1,28 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fixtureRoot } from './support/runtime.mjs';
+import { importFixtureModule, backendFixture } from './support/runtime.js';
 
 test('updater API validates unknown JSON and accepts packages without a version', async () => {
-  const { createUpdates } = await import(new URL('api/updates.js', fixtureRoot));
+  const { createUpdates } = await importFixtureModule('api/updates.js');
   const originalFetch = globalThis.fetch;
-  let latest = { version: '0.6.4' };
-  let packages = [{ id: 'scratch-tab', version: '0.6.4' }, { id: 'unversioned' }];
-  let uploaded = { id: 'scratch-tab', version: '0.6.4', upgraded: [{ error: 'Upgrade failed' }] };
+  let latest: unknown = { version: '0.6.4' };
+  let packages: unknown = [{ id: 'scratch-tab', version: '0.6.4' }, { id: 'unversioned' }];
+  let uploaded: unknown = {
+    id: 'scratch-tab',
+    version: '0.6.4',
+    upgraded: [{ error: 'Upgrade failed' }],
+  };
   let archive = new Response('zip');
   let beforeUploads = 0;
   const api = createUpdates(
-    {
+    backendFixture({
       async call() {
         return latest;
       },
       async fetch() {
         return archive;
       },
-    },
+    }),
     'project',
     new AbortController().signal,
   );

@@ -2,13 +2,13 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('editor hooks load once, normalize newlines and ignore reads after disposal', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage();
-    const errors = [];
+    const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
@@ -28,7 +28,7 @@ test('editor hooks load once, normalize newlines and ignore reads after disposal
       const { mountChat } = await window.importModule('/app/chat.js');
       window.reads = 0;
       window.drafts = new Map();
-      window.cleanup = mountChat({
+      window.chatCleanup = mountChat({
         context: { projectId: 'p1', chatId: 'a' },
         drafts: window.drafts,
         launchIde: () => {},
@@ -51,9 +51,14 @@ test('editor hooks load once, normalize newlines and ignore reads after disposal
     }
     await open();
     await page.waitForFunction(() => window.reads === 1);
-    assert.equal(await page.locator('textarea').evaluate(node => node.readOnly), true);
+    assert.equal(
+      await page.locator('textarea').evaluate((node: HTMLTextAreaElement) => node.readOnly),
+      true,
+    );
     await page.evaluate(() => window.finishRead('one\r\ntwo\rthree\n'));
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
     assert.equal(await page.locator('textarea').inputValue(), 'one\ntwo\nthree\n');
     await page.locator('textarea').fill('edited\ntext\n');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -69,7 +74,7 @@ test('editor hooks load once, normalize newlines and ignore reads after disposal
     });
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     assert.equal(await page.evaluate(() => window.drafts.size), 0);
-    await page.evaluate(() => window.cleanup());
+    await page.evaluate(() => window.chatCleanup());
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

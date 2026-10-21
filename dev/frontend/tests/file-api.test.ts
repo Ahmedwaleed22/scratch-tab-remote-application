@@ -1,18 +1,18 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fixtureRoot } from './support/runtime.mjs';
+import { importFixtureModule, backendFixture } from './support/runtime.js';
 
 test('file API validates read and save responses and preserves request shapes', async () => {
-  const { createFiles } = await import(new URL('api/files.js', fixtureRoot));
-  let result = { content: 'text', revision: 'original' };
-  const calls = [];
+  const { createFiles } = await importFixtureModule('api/files.js');
+  let result: unknown = { content: 'text', revision: 'original' };
+  const calls: (import('../src/types.js').BackendOptions & { path: string })[] = [];
   const files = createFiles(
-    {
+    backendFixture({
       async call(path, options) {
         calls.push({ path, ...options });
         return result;
       },
-    },
+    }),
     'project',
   );
   assert.deepEqual(await files.read('/workspace/note.txt'), result);

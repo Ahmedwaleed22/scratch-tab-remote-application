@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('updater belongs only to Scratch Tab card and closes with its owner', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -27,46 +27,48 @@ test('updater belongs only to Scratch Tab card and closes with its owner', async
       window.projects = [];
       window.fetch = async () =>
         new Response(JSON.stringify([{ id: 'scratch-tab', version: '0.4.1' }]));
-      activate({
-        application: { id: 'scratch-tab', version: '0.4.1' },
-        slots: {
-          applicationCardActions: 'card',
-          chatHeaderActions: 'chat',
-          sidebarHeaderActions: 'sidebar',
-        },
-        backend: {
-          async call(path, options) {
-            window.projects.push(options.projectId);
-            return { version: '0.4.2' };
+      activate(
+        window.createRemote({
+          application: { id: 'scratch-tab', version: '0.4.1' },
+          slots: {
+            applicationCardActions: 'card',
+            chatHeaderActions: 'chat',
+            sidebarHeaderActions: 'sidebar',
           },
-        },
-        ui: {
-          register(slot, render, options) {
-            window.slots.push(slot);
-            if (slot !== 'card') return;
-            for (const [id, app] of [
-              ['card', 'scratch-tab'],
-              ['other', 'redis'],
-            ]) {
-              const context = { projectId: 'p1', instance: { applicationId: app } };
-              if (options.when(context))
-                window.cardCleanup = render(document.getElementById(id), context);
-            }
+          backend: {
+            async call(path, options) {
+              window.projects.push(options.projectId);
+              return { version: '0.4.2' };
+            },
           },
-          openPopup(options) {
-            const body = document.createElement('div');
-            body.id = 'popup';
-            document.body.append(body);
-            const cleanup = options.mount(body);
-            return {
-              close() {
-                cleanup?.();
-                body.remove();
-              },
-            };
+          ui: {
+            register(slot, render, options) {
+              window.slots.push(slot);
+              if (slot !== 'card') return;
+              for (const [id, app] of [
+                ['card', 'scratch-tab'],
+                ['other', 'redis'],
+              ]) {
+                const context = { projectId: 'p1', instance: { applicationId: app! } };
+                if (options!.when(context))
+                  window.cardCleanup = render(document.getElementById(id!)!, context)!;
+              }
+            },
+            openPopup(options) {
+              const body = document.createElement('div');
+              body.id = 'popup';
+              document.body.append(body);
+              const cleanup = options.mount(body)!;
+              return {
+                close() {
+                  cleanup?.();
+                  body.remove();
+                },
+              };
+            },
           },
-        },
-      });
+        }),
+      );
     });
     assert.deepEqual(await page.evaluate(() => window.slots), ['card', 'sidebar', 'chat']);
     assert.equal(await page.locator('#other button').count(), 0);

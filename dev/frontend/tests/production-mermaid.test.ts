@@ -2,13 +2,13 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('production bundle renders Mermaid diagrams after an invalid block and disposes cleanly', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage();
-    const errors = [];
+    const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
@@ -29,35 +29,39 @@ test('production bundle renders Mermaid diagrams after an invalid block and disp
     await page.evaluate(async () => {
       localStorage.setItem('scratch-tab:markdown-view', 'source');
       const { default: activate } = await window.importModule('/main.js');
-      activate({
-        slots: { chatHeaderActions: 'chat', sidebarHeaderActions: 'sidebar' },
-        backend: {
-          async call() {
-            return {
-              content:
-                '```mermaid\nnot a diagram\n```\n\n```mermaid\nflowchart TD\n A[Install] --> B[Ready]\n```\n\n```mermaid\nsequenceDiagram\n Alice->>Bob: Hello\n```',
-              revision: 'initial',
-            };
+      activate(
+        window.createRemote({
+          slots: { chatHeaderActions: 'chat', sidebarHeaderActions: 'sidebar' },
+          backend: {
+            async call() {
+              return {
+                content:
+                  '```mermaid\nnot a diagram\n```\n\n```mermaid\nflowchart TD\n A[Install] --> B[Ready]\n```\n\n```mermaid\nsequenceDiagram\n Alice->>Bob: Hello\n```',
+                revision: 'initial',
+              };
+            },
           },
-        },
-        ui: {
-          register(slot, mount) {
-            if (slot === 'sidebar') window.dispose = mount();
-            if (slot === 'chat') mount(document.body, { chatId: 'a', projectId: 'p1' });
+          ui: {
+            register(slot, mount) {
+              if (slot === 'sidebar') window.dispose = mount()!;
+              if (slot === 'chat') mount(document.body, { chatId: 'a', projectId: 'p1' })!;
+            },
           },
-        },
-      });
+        }),
+      );
     });
     await page.getByRole('link', { name: 'Diagram', exact: true }).click();
     const toggle = page.getByRole('button', { name: 'Show Markdown preview', exact: true });
-    await page.waitForFunction(() => document.querySelector('textarea')?.readOnly === false);
+    await page.waitForFunction(
+      () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,
+    );
     await toggle.click();
     await page.getByText('Unable to render Mermaid diagram.').waitFor();
     await page.waitForFunction(
       () => document.querySelectorAll('.scratch-tab-mermaid svg').length === 2,
     );
-    assert.match(await page.getByRole('article').textContent(), /Install/);
-    assert.match(await page.locator('.scratch-tab-mermaid').last().textContent(), /Alice/);
+    assert.match((await page.getByRole('article').textContent())!, /Install/);
+    assert.match((await page.locator('.scratch-tab-mermaid').last().textContent())!, /Alice/);
     const ids = await page
       .locator('.scratch-tab-mermaid svg')
       .evaluateAll(nodes => nodes.map(node => node.id));
@@ -65,7 +69,7 @@ test('production bundle renders Mermaid diagrams after an invalid block and disp
     await page.getByRole('button', { name: 'Show Markdown source' }).click();
     await toggle.click();
     // Closing during async rendering must not restore content or leak staging elements.
-    await page.evaluate(() => window.dispose());
+    await page.evaluate(() => window.dispose!());
     await page.waitForFunction(() => !document.querySelector('[id^="scratch-mermaid-"]'));
     assert.equal(await page.locator('.scratch-tab-window').count(), 0);
     assert.deepEqual(errors, []);

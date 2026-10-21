@@ -1,17 +1,17 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fixtureRoot } from './support/runtime.mjs';
+import { importFixtureModule } from './support/runtime.js';
 
 test('window geometry is project-scoped and tolerates invalid or unavailable storage', async () => {
-  const { windowGeometry } = await import(new URL('adapters/windowGeometry.js', fixtureRoot));
+  const { windowGeometry } = await importFixtureModule('adapters/windowGeometry.js');
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   const values = new Map();
   try {
     Object.defineProperty(globalThis, 'localStorage', {
       configurable: true,
       value: {
-        getItem: key => values.get(key) ?? null,
-        setItem: (key, value) => values.set(key, value),
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
       },
     });
     const geometry = windowGeometry('one');
@@ -38,6 +38,6 @@ test('window geometry is project-scoped and tolerates invalid or unavailable sto
     assert.doesNotThrow(() => geometry.write({ left: 0, top: 0, width: 620, height: 420 }));
   } finally {
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
-    else delete globalThis.localStorage;
+    else Reflect.deleteProperty(globalThis, 'localStorage');
   }
 });

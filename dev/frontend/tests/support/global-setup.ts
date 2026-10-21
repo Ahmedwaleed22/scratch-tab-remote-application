@@ -1,3 +1,4 @@
+import type { TestProject } from 'vitest/node';
 import { build } from 'esbuild';
 import { mkdtemp, readdir, rm, mkdir, copyFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -6,13 +7,13 @@ import { promisify } from 'node:util';
 
 const execute = promisify(execFile);
 
-export default async function setup(project) {
+export default async function setup(project: TestProject): Promise<() => Promise<void>> {
   const frontend = new URL('../../', import.meta.url);
   const root = new URL('../../', frontend);
   const temporary = new URL('.test-build/', frontend);
   await mkdir(temporary, { recursive: true });
   const fixture = await mkdtemp(fileURLToPath(temporary) + 'run-');
-  async function compile() {
+  async function compile(): Promise<void> {
     await execute('npm', ['run', 'build'], { cwd: fileURLToPath(root) });
     await copyFile(new URL('dist/main.js', root), fixture + '/production.js');
     const sourceFiles = await readdir(new URL('src/', frontend), { recursive: true });

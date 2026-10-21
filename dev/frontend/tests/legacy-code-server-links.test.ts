@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fixtureRoot } from './support/runtime.mjs';
-const { fileTarget } = await import(new URL('links.js', fixtureRoot));
+import { importFixtureModule } from './support/runtime.js';
+const { fileTarget } = await importFixtureModule('links.js');
 
 test('supports legacy Code Server payloads and current-project host paths', () => {
   const origin = 'https://remote.test';

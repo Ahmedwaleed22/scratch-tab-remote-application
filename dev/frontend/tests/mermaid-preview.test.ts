@@ -2,13 +2,13 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('Mermaid preview renders installer flowcharts, retains source and handles invalid diagrams', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
-    const errors = [];
+    const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
@@ -41,20 +41,22 @@ test('Mermaid preview renders installer flowcharts, retains source and handles i
     const text = '```mermaid\n' + diagram + '\n```';
     await page.evaluate(async text => {
       const { default: activate } = await window.importModule('/main.js');
-      activate({
-        slots: { chatHeaderActions: 'chat', sidebarHeaderActions: 'sidebar' },
-        backend: {
-          async call() {
-            return { content: text, revision: 'initial' };
+      activate(
+        window.createRemote({
+          slots: { chatHeaderActions: 'chat', sidebarHeaderActions: 'sidebar' },
+          backend: {
+            async call() {
+              return { content: text, revision: 'initial' };
+            },
           },
-        },
-        ui: {
-          register(slot, mount) {
-            if (slot === 'sidebar') window.dispose = mount();
-            if (slot === 'chat') mount(document.body, { chatId: 'a', projectId: 'p1' });
+          ui: {
+            register(slot, mount) {
+              if (slot === 'sidebar') window.dispose = mount()!;
+              if (slot === 'chat') mount(document.body, { chatId: 'a', projectId: 'p1' })!;
+            },
           },
-        },
-      });
+        }),
+      );
     }, text);
     await page.getByRole('link', { name: 'Installer', exact: true }).click();
     const preview = page.getByRole('article', { name: 'README.md Markdown preview' });
@@ -75,6 +77,7 @@ test('Mermaid preview renders installer flowcharts, retains source and handles i
     await drawing.waitFor();
     const container = preview.locator('.scratch-tab-mermaid');
     const bounds = await container.boundingBox();
+    assert.ok(bounds);
     assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 320);
     assert.equal(
       await container.evaluate(node => node.scrollWidth > node.clientWidth),
@@ -86,10 +89,10 @@ test('Mermaid preview renders installer flowcharts, retains source and handles i
     await page.getByRole('button', { name: 'Show Markdown preview' }).click();
     await preview.getByText('Unable to render Mermaid diagram.').waitFor();
     assert.match(
-      await preview.locator('pre:not([hidden]) > code.language-mermaid').textContent(),
+      (await preview.locator('pre:not([hidden]) > code.language-mermaid').textContent())!,
       /A\[broken/,
     );
-    await page.evaluate(() => window.dispose());
+    await page.evaluate(() => window.dispose!());
     assert.equal(await page.locator('.scratch-tab-markdown').count(), 0);
     assert.deepEqual(errors, []);
   } finally {

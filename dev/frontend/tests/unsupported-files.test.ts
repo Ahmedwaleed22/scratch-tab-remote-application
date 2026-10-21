@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('unsupported Word and binary files offer a download instead of an empty editor', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -38,9 +38,10 @@ test('unsupported Word and binary files offer a download instead of an empty edi
       const { EditorDocument } = await window.importModule('/services/editorDocument.js');
       const { windowGeometry } = await window.importModule('/adapters/windowGeometry.js');
       window.reads = 0;
-      window.showFile = (name, error) => {
+      window.showFile = (name: string, error?: string) => {
         window.editor?.close(true);
         const target = {
+          ide: '',
           name,
           path: '/workspace/' + name,
           download: '/api/chats/a/files/download?path=' + encodeURIComponent(name),
@@ -89,6 +90,7 @@ test('unsupported Word and binary files offer a download instead of an empty edi
     });
     await page.evaluate(() => window.showFile('report.doc', ''));
     const buttonBox = await download.boundingBox();
+    assert.ok(buttonBox);
     assert.ok(
       buttonBox.width > 44 &&
         buttonBox.height >= 44 &&

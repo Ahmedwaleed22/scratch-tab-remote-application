@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fixtureRoot } from './support/runtime.mjs';
-const { fileTarget } = await import(new URL('links.js', fixtureRoot));
+import { importFixtureModule } from './support/runtime.js';
+const { fileTarget } = await importFixtureModule('links.js');
 
 test('matches current chat workspace links and preserves IDE line reference', () => {
   const target = fileTarget(
@@ -9,6 +9,7 @@ test('matches current chat workspace links and preserves IDE line reference', ()
     'https://remote.test',
     'a',
   );
+  assert.ok(target);
   assert.equal(target.path, '/workspace/note.txt');
   assert.match(target.ide, /%3A3/);
   assert.equal(target.download, '/api/chats/a/files/download?path=note.txt');

@@ -1,9 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fixtureRoot } from './support/runtime.mjs';
+import { importFixtureModule } from './support/runtime.js';
 
 test('Markdown preview renders safely and resolves workspace resources', async () => {
-  const { markdownPreview } = await import(new URL('presenters/markdown.js', fixtureRoot));
+  const { markdownPreview } = await importFixtureModule('presenters/markdown.js');
   const target = {
     path: '/workspace/docs/README.MD',
     download: '/api/chats/a/files/download?path=docs%2FREADME.MD',

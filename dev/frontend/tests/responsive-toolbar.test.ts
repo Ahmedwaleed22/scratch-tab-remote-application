@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('responsive toolbar mounts share one Scratch Tab update notice', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -18,7 +18,7 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
       });
     });
     await page.goto('https://remote.test/');
-    const interceptsFile = chatId =>
+    const interceptsFile = (chatId: string) =>
       page.evaluate(chatId => {
         const link = document.createElement('a');
         link.href = `/api/chats/${chatId}/ide-open?path=/workspace/note.txt`;
@@ -35,23 +35,27 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
       }, chatId);
     await page.evaluate(async () => {
       const { default: activate } = await window.importModule('/main.js');
-      const hosts = [document.querySelector('#desktop'), document.querySelector('#mobile')];
+      const hosts = [
+        document.querySelector<HTMLElement>('#desktop')!,
+        document.querySelector<HTMLElement>('#mobile')!,
+      ];
       window.checks = 0;
-      window.timers = new Set();
-      const setInterval = window.setInterval;
-      const clearInterval = window.clearInterval;
-      window.setInterval = (...args) => {
-        const id = setInterval(...args);
-        window.timers.add(id);
+      const browserWindow: Window = window;
+      window.intervalIds = new Set();
+      const setInterval = browserWindow.setInterval;
+      const clearInterval = browserWindow.clearInterval;
+      browserWindow.setInterval = (handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+        const id = setInterval(handler, timeout, ...args);
+        window.intervalIds.add(id);
         return id;
       };
-      window.clearInterval = id => {
-        window.timers.delete(id);
+      browserWindow.clearInterval = id => {
+        window.intervalIds.delete(id!);
         clearInterval(id);
       };
       window.fetch = async () =>
         new Response(JSON.stringify([{ id: 'scratch-tab', version: '0.6.3' }]));
-      const remote = {
+      const remote: RemoteTestFixture = {
         application: { id: 'scratch-tab', version: '0.6.3' },
         slots: {
           chatHeaderActions: 'chat',
@@ -68,7 +72,7 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
         ui: {
           register(slot, mount) {
             if (slot === 'chat') window.mountChatActions = mount;
-            if (slot === 'sidebar') window.ownerCleanup = mount(document.createElement('div'), {});
+            if (slot === 'sidebar') window.ownerCleanup = mount(document.createElement('div'), {})!;
           },
           // Remote registers one icon contribution globally and renders it in every slot host.
           addIconButton(_slot, options) {
@@ -83,10 +87,10 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
           },
         },
       };
-      activate(remote);
+      activate(window.createRemote(remote));
       const context = { projectId: 'p1', chatId: 'a' };
-      window.desktopCleanup = window.mountChatActions(hosts[0], context);
-      window.mobileCleanup = window.mountChatActions(hosts[1], context);
+      window.desktopCleanup = window.mountChatActions(hosts[0], context)!;
+      window.mobileCleanup = window.mountChatActions(hosts[1], context)!;
     });
     await page.waitForFunction(() => document.querySelectorAll('#desktop button').length > 0);
     assert.equal(
@@ -96,7 +100,7 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
     );
     assert.equal(await page.locator('#mobile button').count(), 1);
     assert.equal(await page.evaluate(() => window.checks), 1);
-    assert.equal(await page.evaluate(() => window.timers.size), 1);
+    assert.equal(await page.evaluate(() => window.intervalIds.size), 1);
     await page.evaluate(() => window.mobileCleanup());
     assert.equal(await interceptsFile('a'), true, 'remaining header keeps file capture active');
     assert.equal(
@@ -104,12 +108,15 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
       1,
       'the remaining owner keeps its notice',
     );
-    assert.equal(await page.evaluate(() => window.timers.size), 1);
+    assert.equal(await page.evaluate(() => window.intervalIds.size), 1);
     await page.evaluate(() => {
-      window.nextCleanup = window.mountChatActions(document.querySelector('#mobile'), {
-        projectId: 'p2',
-        chatId: 'b',
-      });
+      window.nextCleanup = window.mountChatActions(
+        document.querySelector<HTMLElement>('#mobile')!,
+        {
+          projectId: 'p2',
+          chatId: 'b',
+        },
+      )!;
     });
     await page.waitForFunction(
       () => window.checks === 2 && document.querySelectorAll('#desktop button').length === 1,
@@ -121,12 +128,15 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
       1,
       'old project cleanup cannot remove the new notice',
     );
-    assert.equal(await page.evaluate(() => window.timers.size), 1);
+    assert.equal(await page.evaluate(() => window.intervalIds.size), 1);
     await page.evaluate(() => {
-      window.lastCleanup = window.mountChatActions(document.querySelector('#desktop'), {
-        projectId: 'p2',
-        chatId: 'c',
-      });
+      window.lastCleanup = window.mountChatActions(
+        document.querySelector<HTMLElement>('#desktop')!,
+        {
+          projectId: 'p2',
+          chatId: 'c',
+        },
+      )!;
     });
     await page.waitForFunction(() => document.querySelectorAll('#desktop button').length === 1);
     await page.evaluate(() => window.nextCleanup());
@@ -136,12 +146,12 @@ test('responsive toolbar mounts share one Scratch Tab update notice', async () =
       1,
       'old chat cleanup cannot remove the new notice',
     );
-    assert.equal(await page.evaluate(() => window.timers.size), 1);
+    assert.equal(await page.evaluate(() => window.intervalIds.size), 1);
     await page.evaluate(() => window.lastCleanup());
     assert.equal(await interceptsFile('c'), false, 'last header cleanup suspends file capture');
     await page.evaluate(() => window.ownerCleanup());
     assert.equal(await page.locator('#desktop button').count(), 0);
-    assert.equal(await page.evaluate(() => window.timers.size), 0);
+    assert.equal(await page.evaluate(() => window.intervalIds.size), 0);
   } finally {
     await browser.close();
   }

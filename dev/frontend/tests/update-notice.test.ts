@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('chat update notice checks in background, opens updater, and cleans up across chats', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -29,18 +29,25 @@ test('chat update notice checks in background, opens updater, and cleans up acro
       window.fail = false;
       window.deferred = false;
       window.aborted = false;
+      const browserWindow: Window = window;
       window.timers = new Map();
       let timerId = 0;
-      window.setInterval = (fn, ms) => {
-        window.timers.set(++timerId, { fn, ms });
+      browserWindow.setInterval = (fn, ms) => {
+        window.timers.set(++timerId, {
+          fn: () => {
+            if (typeof fn !== 'function') throw new Error('Expected timer callback');
+            return fn();
+          },
+          ms,
+        });
         return timerId;
       };
-      window.clearInterval = id => window.timers.delete(id);
+      browserWindow.clearInterval = id => window.timers.delete(id!);
       window.fetch = async () =>
         new Response(JSON.stringify([{ id: 'scratch-tab', version: '0.5.3' }]), {
           status: window.denied ? 403 : 200,
         });
-      const remote = {
+      const remote: RemoteTestFixture = {
         application: { id: 'scratch-tab', version: '0.5.3' },
         slots: {
           chatHeaderActions: 'chat',
@@ -52,9 +59,9 @@ test('chat update notice checks in background, opens updater, and cleans up acro
             window.checks++;
             window.lastProject = projectId;
             if (window.deferred)
-              await new Promise(resolve => {
+              await new Promise<void>(resolve => {
                 window.finishCheck = resolve;
-                signal.addEventListener('abort', () => {
+                signal!.addEventListener('abort', () => {
                   window.aborted = true;
                 });
               });
@@ -65,7 +72,7 @@ test('chat update notice checks in background, opens updater, and cleans up acro
         ui: {
           register(slot, render) {
             if (slot === 'chat') window.renderChat = render;
-            if (slot === 'sidebar') window.ownerCleanup = render();
+            if (slot === 'sidebar') window.ownerCleanup = render()!;
           },
           addIconButton(slot, options) {
             window.iconSlot = slot;
@@ -77,14 +84,14 @@ test('chat update notice checks in background, opens updater, and cleans up acro
             button.innerHTML = options.icon;
             button.style.cssText = 'width:32px;height:32px;padding:8px';
             button.onclick = options.onClick;
-            document.querySelector('#toolbar').append(button);
+            document.querySelector<HTMLElement>('#toolbar')!.append(button);
             return () => button.remove();
           },
           openPopup(options) {
             const body = document.createElement('div');
             body.id = 'popup';
             document.body.append(body);
-            const cleanup = options.mount(body);
+            const cleanup = options.mount(body)!;
             return {
               close() {
                 cleanup?.();
@@ -94,13 +101,13 @@ test('chat update notice checks in background, opens updater, and cleans up acro
           },
         },
       };
-      activate(remote);
+      activate(window.createRemote(remote));
       window.navigate = projectId => {
         window.cleanupChat?.();
-        window.cleanupChat = window.renderChat(document.querySelector('#host'), {
+        window.cleanupChat = window.renderChat(document.querySelector<HTMLElement>('#host')!, {
           projectId,
           chatId: 'a',
-        });
+        })!;
       };
       window.navigate('p1');
     });
@@ -119,7 +126,7 @@ test('chat update notice checks in background, opens updater, and cleans up acro
       await page.evaluate(() => window.iconOptions.when({ projectId: 'p1', chatId: 'b' })),
       true,
     );
-    assert.match(await notice.getAttribute('title'), /0.6.0.*Click to update/);
+    assert.match((await notice.getAttribute('title'))!, /0.6.0.*Click to update/);
     await notice.focus();
     await notice.press('Enter');
     await page.getByText('Version 0.6.0 is available', { exact: false }).waitFor();
@@ -135,7 +142,7 @@ test('chat update notice checks in background, opens updater, and cleans up acro
       const now = Date.now;
       Date.now = () => now() + 3600001;
       window.latest = '0.5.3';
-      await [...window.timers.values()].find(t => t.ms === 3600000).fn();
+      await [...window.timers.values()].find(t => t.ms === 3600000)!.fn();
       Date.now = now;
     });
     assert.equal(await notice.count(), 0);

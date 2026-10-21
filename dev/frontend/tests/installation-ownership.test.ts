@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.js';
 
 test('updater shares installation ownership across popups and releases it after cancellation', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -23,7 +23,7 @@ test('updater shares installation ownership across popups and releases it after 
       window.downloads = 0;
       window.uploads = 0;
       window.reloads = 0;
-      const remote = {
+      const remote: RemoteTestFixture = {
         application: { version: '1.0.0' },
         backend: {
           async call() {
@@ -32,7 +32,7 @@ test('updater shares installation ownership across popups and releases it after 
           async fetch(_path, options) {
             window.downloads++;
             if (window.downloads === 1) {
-              window.firstSignal = options.signal;
+              window.firstSignal = options.signal!;
               return new Promise(resolve => {
                 window.finishDownload = () => resolve(new Response('verified zip'));
               });
@@ -51,13 +51,13 @@ test('updater shares installation ownership across popups and releases it after 
         return new Response(JSON.stringify([{ id: 'scratch-tab', version: '1.0.0' }]));
       };
       const options = {
-        remote,
+        remote: window.createRemote(remote),
         projectId: 'p1',
         drafts: new Map(),
         reload: () => window.reloads++,
       };
-      window.closeFirst = mountUpdates(document.querySelector('#first'), options);
-      window.closeSecond = mountUpdates(document.querySelector('#second'), options);
+      window.closeFirst = mountUpdates(document.querySelector<HTMLElement>('#first')!, options);
+      window.closeSecond = mountUpdates(document.querySelector<HTMLElement>('#second')!, options);
     });
     let confirmations = 0;
     page.on('dialog', async dialog => {
