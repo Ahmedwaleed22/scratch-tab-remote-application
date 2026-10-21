@@ -10,9 +10,13 @@ const result = await build({
   format: 'esm',
   platform: 'browser',
   target: 'es2022',
+  splitting: true,
   minify: true,
   legalComments: 'inline',
-  outfile: 'dist/main.js',
+  outdir: 'dist',
+  entryNames: 'main',
+  // Lazy imports such as Mermaid load as separate chunks, keeping main.js small.
+  chunkNames: 'chunks/[name]-[hash]',
   banner: {
     js: '/* Scratch Tab — Preact, Highlight.js, Markdown-it, Mermaid. See ui/licenses/THIRD-PARTY.txt. */',
   },
