@@ -1,12 +1,13 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('updater belongs only to Scratch Tab card and closes with its owner', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage();
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -21,7 +22,7 @@ test('updater belongs only to Scratch Tab card and closes with its owner', async
     });
     await page.goto('https://remote.test/');
     await page.evaluate(async () => {
-      const { default: activate } = await import('/main.js');
+      const { default: activate } = await window.importModule('/main.js');
       window.slots = [];
       window.projects = [];
       window.fetch = async () =>

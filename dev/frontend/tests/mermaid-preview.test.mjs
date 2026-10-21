@@ -1,8 +1,8 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('Mermaid preview renders installer flowcharts, retains source and handles invalid diagrams', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -10,6 +10,7 @@ test('Mermaid preview renders installer flowcharts, retains source and handles i
     const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -39,7 +40,7 @@ test('Mermaid preview renders installer flowcharts, retains source and handles i
     Heal --> Ready["Open app and claim administrator"]`;
     const text = '```mermaid\n' + diagram + '\n```';
     await page.evaluate(async text => {
-      const { default: activate } = await import('/main.js');
+      const { default: activate } = await window.importModule('/main.js');
       activate({
         slots: { chatHeaderActions: 'chat', sidebarHeaderActions: 'sidebar' },
         backend: {

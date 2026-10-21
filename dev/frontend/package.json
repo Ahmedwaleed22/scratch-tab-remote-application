@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "npm --prefix ../.. run build",
-    "test": "npm run build && node tests/support/run.mjs"
+    "test": "vitest run",
+    "test:watch": "vitest --watch"
   }
 }

@@ -1,8 +1,8 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('highlighted editing preserves content, native undo, scrolling and phone layout', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -10,6 +10,7 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -27,7 +28,7 @@ test('highlighted editing preserves content, native undo, scrolling and phone la
       content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
     });
     await page.evaluate(async () => {
-      const { mountChat } = await import('/app/chat.js');
+      const { mountChat } = await window.importModule('/app/chat.js');
       window.disk =
         'const greeting = "hello <img src=x onerror=alert(1)>";\r\n// comment\r\nconst count = 42;\r\n';
       window.cleanup = mountChat({

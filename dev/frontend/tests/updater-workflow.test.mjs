@@ -1,12 +1,13 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('GitHub updater checks versions, protects drafts, uploads, and reports partial failures', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage();
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -18,8 +19,8 @@ test('GitHub updater checks versions, protects drafts, uploads, and reports part
     });
     await page.goto('https://remote.test/');
     await page.evaluate(async () => {
-      const { mountUpdates } = await import('/app/updates.js');
-      const { isNewer } = await import('/services/releaseVersion.js');
+      const { mountUpdates } = await window.importModule('/app/updates.js');
+      const { isNewer } = await window.importModule('/services/releaseVersion.js');
       window.comparisons = [
         isNewer('0.10.0', '0.9.0'),
         isNewer('0.3.2', '0.4.0'),

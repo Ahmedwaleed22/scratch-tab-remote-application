@@ -39,7 +39,7 @@ Stopping or uninstalling Scratch Tab keeps your workspace files.
 
 ## Development
 
-Requires Node.js 22.18 or later. The frontend uses Preact and TypeScript:
+Requires Node.js 22.18 or later. The frontend uses Preact and TypeScript, with Vitest for tests and Playwright for browser scenarios:
 
 ```text
 dev/frontend/src/

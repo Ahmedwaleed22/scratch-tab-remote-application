@@ -1,8 +1,8 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('direct file opening, content, controls, modified clicks and disposal', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -10,6 +10,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     const page = await browser.newPage({
       viewport: { width: Number(process.env.SCRATCH_TAB_WIDTH || 1280), height: 720 },
     });
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -33,7 +34,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
     });
     await page.evaluate(async () => {
-      const { default: activate } = await import('/main.js');
+      const { default: activate } = await window.importModule('/main.js');
       window.dispose = null;
       window.disk = 'A small file\n<script>safe</script>';
       window.revision = 'original';

@@ -1,8 +1,8 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('editor hooks load once, normalize newlines and ignore reads after disposal', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -10,6 +10,7 @@ test('editor hooks load once, normalize newlines and ignore reads after disposal
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -24,7 +25,7 @@ test('editor hooks load once, normalize newlines and ignore reads after disposal
       content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
     });
     await page.evaluate(async () => {
-      const { mountChat } = await import('/app/chat.js');
+      const { mountChat } = await window.importModule('/app/chat.js');
       window.reads = 0;
       window.drafts = new Map();
       window.cleanup = mountChat({

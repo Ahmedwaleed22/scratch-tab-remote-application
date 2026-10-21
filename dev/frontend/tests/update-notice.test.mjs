@@ -1,12 +1,13 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('chat update notice checks in background, opens updater, and cleans up across chats', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage({ viewport: { width: 320, height: 568 } });
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -21,7 +22,7 @@ test('chat update notice checks in background, opens updater, and cleans up acro
     });
     await page.goto('https://remote.test/');
     await page.evaluate(async () => {
-      const { default: activate } = await import('/main.js');
+      const { default: activate } = await window.importModule('/main.js');
       window.checks = 0;
       window.latest = '0.6.0';
       window.denied = false;

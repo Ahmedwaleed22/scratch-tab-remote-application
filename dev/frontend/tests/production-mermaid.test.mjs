@@ -1,8 +1,8 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('production bundle renders Mermaid diagrams after an invalid block and disposes cleanly', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -10,6 +10,7 @@ test('production bundle renders Mermaid diagrams after an invalid block and disp
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       if (new URL(route.request().url()).pathname === '/main.js')
         return route.fulfill({
@@ -27,7 +28,7 @@ test('production bundle renders Mermaid diagrams after an invalid block and disp
     });
     await page.evaluate(async () => {
       localStorage.setItem('scratch-tab:markdown-view', 'source');
-      const { default: activate } = await import('/main.js');
+      const { default: activate } = await window.importModule('/main.js');
       activate({
         slots: { chatHeaderActions: 'chat', sidebarHeaderActions: 'sidebar' },
         backend: {

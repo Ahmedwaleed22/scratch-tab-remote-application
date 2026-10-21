@@ -1,12 +1,13 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('updater shares installation ownership across popups and releases it after cancellation', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage();
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -18,7 +19,7 @@ test('updater shares installation ownership across popups and releases it after 
     });
     await page.goto('https://remote.test/');
     await page.evaluate(async () => {
-      const { mountUpdates } = await import('/app/updates.js');
+      const { mountUpdates } = await window.importModule('/app/updates.js');
       window.downloads = 0;
       window.uploads = 0;
       window.reloads = 0;

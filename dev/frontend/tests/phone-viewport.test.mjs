@@ -1,8 +1,8 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('phone editor stays inside the visible viewport through keyboard and rotation changes', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -12,6 +12,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
       isMobile: true,
       hasTouch: true,
     });
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -29,9 +30,9 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
       content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
     });
     await page.evaluate(async () => {
-      const { mountEditorWindow } = await import('/app/editor.js');
-      const { EditorDocument } = await import('/services/editorDocument.js');
-      const { windowGeometry } = await import('/adapters/windowGeometry.js');
+      const { mountEditorWindow } = await window.importModule('/app/editor.js');
+      const { EditorDocument } = await window.importModule('/services/editorDocument.js');
+      const { windowGeometry } = await window.importModule('/adapters/windowGeometry.js');
       window.saved = '';
       window.opened = 0;
       const documentModel = new EditorDocument('/workspace/README.md', 'phone', new Map(), {

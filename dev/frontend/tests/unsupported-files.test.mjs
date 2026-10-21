@@ -1,13 +1,14 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('unsupported Word and binary files offer a download instead of an empty editor', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -33,9 +34,9 @@ test('unsupported Word and binary files offer a download instead of an empty edi
       content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
     });
     await page.evaluate(async () => {
-      const { mountEditorWindow } = await import('/app/editor.js');
-      const { EditorDocument } = await import('/services/editorDocument.js');
-      const { windowGeometry } = await import('/adapters/windowGeometry.js');
+      const { mountEditorWindow } = await window.importModule('/app/editor.js');
+      const { EditorDocument } = await window.importModule('/services/editorDocument.js');
+      const { windowGeometry } = await window.importModule('/adapters/windowGeometry.js');
       window.reads = 0;
       window.showFile = (name, error) => {
         window.editor?.close(true);

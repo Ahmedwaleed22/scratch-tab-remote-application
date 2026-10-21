@@ -1,13 +1,14 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { runtimeModule } from './support/runtime.mjs';
+import { runtimeModule, installBrowserImports } from './support/runtime.mjs';
 
 test('file tabs retain independent edits, detach into windows, and protect dirty closes', async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await installBrowserImports(page);
     await page.route('https://remote.test/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('.js'))
@@ -25,7 +26,7 @@ test('file tabs retain independent edits, detach into windows, and protect dirty
       content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
     });
     await page.evaluate(async () => {
-      const { mountChat } = await import('/app/chat.js');
+      const { mountChat } = await window.importModule('/app/chat.js');
       window.disk = {
         '/workspace/one.txt': 'first',
         '/workspace/two.txt': 'second',
