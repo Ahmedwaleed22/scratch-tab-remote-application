@@ -3,7 +3,7 @@
   "name": "Scratch Tab",
   "description": "Read and edit small workspace text files in movable windows, with Markdown and Mermaid previews.",
   "category": "development",
-  "version": "0.7.2",
+  "version": "0.7.0",
   "icon": "code",
   "scopes": [
     "project",
