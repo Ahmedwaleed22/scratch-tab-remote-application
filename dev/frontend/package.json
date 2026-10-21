@@ -1,0 +1,11 @@
+{
+  "name": "scratch-tab-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix ../.. run build",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit --project tsconfig.tests.json"
+  }
+}

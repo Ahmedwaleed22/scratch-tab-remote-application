@@ -1,0 +1,592 @@
+.scratch-tab-window {
+  position: fixed;
+  box-sizing: border-box;
+  width: 620px;
+  height: 420px;
+  max-width: calc(var(--scratch-viewport-width, 100vw) - 16px);
+  max-height: calc(var(--scratch-viewport-height, 100dvh) - 16px);
+  min-width: 280px;
+  min-height: 180px;
+  resize: both;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgb(var(--bg-surface-rgb, 250 250 250));
+  color: rgb(var(--fg, 32 32 36));
+  border: 1px solid var(--line, #bbb);
+  border-radius: 10px;
+  box-shadow: 0 18px 65px #0004;
+  font: 13px system-ui;
+}
+.scratch-tab-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  min-height: 24px;
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+  background: rgb(var(--bg-raised-rgb, 240 240 242));
+  border-bottom: 1px solid var(--line, #ddd);
+  user-select: none;
+}
+.scratch-tab-header:active {
+  cursor: grabbing;
+}
+.scratch-tab-header strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+.scratch-tab-controls {
+  display: flex;
+  flex-shrink: 0;
+}
+.scratch-tab-controls button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.scratch-tab-controls button::before {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff5f57;
+  box-shadow: inset 0 0 0 1px #0002;
+}
+.scratch-tab-controls button:hover::before {
+  background: #e84c45;
+}
+.scratch-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.scratch-tab-actions button {
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--line, #aaa);
+  border-radius: 6px;
+  padding: 3px 6px;
+  cursor: pointer;
+  font: inherit;
+}
+.scratch-tab-actions button {
+  min-height: 22px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.scratch-tab-actions button:first-child:not(:disabled) {
+  color: rgb(var(--accent-blue, 45 100 215));
+  background: rgb(var(--accent-blue, 45 100 215) / 0.1);
+}
+.scratch-tab-window textarea {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  padding: 16px;
+  font:
+    13px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  tab-size: 4;
+}
+.scratch-tab-window textarea:focus-visible {
+  outline: 2px solid rgb(var(--accent-blue, 45 100 215) / 0.45);
+  outline-offset: -2px;
+}
+.scratch-tab-window footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--line, #ddd);
+  font-size: 12px;
+}
+.scratch-tab-window .scratch-tab-error {
+  color: rgb(var(--accent-red, 180 35 35));
+}
+.scratch-tab-window button:focus-visible,
+.scratch-tab-header:focus-visible {
+  outline: 2px solid rgb(var(--accent-blue, 45 100 215));
+  outline-offset: 2px;
+}
+.scratch-tab-actions button:not(:disabled):hover {
+  background: rgb(var(--accent-blue, 45 100 215) / 0.1);
+}
+.scratch-tab-window button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
+  .scratch-tab-window {
+    min-width: 0;
+    min-height: 0;
+    width: calc(var(--scratch-viewport-width, 100vw) - 16px);
+    height: calc(var(--scratch-viewport-height, 100dvh) - 16px);
+    resize: none;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+  .scratch-tab-header {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 0 4px;
+    padding: 4px 8px 8px;
+    cursor: default;
+    touch-action: auto;
+  }
+  .scratch-tab-header strong {
+    font-size: 14px;
+  }
+  .scratch-tab-controls button {
+    width: 44px;
+    height: 44px;
+  }
+  .scratch-tab-actions {
+    grid-column: 1 / -1;
+    gap: 8px;
+  }
+  .scratch-tab-actions button {
+    min-height: 44px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .scratch-tab-actions button:last-child {
+    flex: 1;
+    min-width: 0;
+    white-space: normal;
+  }
+  .scratch-tab-window textarea {
+    font-size: 16px;
+    padding: 12px;
+    overscroll-behavior: contain;
+  }
+  .scratch-tab-window footer {
+    padding: 6px 12px;
+    overflow-wrap: anywhere;
+  }
+}
+@media (pointer: coarse) {
+  .scratch-tab-controls button {
+    width: 44px;
+    height: 44px;
+  }
+  .scratch-tab-actions button {
+    min-height: 44px;
+  }
+}
+
+.scratch-tab-updates {
+  padding: 12px;
+  color: rgb(var(--fg, 32 32 36));
+  font: 13px/1.5 system-ui;
+}
+.scratch-tab-updates p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.scratch-tab-updates > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.scratch-tab-updates button {
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--line, #aaa);
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.scratch-tab-updates button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.scratch-tab-updates button:focus-visible {
+  outline: 2px solid rgb(var(--accent-blue, 45 100 215));
+  outline-offset: 2px;
+}
+
+.scratch-tab-unsupported {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  text-align: center;
+  gap: 16px;
+}
+.scratch-tab-unsupported h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.scratch-tab-unsupported p {
+  max-width: 36ch;
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.scratch-tab-unsupported a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  color: rgb(var(--accent-blue, 45 100 215));
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.scratch-tab-unsupported a:hover {
+  background: rgb(var(--accent-blue, 45 100 215) / 0.1);
+}
+.scratch-tab-unsupported a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.scratch-tab-card-actions button {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--line, #aaa);
+  border-radius: 6px;
+  color: rgb(var(--fg, 32 32 36));
+  background: transparent;
+  font: 11px system-ui;
+  cursor: pointer;
+}
+.scratch-tab-card-actions button:hover {
+  background: rgb(var(--accent-blue, 45 100 215) / 0.1);
+}
+.scratch-tab-card-actions button:focus-visible {
+  outline: 2px solid rgb(var(--accent-blue, 45 100 215));
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .scratch-tab-card-actions button {
+    min-height: 44px;
+  }
+}
+
+.scratch-tab-tabbar {
+  display: flex;
+  min-width: 0;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line, #bbb);
+}
+.scratch-tab-tabbar[hidden] {
+  display: none;
+}
+.scratch-tab-tabs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+.scratch-tab-tabbar button {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: 12px system-ui;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.scratch-tab-tab {
+  display: flex;
+  flex-shrink: 0;
+  min-width: 0;
+}
+.scratch-tab-tabs button[role='tab'] {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 2px solid transparent;
+}
+.scratch-tab-tabs .scratch-tab-tab-close {
+  flex-shrink: 0;
+  width: 30px;
+  padding: 0;
+  font-size: 18px;
+}
+.scratch-tab-tabs .scratch-tab-tab-close:hover {
+  background: rgb(var(--accent-blue, 45 100 215) / 0.1);
+}
+.scratch-tab-tabs button[aria-selected='true'] {
+  color: rgb(var(--accent-blue, 45 100 215));
+  background: rgb(var(--accent-blue, 45 100 215) / 0.1);
+  border-bottom-color: currentColor;
+}
+.scratch-tab-separate {
+  flex-shrink: 0;
+  border-left: 1px solid var(--line, #bbb) !important;
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .scratch-tab-tabbar button {
+    min-height: 44px;
+  }
+  .scratch-tab-tabs .scratch-tab-tab-close {
+    width: 44px;
+  }
+}
+
+.scratch-tab-codearea {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  --syntax-keyword: #6639ba;
+  --syntax-string: #17663a;
+  --syntax-comment: #626871;
+  --syntax-number: #995419;
+  --syntax-name: #075e95;
+}
+.scratch-tab-codearea pre,
+.scratch-tab-codearea textarea {
+  box-sizing: border-box;
+  margin: 0;
+  border: 0;
+  padding: 16px;
+  font:
+    13px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  tab-size: 4;
+  letter-spacing: normal;
+  font-variant-ligatures: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.scratch-tab-codearea pre {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: rgb(var(--fg, 32 32 36));
+}
+.scratch-tab-codearea pre span {
+  font: inherit;
+}
+.scratch-tab-codearea textarea {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: rgb(var(--fg, 32 32 36));
+}
+.scratch-tab-codearea .hljs-keyword,
+.scratch-tab-codearea .hljs-literal,
+.scratch-tab-codearea .hljs-selector-tag {
+  color: var(--syntax-keyword);
+}
+.scratch-tab-codearea .hljs-string,
+.scratch-tab-codearea .hljs-regexp {
+  color: var(--syntax-string);
+}
+.scratch-tab-codearea .hljs-comment,
+.scratch-tab-codearea .hljs-quote {
+  color: var(--syntax-comment);
+}
+.scratch-tab-codearea .hljs-number,
+.scratch-tab-codearea .hljs-built_in,
+.scratch-tab-codearea .hljs-meta {
+  color: var(--syntax-number);
+}
+.scratch-tab-codearea .hljs-title,
+.scratch-tab-codearea .hljs-attr,
+.scratch-tab-codearea .hljs-name,
+.scratch-tab-codearea .hljs-type,
+.scratch-tab-codearea .hljs-section {
+  color: var(--syntax-name);
+}
+:root[data-theme='dark'] .scratch-tab-codearea,
+:root.dark .scratch-tab-codearea {
+  --syntax-keyword: #c4a7ff;
+  --syntax-string: #a6d89b;
+  --syntax-comment: #a5aab5;
+  --syntax-number: #eac078;
+  --syntax-name: #8bc3f8;
+}
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
+  .scratch-tab-codearea pre,
+  .scratch-tab-codearea textarea {
+    font-size: 16px;
+    padding: 12px;
+  }
+}
+@media (forced-colors: active) {
+  .scratch-tab-codearea pre {
+    display: none;
+  }
+  .scratch-tab-codearea textarea {
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+    caret-color: CanvasText;
+  }
+}
+
+.scratch-tab-markdown {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px;
+  font: 14px/1.65 system-ui;
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+}
+.scratch-tab-markdown[hidden] {
+  display: none;
+}
+.scratch-tab-markdown:focus-visible {
+  outline: 2px solid rgb(var(--accent-blue, 45 100 215) / 0.45);
+  outline-offset: -2px;
+}
+.scratch-tab-markdown > :first-child {
+  margin-top: 0;
+}
+.scratch-tab-markdown h1,
+.scratch-tab-markdown h2,
+.scratch-tab-markdown h3,
+.scratch-tab-markdown h4,
+.scratch-tab-markdown h5,
+.scratch-tab-markdown h6 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.2em 0 0.5em;
+}
+.scratch-tab-markdown h1 {
+  font-size: 1.8em;
+}
+.scratch-tab-markdown h2 {
+  font-size: 1.45em;
+}
+.scratch-tab-markdown h3 {
+  font-size: 1.2em;
+}
+.scratch-tab-markdown p,
+.scratch-tab-markdown ul,
+.scratch-tab-markdown ol {
+  margin: 0.7em 0;
+}
+.scratch-tab-markdown ul {
+  list-style: disc;
+  padding-left: 1.7em;
+}
+.scratch-tab-markdown ol {
+  list-style: decimal;
+  padding-left: 1.7em;
+}
+.scratch-tab-markdown strong {
+  font-weight: 700;
+}
+.scratch-tab-markdown em {
+  font-style: italic;
+}
+.scratch-tab-markdown a {
+  color: rgb(var(--accent-blue, 45 100 215));
+  text-decoration: underline;
+}
+.scratch-tab-markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: rgb(var(--accent-blue, 45 100 215) / 0.08);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+}
+.scratch-tab-markdown pre {
+  overflow: auto;
+  white-space: pre;
+  padding: 12px;
+  border: 1px solid var(--line, #bbb);
+  border-radius: 6px;
+}
+.scratch-tab-markdown pre code {
+  padding: 0;
+  background: transparent;
+}
+.scratch-tab-markdown blockquote {
+  margin: 1em 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--line, #bbb);
+}
+.scratch-tab-markdown table {
+  color: inherit;
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.scratch-tab-markdown th,
+.scratch-tab-markdown td {
+  padding: 6px 10px;
+  border: 1px solid var(--line, #bbb);
+}
+.scratch-tab-markdown th {
+  font-weight: 600;
+}
+.scratch-tab-markdown img {
+  max-width: 100%;
+  height: auto;
+}
+.scratch-tab-markdown hr {
+  border: 0;
+  border-top: 1px solid var(--line, #bbb);
+  margin: 1em 0;
+}
+.scratch-tab-actions button[aria-pressed='true'] {
+  color: rgb(var(--accent-blue, 45 100 215));
+  background: rgb(var(--accent-blue, 45 100 215) / 0.1);
+}
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
+  .scratch-tab-markdown {
+    font-size: 16px;
+    padding: 12px;
+  }
+}
+
+.scratch-tab-mermaid {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 1em 0;
+}
+.scratch-tab-mermaid svg {
+  display: block;
+  max-width: none;
+  height: auto;
+  margin: auto;
+}
+.scratch-tab-markdown pre[hidden] {
+  display: none;
+}

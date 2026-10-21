@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: harness
+          # Freeze the legacy test harness used with these historical tags.
+          ref: 803793e0291bfeedac6a8bf2b54603e37b2dd3c8
           persist-credentials: false
       - uses: actions/checkout@v7
         with:

@@ -62,8 +62,16 @@ jobs:
         with:
           go-version-file: remote-core/backend/go.mod
           cache: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Build frontend for package validation
+        working-directory: scratch-tab
+        run: |
+          npm ci
+          npm run build
       - name: Validate generated host backend, tests and vet
-        run: python3 -B scratch-tab/infra/test_backend.py --remote-root "$GITHUB_WORKSPACE/remote-core"
+        run: python3 -B scratch-tab/backend/tests/test_host_backend.py --remote-root "$GITHUB_WORKSPACE/remote-core"
   release:
     needs: [container-compatibility, host-backend]
     runs-on: ubuntu-24.04
@@ -79,19 +87,21 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
+      - name: Install and build TypeScript frontend
+        run: |
+          npm ci
+          npm run format:check
+          npm run typecheck
+          npm run build
       - name: Test file command and package
         run: |
           GO111MODULE=off go test ./backend/container
           GO111MODULE=off go vet ./backend/container
-          python3 -B infra/test_package.py
+          npm run test:infra
       - name: Test editor in Chromium
         run: |
-          npm ci
-          npm run format:check
-          npm run build:syntax
-          git diff --exit-code -- ui/scripts/vendor
           npx playwright install --with-deps chromium
-          node --test infra/test.mjs
+          npm run test:frontend
       - name: Build installable ZIP
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         env:
