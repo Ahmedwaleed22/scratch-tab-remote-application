@@ -22,7 +22,8 @@ const result = await build({
 const packages = new Set<string>();
 for (const input of Object.keys(result.metafile.inputs)) {
   const match = input.match(/^(.*node_modules\/(?:@[^/]+\/)?[^/]+)\//);
-  if (match) packages.add(match[1]);
+  const directory = match?.[1];
+  if (directory) packages.add(directory);
 }
 const notices = await Promise.all(
   [...packages].sort().map(async directory => {

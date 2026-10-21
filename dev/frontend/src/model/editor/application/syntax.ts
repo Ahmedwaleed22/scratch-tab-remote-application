@@ -1,0 +1,16 @@
+export type SyntaxLanguage =
+  | 'javascript'
+  | 'typescript'
+  | 'python'
+  | 'go'
+  | 'json'
+  | 'bash'
+  | 'xml'
+  | 'css'
+  | 'markdown'
+  | 'yaml'
+  | 'sql'
+  | 'rust'
+  | 'java'
+  | 'cpp'
+  | 'php';

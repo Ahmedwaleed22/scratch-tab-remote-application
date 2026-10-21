@@ -3,6 +3,6 @@ export interface Release {
 }
 export interface Package {
   id: string;
-  version: string;
+  version?: string;
   upgraded?: { error?: string }[];
 }

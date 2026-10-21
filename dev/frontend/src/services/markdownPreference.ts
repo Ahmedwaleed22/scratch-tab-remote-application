@@ -1,7 +1,12 @@
 let remembered = true;
 const key = 'scratch-tab:markdown-view';
 
-export const markdownPreference = {
+interface MarkdownPreference {
+  read(): boolean;
+  write(preview: boolean): void;
+}
+
+export const markdownPreference: MarkdownPreference = {
   read(): boolean {
     try {
       const value = localStorage.getItem(key);
@@ -11,7 +16,7 @@ export const markdownPreference = {
     }
     return remembered;
   },
-  write(preview: boolean) {
+  write(preview: boolean): void {
     remembered = preview;
     try {
       localStorage.setItem(key, preview ? 'preview' : 'source');

@@ -11,39 +11,39 @@ export class UpdateState implements UpdateProgress {
   get snapshot(): Readonly<UpdateSnapshot> {
     return { ...this.#value };
   }
-  get release() {
+  get release(): Release | undefined {
     return this.#release;
   }
-  subscribe(listener: () => void) {
+  subscribe(listener: () => void): () => void {
     this.#listeners.add(listener);
     return () => {
       this.#listeners.delete(listener);
     };
   }
-  #notify() {
+  #notify(): void {
     for (const listener of this.#listeners) listener();
   }
-  startOperation(status: string) {
+  startOperation(status: string): void {
     this.#value.busy = true;
     this.showMessage(status);
   }
-  finishOperation() {
+  finishOperation(): void {
     this.#value.busy = false;
     this.#notify();
   }
-  releaseChecked(release: Release, available: boolean, status: string) {
+  releaseChecked(release: Release, available: boolean, status: string): void {
     this.#release = release;
     this.#value.available = available;
     this.showMessage(status);
   }
-  checkFailed(status: string) {
+  checkFailed(status: string): void {
     this.#value.available = false;
     this.showMessage(status);
   }
-  markInstalled() {
+  markInstalled(): void {
     this.#value.installed = true;
   }
-  showMessage(status: string) {
+  showMessage(status: string): void {
     this.#value.status = status;
     this.#notify();
   }
@@ -52,13 +52,13 @@ export class UpdateState implements UpdateProgress {
 // All updater popups share this state, including across activation lifetimes.
 export class InstallationState implements InstallationProgress {
   #busy = false;
-  get busy() {
+  get busy(): boolean {
     return this.#busy;
   }
-  begin() {
+  begin(): void {
     this.#busy = true;
   }
-  finish() {
+  finish(): void {
     this.#busy = false;
   }
 }

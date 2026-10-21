@@ -1,6 +1,14 @@
 import { useLayoutEffect, useReducer } from 'preact/hooks';
 import type { RefObject } from 'preact';
 import type { EditorSession } from '../port/editor/inbound/session.js';
+import type { EditorSnapshot } from '../model/editor/application/document.js';
+
+interface EditorController {
+  state: Readonly<EditorSnapshot>;
+  edit(text: string): void;
+  save(): void;
+  close(force?: boolean, confirmed?: boolean): void;
+}
 
 export interface EditorBinding {
   session: EditorSession;
@@ -15,7 +23,7 @@ export function useEditor(
   binding: EditorBinding,
   textarea: RefObject<HTMLTextAreaElement>,
   focus: () => void,
-) {
+): EditorController {
   const { session, signal } = binding;
   const [, refresh] = useReducer((value: number) => value + 1, 0);
   useLayoutEffect(() => {

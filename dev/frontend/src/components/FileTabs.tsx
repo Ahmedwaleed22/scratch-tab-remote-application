@@ -1,4 +1,4 @@
-import type { RefObject } from 'preact';
+import type { JSX, RefObject } from 'preact';
 import type { Tab } from '../types.js';
 import Button from './Button.js';
 
@@ -8,7 +8,7 @@ interface Props {
   tabsRef: RefObject<HTMLDivElement>;
   onSeparate?(): void;
 }
-export default function FileTabs({ entries, activePath, tabsRef, onSeparate }: Props) {
+export default function FileTabs({ entries, activePath, tabsRef, onSeparate }: Props): JSX.Element {
   return (
     <div class="scratch-tab-tabbar" hidden={!entries.length}>
       <div class="scratch-tab-tabs" role="tablist" aria-label="Open files" ref={tabsRef}>
@@ -22,7 +22,7 @@ export default function FileTabs({ entries, activePath, tabsRef, onSeparate }: P
               tabIndex={entry.path === activePath ? 0 : -1}
               onClick={entry.select}
               onKeyDown={event => {
-                const destinations: Record<string, number> = {
+                const destinations: Partial<Record<string, number>> = {
                   ArrowRight: (index + 1) % entries.length,
                   ArrowLeft: (index + entries.length - 1) % entries.length,
                   Home: 0,
@@ -30,8 +30,10 @@ export default function FileTabs({ entries, activePath, tabsRef, onSeparate }: P
                 };
                 const next = destinations[event.key];
                 if (next === undefined) return;
+                const destination = entries[next];
+                if (!destination) return;
                 event.preventDefault();
-                entries[next].select();
+                destination.select();
               }}
             >
               {`${entry.dirty ? '● ' : ''}${entry.name}`}

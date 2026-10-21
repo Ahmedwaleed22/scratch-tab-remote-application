@@ -1,7 +1,14 @@
 import type { EditorSnapshot } from './document.js';
 import type { Tab } from '../../../types.js';
 
-export type EditorWindowGeometry = Record<'left' | 'top' | 'width' | 'height', string>;
+export interface EditorWindowBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export type EditorWindowGeometry = Record<keyof EditorWindowBounds, string>;
 
 export interface EditorWindowState extends EditorSnapshot {
   preview: boolean;

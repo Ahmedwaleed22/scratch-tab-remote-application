@@ -1,13 +1,14 @@
 import type { RefObject } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import { highlightSyntax } from '../presenters/syntax.js';
+import type { SyntaxLanguage } from '../model/editor/application/syntax.js';
 
 export function useSyntaxHighlight(
   textarea: RefObject<HTMLTextAreaElement>,
   paint: RefObject<HTMLPreElement | null>,
-  language: string,
+  language: SyntaxLanguage,
   revision: number,
-) {
+): void {
   const refresh = useRef<() => void>(() => {});
   useLayoutEffect(() => {
     const input = textarea.current!;

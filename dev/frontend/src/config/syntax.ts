@@ -1,8 +1,10 @@
-export const MARKDOWN_EXTENSION = /\.(md|markdown)$/i;
+import type { SyntaxLanguage } from '../model/editor/application/syntax.js';
 
-export const MAX_HIGHLIGHT_LINE_LENGTH = 8192;
+export const MARKDOWN_EXTENSION: RegExp = /\.(md|markdown)$/i;
 
-export const LANGUAGE_BY_EXTENSION = new Map(
+export const MAX_HIGHLIGHT_LINE_LENGTH: number = 8192;
+
+export const LANGUAGE_BY_EXTENSION: ReadonlyMap<string, SyntaxLanguage> = new Map(
   Object.entries({
     js: 'javascript',
     jsx: 'javascript',
@@ -37,5 +39,5 @@ export const LANGUAGE_BY_EXTENSION = new Map(
     cxx: 'cpp',
     hpp: 'cpp',
     php: 'php',
-  }),
+  } satisfies Record<string, SyntaxLanguage>),
 );

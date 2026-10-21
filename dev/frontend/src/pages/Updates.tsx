@@ -1,8 +1,9 @@
+import type { JSX } from 'preact';
 import Button from '../components/Button.js';
 import { useUpdates } from '../hooks/useUpdates.js';
 import type { UpdatesBinding } from '../hooks/useUpdates.js';
 
-export default function Updates({ binding }: { binding: UpdatesBinding }) {
+export default function Updates({ binding }: { binding: UpdatesBinding }): JSX.Element {
   const { state, check, install } = useUpdates(binding);
   return (
     <section class="scratch-tab-updates">

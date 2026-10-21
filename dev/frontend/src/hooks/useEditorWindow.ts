@@ -3,10 +3,11 @@ import type { Ref } from 'preact';
 import { useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from 'preact/hooks';
 import { useEditor } from './useEditor.js';
 import type { EditorBinding } from './useEditor.js';
-import type { EditorElements } from '../components/EditorWindow.js';
+import type { EditorElements, EditorWindowProps } from '../components/EditorWindow.js';
 import type { EditorWindowView } from '../port/editor/outbound/view.js';
 import type { FileTarget, Tab } from '../types.js';
-import type { windowGeometry } from '../adapters/windowGeometry.js';
+import type { WindowGeometryPersistence } from '../port/editor/outbound/layout.js';
+import type { WindowLayoutBinding } from '../presenters/windowLayout.js';
 import { restoreWindowLayout, bindWindowLayout } from '../presenters/windowLayout.js';
 import { languageFor } from '../presenters/syntax.js';
 import { markdownPreview } from '../presenters/markdown.js';
@@ -16,7 +17,7 @@ import { MARKDOWN_EXTENSION } from '../config/syntax.js';
 export interface EditorWindowBinding extends EditorBinding {
   target: FileTarget;
   index: number;
-  layoutPersistence: ReturnType<typeof windowGeometry>;
+  layoutPersistence: WindowGeometryPersistence;
   controllerRef: Ref<EditorWindowView>;
   nextLayer(): number;
   launchIde(target: FileTarget): void;
@@ -25,7 +26,7 @@ export interface EditorWindowBinding extends EditorBinding {
   onSeparate?(): void;
 }
 
-export function useEditorWindow(binding: EditorWindowBinding) {
+export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps {
   const elements = useMemo<EditorElements>(
     () => ({
       panel: createRef(),
@@ -42,7 +43,7 @@ export function useEditorWindow(binding: EditorWindowBinding) {
     tabs: [],
     activePath: null,
   });
-  const layout = useRef<ReturnType<typeof bindWindowLayout> | undefined>(undefined);
+  const layout = useRef<WindowLayoutBinding | undefined>(undefined);
   const focusPreview = useRef(false);
   const [, refresh] = useReducer((value: number) => value + 1, 0);
   const focus = () => {

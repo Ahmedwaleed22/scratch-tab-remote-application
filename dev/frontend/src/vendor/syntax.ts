@@ -14,6 +14,7 @@ import rust from 'highlight.js/lib/languages/rust';
 import java from 'highlight.js/lib/languages/java';
 import cpp from 'highlight.js/lib/languages/cpp';
 import php from 'highlight.js/lib/languages/php';
+import type { SyntaxLanguage } from '../model/editor/application/syntax.js';
 
 for (const [name, grammar] of Object.entries({
   javascript,
@@ -33,6 +34,6 @@ for (const [name, grammar] of Object.entries({
   php,
 }))
   hljs.registerLanguage(name, grammar);
-export function highlightCode(text: string, language: string) {
+export function highlightCode(text: string, language: SyntaxLanguage): string {
   return hljs.highlight(text, { language, ignoreIllegals: true }).value;
 }

@@ -1,4 +1,5 @@
 import { mountChat } from './app/chat.js';
+import type { ChatSession } from './app/chat.js';
 import { mountUpdates } from './app/updates.js';
 import { mountUpdateNotice } from './app/updateNotice.js';
 import type { UpdateChecks } from './model/updates/application/state.js';
@@ -9,14 +10,15 @@ import type { Remote, Drafts, Popup } from './types.js';
 
 const drafts: Drafts = new Map();
 
-export default function activate(remote: Remote) {
+export default function activate(remote: Remote): void {
   const updateChecks: UpdateChecks = new Map();
   let updateNotice:
     { projectId: string; chatId: string; owners: number; dispose(): void } | undefined;
   remote.ui.register(
     remote.slots.applicationCardActions,
     (host, context) => {
-      if (!context.projectId || context.instance?.applicationId !== remote.application.id) return;
+      const projectId = context.projectId;
+      if (!projectId || context.instance?.applicationId !== remote.application.id) return;
       let popup: Popup | undefined;
       host.classList.add('scratch-tab-card-actions');
       render(
@@ -26,7 +28,7 @@ export default function activate(remote: Remote) {
             popup = remote.ui.openPopup({
               title: 'Scratch Tab updates',
               width: 420,
-              mount: body => mountUpdates(body, { remote, projectId: context.projectId!, drafts }),
+              mount: body => mountUpdates(body, { remote, projectId, drafts }),
             });
           }}
         >
@@ -42,7 +44,7 @@ export default function activate(remote: Remote) {
     },
     { when: context => context.instance?.applicationId === remote.application.id },
   );
-  let session: ReturnType<typeof mountChat> | null;
+  let session: ChatSession | null;
   let projectId: string | undefined;
   // The sidebar survives keyed chat remounts; its scope owns final cleanup.
   remote.ui.register(remote.slots.sidebarHeaderActions, () => () => {

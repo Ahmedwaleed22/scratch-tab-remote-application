@@ -1,5 +1,5 @@
 let nextId = 0;
-let pending: Promise<unknown> = Promise.resolve();
+let pending: Promise<string | void> = Promise.resolve();
 
 // Mermaid has shared configuration and diagram state; serialize work across windows.
 export function renderMermaid(source: string, dark: boolean): Promise<string> {

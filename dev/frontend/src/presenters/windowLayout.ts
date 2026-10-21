@@ -1,11 +1,18 @@
-import type { windowGeometry } from '../adapters/windowGeometry.js';
+import type { WindowGeometryPersistence } from '../port/editor/outbound/layout.js';
 import { WINDOW_LAYOUT, WINDOW_MOVE_KEYS } from '../config/windowLayout.js';
+
+export interface WindowLayoutBinding {
+  readonly isCompact: boolean;
+  fitViewport(): void;
+  offset(): void;
+  dispose(): void;
+}
 
 export function restoreWindowLayout(
   panel: HTMLElement,
   index: number,
-  persistence: ReturnType<typeof windowGeometry>,
-) {
+  persistence: WindowGeometryPersistence,
+): void {
   const {
     initialLeft,
     initialTop,
@@ -37,11 +44,11 @@ export function bindWindowLayout({
   panel: HTMLElement;
   header: HTMLElement;
   signal: AbortSignal;
-  persistence: ReturnType<typeof windowGeometry>;
-}) {
+  persistence: WindowGeometryPersistence;
+}): WindowLayoutBinding {
   const compact = matchMedia(WINDOW_LAYOUT.compactQuery);
 
-  function position(x: number, y: number) {
+  function position(x: number, y: number): void {
     header.setAttribute(
       'aria-label',
       compact.matches
@@ -76,7 +83,7 @@ export function bindWindowLayout({
   };
   fitViewport();
 
-  function rememberGeometry() {
+  function rememberGeometry(): void {
     if (compact.matches || panel.style.display === 'none' || !panel.isConnected) return;
     persistence.write({
       left: panel.offsetLeft,

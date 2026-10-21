@@ -2,7 +2,7 @@ import type { EditorSnapshot, EditorChange } from '../model/editor/application/d
 import type { EditorProgress } from '../port/editor/outbound/progress.js';
 
 export class EditorState implements EditorProgress {
-  #feedback = {
+  #feedback: Omit<EditorSnapshot, 'canSave' | 'dirty'> = {
     editable: false,
     unsupported: false,
     revision: 0,
@@ -14,32 +14,32 @@ export class EditorState implements EditorProgress {
   get snapshot(): Readonly<EditorSnapshot> {
     return { ...this.#feedback, ...this.documentState() };
   }
-  subscribe(listener: (change: EditorChange) => void) {
+  subscribe(listener: (change: EditorChange) => void): () => void {
     this.#listeners.add(listener);
     return () => {
       this.#listeners.delete(listener);
     };
   }
-  #notify(change: EditorChange) {
+  #notify(change: EditorChange): void {
     for (const listener of this.#listeners) listener(change);
   }
-  loaded() {
+  loaded(): void {
     this.#feedback.revision++;
     this.#feedback.editable = true;
     this.#notify('text');
   }
-  unsupported() {
+  unsupported(): void {
     this.#feedback.unsupported = true;
     this.#notify('unsupported');
   }
-  refresh() {
+  refresh(): void {
     this.#notify('state');
   }
-  showMessage(status: string) {
+  showMessage(status: string): void {
     this.#feedback.status = status;
     this.#notify('status');
   }
-  setError(failed: boolean) {
+  setError(failed: boolean): void {
     this.#feedback.failed = failed;
     this.#notify('error');
   }

@@ -1,16 +1,23 @@
-import type { RefObject, ComponentChildren } from 'preact';
+import type { JSX, RefObject, ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 import { useSyntaxHighlight } from '../hooks/useSyntaxHighlight.js';
+import type { SyntaxLanguage } from '../model/editor/application/syntax.js';
 
 interface Props {
-  language: string;
+  language: SyntaxLanguage;
   textarea: RefObject<HTMLTextAreaElement>;
   revision: number;
   hidden: boolean;
   children: ComponentChildren;
 }
 // The native textarea retains ownership of text, selection and undo.
-export default function SyntaxSurface({ language, textarea, revision, hidden, children }: Props) {
+export default function SyntaxSurface({
+  language,
+  textarea,
+  revision,
+  hidden,
+  children,
+}: Props): JSX.Element {
   const paint = useRef<HTMLPreElement>(null);
   useSyntaxHighlight(textarea, paint, language, revision);
   return (

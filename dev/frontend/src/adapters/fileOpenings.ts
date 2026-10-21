@@ -6,9 +6,9 @@ export function captureFileOpenings(
   context: ChatContext,
   signal: AbortSignal,
   onOpen: (anchor: HTMLElement, target: FileTarget) => void,
-) {
+): void {
   let openingOriginal = false;
-  function intercept(event: MouseEvent | KeyboardEvent) {
+  function intercept(event: MouseEvent | KeyboardEvent): void {
     if (
       openingOriginal ||
       event.defaultPrevented ||

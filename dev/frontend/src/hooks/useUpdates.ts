@@ -1,15 +1,22 @@
 import { useLayoutEffect, useReducer } from 'preact/hooks';
 import { UPDATE_CHECK_INTERVAL_MS } from '../config/constants/updates.js';
 import type { UpdateState } from '../state/updates.js';
-import type { createUpdateSession } from '../services/updates.js';
+import type { UpdateSession } from '../port/updates/inbound/session.js';
+import type { UpdateSnapshot } from '../model/updates/application/state.js';
 
 export interface UpdatesBinding {
   state: UpdateState;
-  session: ReturnType<typeof createUpdateSession>;
+  session: UpdateSession;
   signal: AbortSignal;
 }
 
-export function useUpdates({ state, session, signal }: UpdatesBinding) {
+interface UpdatesView {
+  state: Readonly<UpdateSnapshot>;
+  check(): void;
+  install(): void;
+}
+
+export function useUpdates({ state, session, signal }: UpdatesBinding): UpdatesView {
   const [, refresh] = useReducer((value: number) => value + 1, 0);
   useLayoutEffect(() => {
     const unsubscribe = state.subscribe(() => {

@@ -11,6 +11,7 @@ declare module 'markdown-it' {
 
 markdown.renderer.rules.link_open = (tokens, index, options, environment, renderer) => {
   const token = tokens[index];
+  if (!token) throw new Error('Missing Markdown link token.');
   const href = environment?.resolveUrl?.(String(token.attrGet('href') ?? ''), false);
   token.attrSet('href', href ?? '#');
   if (href && !href.startsWith('#')) {
@@ -22,6 +23,7 @@ markdown.renderer.rules.link_open = (tokens, index, options, environment, render
 
 markdown.renderer.rules.image = (tokens, index, options, environment, renderer) => {
   const token = tokens[index];
+  if (!token) throw new Error('Missing Markdown image token.');
   const src = environment?.resolveUrl?.(String(token.attrGet('src') ?? ''), true);
   if (!src) return markdown.utils.escapeHtml(token.content);
   token.attrSet('src', src);
@@ -30,6 +32,6 @@ markdown.renderer.rules.image = (tokens, index, options, environment, renderer) 
   return renderImage(tokens, index, options, environment, renderer);
 };
 
-export function renderMarkdown(text: string, resolveUrl: ResolveUrl) {
+export function renderMarkdown(text: string, resolveUrl: ResolveUrl): string {
   return markdown.render(text, { resolveUrl });
 }

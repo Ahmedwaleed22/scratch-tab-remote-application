@@ -1,10 +1,11 @@
-import type { RefObject } from 'preact';
+import type { JSX, RefObject } from 'preact';
 import Button from './Button.js';
 import FileTabs from './FileTabs.js';
 import SyntaxSurface from './SyntaxSurface.js';
 import MarkdownPreview from './MarkdownPreview.js';
 import type { FileTarget } from '../types.js';
 import type { EditorWindowState } from '../model/editor/application/window.js';
+import type { SyntaxLanguage } from '../model/editor/application/syntax.js';
 
 export interface EditorElements {
   panel: RefObject<HTMLElement>;
@@ -14,7 +15,7 @@ export interface EditorElements {
   download: RefObject<HTMLAnchorElement>;
   tabs: RefObject<HTMLDivElement>;
 }
-interface Props {
+export interface EditorWindowProps {
   target: FileTarget;
   actions: {
     onClose(): void;
@@ -23,7 +24,7 @@ interface Props {
     onEdit(text: string): void;
     onSeparate?(): void;
   };
-  language: string | null;
+  language: SyntaxLanguage | null;
   markdown: boolean;
   previewHtml: string;
   onRaise(): void;
@@ -42,7 +43,7 @@ export default function EditorWindow({
   state,
   elements,
   onToggle,
-}: Props) {
+}: EditorWindowProps): JSX.Element {
   const { onClose, onSave, onOpenIde, onEdit, onSeparate } = actions;
   const input = (
     <textarea

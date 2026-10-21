@@ -1,6 +1,7 @@
 import { isNewer } from './releaseVersion.js';
 import type { ReleaseSource } from '../port/updates/outbound/releases.js';
 import type { UpdateProgress, InstallationProgress } from '../port/updates/outbound/progress.js';
+import type { UpdateSession } from '../port/updates/inbound/session.js';
 
 interface Dependencies {
   api: ReleaseSource;
@@ -22,8 +23,8 @@ export function createUpdateSession({
   confirm,
   reload,
   isCancelled,
-}: Dependencies) {
-  async function checkRelease() {
+}: Dependencies): UpdateSession {
+  async function checkRelease(): Promise<void> {
     if (state.snapshot.busy || state.snapshot.installed) return;
     state.startOperation('Checking GitHub…');
     try {
@@ -43,14 +44,14 @@ export function createUpdateSession({
       state.finishOperation();
     }
   }
-  function refresh() {
+  function refresh(): void {
     if (drafts.size) {
       state.showMessage('Save or discard all Scratch Tab drafts in this tab before refreshing.');
       return;
     }
     reload();
   }
-  async function install() {
+  async function install(): Promise<void> {
     if (state.snapshot.installed) {
       refresh();
       return;
@@ -72,7 +73,7 @@ export function createUpdateSession({
     try {
       const packages = await api.packages();
       const current = packages.find(item => item.id === 'scratch-tab');
-      if (!current || !isNewer(latest.version, current.version))
+      if (!current?.version || !isNewer(latest.version, current.version))
         throw new Error('The server package changed. Refresh Remote before updating.');
       if (drafts.size) throw new Error('Save or discard Scratch Tab drafts before updating.');
       const result = await api.install(latest.version, () => {

@@ -16,6 +16,12 @@ import { captureFileOpenings } from '../adapters/fileOpenings.js';
 import { mountEditorWindow } from './editor.js';
 import { EditorDocument } from '../services/editorDocument.js';
 
+export interface ChatSession {
+  (): void;
+  setContext(context: ChatContext): void;
+  suspend(): void;
+}
+
 export function mountChat({
   context,
   drafts,
@@ -26,7 +32,7 @@ export function mountChat({
   drafts: Drafts;
   files: Files;
   launchIde(target: FileTarget): void;
-}) {
+}): ChatSession {
   const windows = new Map<string, Item>();
   let layer = FIRST_WINDOW_LAYER;
   const nextLayer = () => ++layer;

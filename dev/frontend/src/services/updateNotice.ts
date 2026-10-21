@@ -2,6 +2,7 @@ import { isNewer } from './releaseVersion.js';
 import { UPDATE_NOTICE_INTERVAL_MS } from '../config/constants/updates.js';
 import type { ReleaseSource } from '../port/updates/outbound/releases.js';
 import type { UpdateChecks } from '../model/updates/application/state.js';
+import type { UpdateNotice } from '../port/updates/inbound/session.js';
 
 interface Dependencies {
   api: Pick<ReleaseSource, 'packages' | 'latest'>;
@@ -20,12 +21,12 @@ export function createUpdateNotice({
   now,
   isCancelled,
   onAvailable,
-}: Dependencies) {
+}: Dependencies): UpdateNotice {
   let busy = false;
-  function show(version: string) {
+  function show(version: string): void {
     onAvailable(isNewer(version, currentVersion()) ? version : null);
   }
-  async function check() {
+  async function check(): Promise<void> {
     if (busy || isCancelled()) return;
     const cached = checks.get(projectId);
     if (cached && now() - cached.checkedAt < UPDATE_NOTICE_INTERVAL_MS) {

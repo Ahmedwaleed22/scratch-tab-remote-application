@@ -16,7 +16,7 @@ const installation = new InstallationState();
 export function mountUpdates(
   host: HTMLElement,
   { remote, projectId, drafts, reload = () => location.reload() }: UpdateOptions,
-) {
+): () => void {
   const lifetime = new AbortController();
   const state = new UpdateState();
   const session = createUpdateSession({

@@ -26,21 +26,21 @@ export class EditorDocument {
     this.#files = files;
   }
 
-  get text() {
+  get text(): string {
     return this.#text;
   }
-  get dirty() {
+  get dirty(): boolean {
     return this.#loaded && this.#text !== this.#baseline;
   }
-  get canSave() {
+  get canSave(): boolean {
     return this.#loaded && !this.#saving && this.dirty;
   }
 
-  read() {
+  read(): Promise<FileRead> {
     return this.#files.read(this.#path);
   }
 
-  load(result: FileRead, normalizedText: string) {
+  load(result: FileRead, normalizedText: string): boolean {
     this.#crlf = result.content.includes('\r\n');
     this.#text = this.#baseline = normalizedText;
     this.#revision = result.revision;
@@ -55,11 +55,11 @@ export class EditorDocument {
     return Boolean(draft);
   }
 
-  edit(text: string) {
+  edit(text: string): void {
     this.#text = text;
   }
 
-  remember() {
+  remember(): void {
     if (!this.#loaded) return;
     if (this.dirty) {
       this.#drafts.set(this.#draftKey, {
@@ -71,7 +71,7 @@ export class EditorDocument {
     } else this.discardDraft();
   }
 
-  discardDraft() {
+  discardDraft(): void {
     this.#drafts.delete(this.#draftKey);
   }
 
@@ -84,14 +84,14 @@ export class EditorDocument {
     return { kind: 'save', snapshot, content, revision: this.#revision };
   }
 
-  async commitSave(command: Extract<SaveCommand, { kind: 'save' }>) {
+  async commitSave(command: Extract<SaveCommand, { kind: 'save' }>): Promise<void> {
     const result = await this.#files.save(this.#path, command.content, command.revision);
     this.#revision = result.revision;
     this.#baseline = command.snapshot;
     this.remember();
   }
 
-  finishSave() {
+  finishSave(): void {
     this.#saving = false;
   }
 }

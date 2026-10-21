@@ -17,7 +17,7 @@ export function mountUpdateNotice({
   projectId: string;
   drafts: Drafts;
   checks: UpdateChecks;
-}) {
+}): () => void {
   const lifetime = new AbortController();
   let disposeButton: (() => void) | undefined;
   let popup: Popup | undefined;

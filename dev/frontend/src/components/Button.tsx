@@ -1,5 +1,5 @@
-import type { ButtonHTMLAttributes } from 'preact';
+import type { JSX, ButtonHTMLAttributes } from 'preact';
 
-export default function Button(props: ButtonHTMLAttributes<HTMLButtonElement>) {
+export default function Button(props: ButtonHTMLAttributes<HTMLButtonElement>): JSX.Element {
   return <button type="button" {...props} />;
 }

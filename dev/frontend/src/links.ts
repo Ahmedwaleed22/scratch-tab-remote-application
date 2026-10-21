@@ -11,7 +11,7 @@ export function fileTarget(
     const project = /^\/var\/lib\/remote\/projects\/([a-z0-9][a-z0-9-]*)\/workspace(?:\/|$)/.exec(
       cwd,
     );
-    let raw;
+    let raw: string | null;
     if (
       url.origin === origin &&
       url.pathname === `/api/chats/${encodeURIComponent(chatId)}/ide-open`
@@ -27,9 +27,14 @@ export function fileTarget(
     ) {
       raw = url.searchParams.get('file');
       if (!raw) {
-        const payload = JSON.parse(url.searchParams.get('payload') || '[]');
+        const payload: unknown = JSON.parse(url.searchParams.get('payload') || '[]');
         if (!Array.isArray(payload)) return null;
-        const file = payload.find(pair => Array.isArray(pair) && pair[0] === 'openFile')?.[1];
+        const pairs: readonly unknown[] = payload;
+        const entry = pairs.find(
+          (pair): pair is readonly ['openFile', unknown, ...unknown[]] =>
+            Array.isArray(pair) && pair.length >= 2 && pair[0] === 'openFile',
+        );
+        const file = entry?.[1];
         if (typeof file !== 'string') return null;
         const uri = new URL(file);
         if (uri.protocol !== 'vscode-remote:' || uri.host !== url.host) return null;

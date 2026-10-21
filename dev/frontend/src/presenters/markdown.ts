@@ -6,7 +6,7 @@ function resolveMarkdownUrl(
   value: string,
   image: boolean,
   target: Pick<FileTarget, 'path' | 'download'>,
-) {
+): string | null {
   if (/^https?:/i.test(value)) return value;
   if (!image && /^(mailto:|#)/i.test(value)) return value;
   if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(value)) return null;
@@ -26,6 +26,9 @@ function resolveMarkdownUrl(
   }
 }
 
-export function markdownPreview(text: string, target: Pick<FileTarget, 'path' | 'download'>) {
+export function markdownPreview(
+  text: string,
+  target: Pick<FileTarget, 'path' | 'download'>,
+): string {
   return renderMarkdown(text, (value, image) => resolveMarkdownUrl(value, image, target));
 }

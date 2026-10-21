@@ -2,7 +2,11 @@ import type { RefObject } from 'preact';
 import { useLayoutEffect } from 'preact/hooks';
 import { renderMermaid } from '../services/mermaid.js';
 
-export function useMermaidPreview(preview: RefObject<HTMLElement>, html: string, visible: boolean) {
+export function useMermaidPreview(
+  preview: RefObject<HTMLElement>,
+  html: string,
+  visible: boolean,
+): void {
   useLayoutEffect(() => {
     const root = preview.current;
     if (!visible || !root) return;

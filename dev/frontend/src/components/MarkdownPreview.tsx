@@ -1,4 +1,4 @@
-import type { RefObject } from 'preact';
+import type { JSX, RefObject } from 'preact';
 import { useMermaidPreview } from '../hooks/useMermaidPreview.js';
 
 interface Props {
@@ -7,7 +7,7 @@ interface Props {
   visible: boolean;
   previewRef: RefObject<HTMLElement>;
 }
-export default function MarkdownPreview({ name, html, visible, previewRef }: Props) {
+export default function MarkdownPreview({ name, html, visible, previewRef }: Props): JSX.Element {
   useMermaidPreview(previewRef, html, visible);
   return (
     <article

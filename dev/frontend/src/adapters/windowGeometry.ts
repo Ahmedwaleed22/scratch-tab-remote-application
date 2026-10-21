@@ -1,34 +1,44 @@
 import { WINDOW_LAYOUT, WINDOW_GEOMETRY_PROPERTIES } from '../config/windowLayout.js';
+import type {
+  EditorWindowBounds,
+  EditorWindowGeometry,
+} from '../model/editor/application/window.js';
+import type { WindowGeometryPersistence } from '../port/editor/outbound/layout.js';
+import { isJsonObject } from '../shared/json.js';
+
+function isWindowBounds(value: unknown): value is EditorWindowBounds {
+  if (!isJsonObject(value)) return false;
+  return WINDOW_GEOMETRY_PROPERTIES.every(name => {
+    const coordinate = value[name];
+    return typeof coordinate === 'number' && Number.isFinite(coordinate);
+  });
+}
 
 // Store layout only, never document content. Storage may be disabled by the browser.
-export function windowGeometry(projectId?: string) {
+export function windowGeometry(projectId?: string): WindowGeometryPersistence {
   const key = `scratch-tab:window-geometry:${projectId}`;
 
   return {
-    read() {
+    read(): EditorWindowGeometry | null {
       try {
-        const value = JSON.parse(localStorage.getItem(key) ?? 'null');
-        if (!value) return null;
-
-        const hasFiniteCoordinates = WINDOW_GEOMETRY_PROPERTIES.every(name =>
-          Number.isFinite(value[name]),
-        );
-        if (!hasFiniteCoordinates) return null;
+        const value: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
+        if (!isWindowBounds(value)) return null;
 
         const isTooSmall =
           value.width < WINDOW_LAYOUT.minimumWidth || value.height < WINDOW_LAYOUT.minimumHeight;
         if (isTooSmall) return null;
 
-        return Object.fromEntries(
-          Object.entries(value)
-            .filter(([name]) => WINDOW_GEOMETRY_PROPERTIES.includes(name))
-            .map(([name, number]) => [name, `${number}px`]),
-        );
+        return {
+          left: `${value.left}px`,
+          top: `${value.top}px`,
+          width: `${value.width}px`,
+          height: `${value.height}px`,
+        };
       } catch {
         return null;
       }
     },
-    write(value: Record<string, number>) {
+    write(value: EditorWindowBounds): void {
       try {
         localStorage.setItem(key, JSON.stringify(value));
       } catch {
