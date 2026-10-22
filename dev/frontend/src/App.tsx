@@ -7,7 +7,7 @@ import { createFiles } from './api/files.js';
 import { render } from 'preact';
 import Button from './components/Button.js';
 import { fileTarget } from './links.js';
-import type { ChatContext, FileTarget, Remote, Drafts, Popup } from './types.js';
+import type { ChatContext, Remote, Drafts, Popup } from './types.js';
 
 const drafts: Drafts = new Map();
 
@@ -16,7 +16,7 @@ export default function activate(remote: Remote): void {
   let activeContext: ChatContext | undefined;
   remote.files?.registerOpener(request => {
     if (!activeContext || request.projectId !== activeContext.projectId) return null;
-    const href = `/api/chats/${encodeURIComponent(activeContext.chatId)}/ide-open?path=${encodeURIComponent(request.path)}`;
+    const href = `/api/chats/${encodeURIComponent(activeContext.chatId)}/ide-open?scratch=1&path=${encodeURIComponent(request.path)}`;
     return fileTarget(href, location.origin, activeContext.chatId, request.cwd)?.ide ?? null;
   });
   let updateNotice:
@@ -51,32 +51,16 @@ export default function activate(remote: Remote): void {
     },
     { when: context => context.instance?.applicationId === remote.application.id },
   );
-  function defaultEditorUrl(target: FileTarget): string | null {
-    if (!activeContext) return null;
-    return (
-      remote.files?.defaultEditorUrl?.({
-        projectId: activeContext.projectId,
-        cwd: activeContext.cwd ?? '/workspace',
-        path: target.path,
-        line: target.line,
-        column: target.column,
-      }) ?? null
-    );
-  }
   let session: ChatSession | null;
   let chatOwners = 0;
   let projectId: string | undefined;
   // The sidebar survives keyed chat remounts; its scope owns final cleanup.
-  remote.ui.register(remote.slots.sidebarHeaderActions, () => {
-    const unsubscribe = remote.files?.onDidChange?.(() => session?.refreshLinks());
-    return () => {
-      unsubscribe?.();
-      activeContext = undefined;
-      session?.();
-      session = null;
-      updateNotice?.dispose();
-      updateNotice = undefined;
-    };
+  remote.ui.register(remote.slots.sidebarHeaderActions, () => () => {
+    activeContext = undefined;
+    session?.();
+    session = null;
+    updateNotice?.dispose();
+    updateNotice = undefined;
   });
   remote.ui.register(remote.slots.chatHeaderActions, (_host, context) => {
     if (!context.chatId || !context.projectId || projectId !== context.projectId) {
@@ -96,10 +80,9 @@ export default function activate(remote: Remote): void {
         context: { ...context, projectId: context.projectId, chatId: context.chatId },
         drafts,
         files: createFiles(remote.backend, context.projectId),
-        canLaunchIde: target => Boolean(defaultEditorUrl(target)),
+        canLaunchIde: target => target.hasDefaultEditor === true,
         launchIde: target => {
-          const url = defaultEditorUrl(target);
-          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          if (target.hasDefaultEditor) window.open(target.ide, '_blank', 'noopener,noreferrer');
         },
       });
     const ownerSession = session;

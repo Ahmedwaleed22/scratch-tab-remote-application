@@ -7,10 +7,8 @@ export function captureFileOpenings(
   signal: AbortSignal,
   onOpen: (anchor: HTMLElement, target: FileTarget) => void,
 ): void {
-  let openingOriginal = false;
   function intercept(event: MouseEvent | KeyboardEvent): void {
     if (
-      openingOriginal ||
       event.defaultPrevented ||
       (event.type === 'click' && 'button' in event && event.button !== 0) ||
       event.metaKey ||
@@ -42,22 +40,12 @@ export function captureFileOpenings(
             !row.title.startsWith('View ')
           ) {
             target = fileTarget(
-              `/api/chats/${encodeURIComponent(context.chatId)}/ide-open?path=${encodeURIComponent('/workspace/' + relative)}`,
+              `/api/chats/${encodeURIComponent(context.chatId)}/ide-open?scratch=1&path=${encodeURIComponent('/workspace/' + relative)}`,
               location.origin,
               context.chatId,
               context.cwd,
             );
-            if (target) {
-              anchor = row;
-              target.openIde = () => {
-                openingOriginal = true;
-                try {
-                  row.click();
-                } finally {
-                  openingOriginal = false;
-                }
-              };
-            }
+            if (target) anchor = row;
           }
         }
       }

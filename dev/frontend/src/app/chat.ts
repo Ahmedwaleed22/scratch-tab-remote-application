@@ -26,7 +26,6 @@ export interface ChatSession {
   (): void;
   setContext(context: ChatContext): void;
   suspend(): void;
-  refreshLinks(): void;
 }
 
 export function mountChat({
@@ -151,7 +150,7 @@ export function mountChat({
       fileTree,
       onOpenFile(entry) {
         const opened = fileTarget(
-          `/api/chats/${encodeURIComponent(context.chatId)}/ide-open?path=${encodeURIComponent('/workspace/' + entry.path)}`,
+          `/api/chats/${encodeURIComponent(context.chatId)}/ide-open?scratch=1&path=${encodeURIComponent('/workspace/' + entry.path)}`,
           location.origin,
           context.chatId,
           context.cwd,
@@ -183,8 +182,6 @@ export function mountChat({
           ide.pathname = `/api/chats/${encodeURIComponent(next.chatId)}/ide-open`;
           item.target.ide = ide.href;
         }
-        // File-manager row callbacks belong to the old chat's DOM.
-        delete item.target.openIde;
         item.window.refreshLinks();
       }
     }
@@ -203,8 +200,5 @@ export function mountChat({
   };
   dispose.setContext = setContext;
   dispose.suspend = suspend;
-  dispose.refreshLinks = () => {
-    for (const item of windows.values()) item.window.refreshLinks();
-  };
   return dispose;
 }

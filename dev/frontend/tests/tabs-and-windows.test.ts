@@ -238,11 +238,6 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
       activate(
         window.createRemote({
           application: { id: 'scratch-tab' },
-          files: {
-            registerOpener: () => () => {},
-            defaultEditorUrl: ({ projectId, path }) =>
-              `https://custom-editor.test/${projectId}?file=${encodeURIComponent(path)}`,
-          },
           slots: {
             chatHeaderActions: 'header',
             applicationCardActions: 'card',
@@ -327,21 +322,17 @@ test('same-project chat navigation preserves open tabs, geometry and saves witho
     );
     assert.equal(await page.evaluate(() => window.reads), 2);
     await page.getByRole('tab', { name: 'two.txt', exact: true }).click();
-    await page.getByRole('button', { name: 'Open with default editor', exact: true }).click();
-    assert.equal(await page.evaluate(() => window.oldRowOpens), 0);
-    assert.match(
-      await page.evaluate(() => window.ideUrls.at(-1)!),
-      /custom-editor\.test\/p1\?file=%2Fworkspace%2Ftwo.txt/,
+    assert.equal(
+      await page.getByRole('button', { name: 'Open with default editor', exact: true }).count(),
+      0,
     );
+    assert.equal(await page.evaluate(() => window.oldRowOpens), 0);
     await page.getByRole('tab', { name: 'one.txt', exact: false }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForFunction(() => window.writes.length === 1);
     assert.equal(await page.evaluate(() => window.writes[0]!.projectId), 'p1');
     await page.getByRole('button', { name: 'Open with default editor', exact: true }).click();
-    assert.match(
-      await page.evaluate(() => window.ideUrls.at(-1)!),
-      /custom-editor\.test\/p1\?file=%2Fworkspace%2Fone.txt/,
-    );
+    assert.match(await page.evaluate(() => window.ideUrls.at(-1)!), /\/api\/chats\/b\/ide-open/);
     const oldIntercepted = await page.evaluate(() => {
       const anchor = document.querySelector<HTMLAnchorElement>('#file')!;
       anchor.href = '/api/chats/a/ide-open?path=/workspace/stale.txt';

@@ -23,14 +23,6 @@ export interface Remote {
     chatHeaderActions: string;
   };
   files?: {
-    defaultEditorUrl?(request: {
-      projectId?: string;
-      cwd: string;
-      path: string;
-      line?: number;
-      column?: number;
-    }): string | null;
-    onDidChange?(listener: () => void): () => void;
     registerOpener(
       open: (request: {
         projectId?: string;
@@ -69,13 +61,13 @@ export interface Remote {
   };
 }
 export interface FileTarget {
+  hasDefaultEditor?: boolean;
   line?: number;
   column?: number;
   path: string;
   name: string;
   ide: string;
   download: string;
-  openIde?: () => void;
 }
 export interface FileRead {
   content: string;

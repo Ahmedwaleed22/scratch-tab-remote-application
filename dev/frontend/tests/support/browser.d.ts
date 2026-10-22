@@ -51,8 +51,6 @@ declare global {
   interface Window {
     createRemote(fixture: RemoteFixture): import('../../src/types.js').Remote;
     importModule<K extends keyof FixtureModules>(path: K): Promise<FixtureModules[K]>;
-    defaultEditor: string | null;
-    editorChanged: () => void;
     aborted: boolean;
     archiveName: string;
     bad: boolean;

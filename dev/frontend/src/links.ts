@@ -58,6 +58,7 @@ export function fileTarget(
     )
       return null;
     return {
+      hasDefaultEditor: url.searchParams.get('scratch') !== '1',
       ...(Number.isSafeInteger(line) && line > 0 ? { line } : {}),
       ...(Number.isSafeInteger(column) && column > 0 ? { column } : {}),
       path,

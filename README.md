@@ -22,7 +22,7 @@ Programming files get syntax highlighting based on their extension: JavaScript/J
 
 Files ending in `.md` or `.markdown` open in Preview initially. Use **Source** to edit or **Preview** to read; Scratch Tab remembers your last choice in this browser for newly opened Markdown files, including after a refresh. If browser storage is blocked, the choice lasts for the current page session. Preview shows your current unsaved edits, including headings, emphasis, lists, tables, images, links, code blocks, and Mermaid diagrams. Switching views does not save or rewrite the file. Embedded HTML is displayed as text. Wide diagrams scroll horizontally on phones. Invalid diagrams keep their source visible with an error message.
 
-Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open with default editor** appears only when Remote reports another registered editor for this file in the current project. It opens that editor and updates when editor availability changes. On older Remote versions without editor lookup support, the button stays hidden.
+Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open with default editor** appears only for an existing editor link supplied by Remote. Scratch-generated links and file-manager entries hide the button because the current extension API cannot determine whether another editor is available. Scratch does not require changes to Remote core.
 
 ![Edit a file in a movable Scratch Tab window](docs/images/editor-window.png)
 

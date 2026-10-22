@@ -116,7 +116,6 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       window.disk = 'A small file\n<script>safe</script>';
       window.revision = 'original';
       window.failSave = false;
-      window.defaultEditor = null;
       const backend: NonNullable<RemoteTestFixture['backend']> = {
         async call(path, { body }) {
           window.lastFilePath = body.path;
@@ -137,17 +136,6 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
         backend,
         slots: { chatHeaderActions: 'header', sidebarHeaderActions: 'sidebar' },
         files: {
-          defaultEditorUrl({ path, projectId, line }) {
-            return projectId === 'p1' && window.defaultEditor
-              ? window.defaultEditor + encodeURIComponent(path) + (line ? `&line=${line}` : '')
-              : null;
-          },
-          onDidChange(listener) {
-            window.editorChanged = listener;
-            return () => {
-              window.editorChanged = () => {};
-            };
-          },
           registerOpener(open) {
             window.ideUrls = [];
             // Simulate Remote resolving a Markdown link with no other editor installed.
@@ -210,21 +198,6 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       exact: true,
     });
     assert.equal(await defaultEditorButton.count(), 0);
-    await page.evaluate(() => {
-      window.defaultEditor = 'https://custom-editor.test/open?file=';
-      window.editorChanged();
-    });
-    await defaultEditorButton.waitFor();
-    await page.evaluate(() => {
-      window.defaultEditor = null;
-      window.editorChanged();
-    });
-    await defaultEditorButton.waitFor({ state: 'detached' });
-    await page.evaluate(() => {
-      window.defaultEditor = 'https://custom-editor.test/open?file=';
-      window.editorChanged();
-    });
-    await defaultEditorButton.waitFor();
     await page.locator('textarea').fill('Edited text');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForFunction(() => window.disk === 'Edited text');
@@ -255,12 +228,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
         .evaluate(node => !!node.closest('header')),
       true,
     );
-    assert.equal(
-      await page
-        .getByRole('button', { name: 'Open with default editor', exact: true })
-        .evaluate(node => !!node.closest('header')),
-      true,
-    );
+    assert.equal(await defaultEditorButton.count(), 0);
     const header = page.locator('.scratch-tab-header');
     const before = await page.locator('.scratch-tab-window').boundingBox();
     assert.ok(before);
@@ -389,7 +357,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     await page.getByRole('button', { name: 'Open with default editor' }).click();
     assert.match(
       await page.evaluate(() => String(window.opened[0]!)),
-      /custom-editor\.test\/open\?file=%2Fworkspace%2FREADME.md&line=3/,
+      /code--alpha.*README.md&line=3/,
     );
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.getByText('notes', { exact: true }).click();
@@ -397,7 +365,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     assert.match(
       await page.evaluate(() => String(window.opened[0]!)),
-      /custom-editor\.test\/open\?file=%2Fworkspace%2FREADME.md&line=3/,
+      /code--alpha.*README.md&line=3/,
     );
     await page.evaluate(() => {
       const pane = document.createElement('aside');
@@ -438,13 +406,12 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     );
     assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'guide.md');
     assert.equal(await page.evaluate(() => window.lastFilePath), '/workspace/docs/guide.md');
-    await page.getByRole('button', { name: 'Open with default editor' }).click();
+    assert.equal(await defaultEditorButton.count(), 0);
     assert.equal(await page.evaluate(() => window.originalOpens), 0);
-    assert.match(await page.evaluate(() => String(window.opened[0])), /custom-editor\.test/);
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.locator('#manager-file').focus();
     await page.locator('#manager-file').press('Enter');
-    await page.getByRole('button', { name: 'Open with default editor' }).click();
+    assert.equal(await defaultEditorButton.count(), 0);
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     assert.equal(await page.evaluate(() => window.originalOpens), 0);
     await page.locator('#manager-file').focus();
