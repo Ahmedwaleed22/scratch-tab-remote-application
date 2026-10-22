@@ -26,6 +26,7 @@ export interface ChatSession {
   (): void;
   setContext(context: ChatContext): void;
   suspend(): void;
+  refreshLinks(): void;
 }
 
 export function mountChat({
@@ -34,12 +35,14 @@ export function mountChat({
   files,
   directories = createDirectories(),
   launchIde,
+  canLaunchIde,
 }: {
   context: ChatContext;
   drafts: Drafts;
   files: Files;
   directories?: Directories;
   launchIde(target: FileTarget): void;
+  canLaunchIde?(target: FileTarget): boolean;
 }): ChatSession {
   // One tree per project session, shared by every window's sidebar.
   const fileTree = createFileTree({
@@ -123,6 +126,7 @@ export function mountChat({
       target,
       documentModel,
       launchIde,
+      canLaunchIde,
       onClosed: () => {
         windows.delete(target.path);
         // A tab may have moved since it was opened.
@@ -199,5 +203,8 @@ export function mountChat({
   };
   dispose.setContext = setContext;
   dispose.suspend = suspend;
+  dispose.refreshLinks = () => {
+    for (const item of windows.values()) item.window.refreshLinks();
+  };
   return dispose;
 }

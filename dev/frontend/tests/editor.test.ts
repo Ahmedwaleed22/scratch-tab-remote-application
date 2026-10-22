@@ -116,6 +116,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       window.disk = 'A small file\n<script>safe</script>';
       window.revision = 'original';
       window.failSave = false;
+      window.defaultEditor = null;
       const backend: NonNullable<RemoteTestFixture['backend']> = {
         async call(path, { body }) {
           window.lastFilePath = body.path;
@@ -135,6 +136,43 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       const remote: RemoteTestFixture = {
         backend,
         slots: { chatHeaderActions: 'header', sidebarHeaderActions: 'sidebar' },
+        files: {
+          defaultEditorUrl({ path, projectId, line }) {
+            return projectId === 'p1' && window.defaultEditor
+              ? window.defaultEditor + encodeURIComponent(path) + (line ? `&line=${line}` : '')
+              : null;
+          },
+          onDidChange(listener) {
+            window.editorChanged = listener;
+            return () => {
+              window.editorChanged = () => {};
+            };
+          },
+          registerOpener(open) {
+            window.ideUrls = [];
+            // Simulate Remote resolving a Markdown link with no other editor installed.
+            queueMicrotask(() => {
+              const href = open({
+                projectId: 'p1',
+                cwd: '/workspace',
+                path: '/workspace/notes.txt',
+              });
+              if (!href) throw new Error('Scratch did not provide a file opener');
+              document.querySelector<HTMLAnchorElement>('a')!.href = href;
+              if (
+                open({ projectId: 'other', cwd: '/workspace', path: '/workspace/notes.txt' }) !==
+                null
+              )
+                throw new Error('Opener crossed project boundary');
+              for (const path of ['/etc/passwd', '/workspace/../secret', '/workspace/']) {
+                if (open({ projectId: 'p1', cwd: '/workspace', path }) !== null)
+                  throw new Error('Opener accepted an invalid workspace file');
+              }
+              window.ideUrls.push(href);
+            });
+            return () => {};
+          },
+        },
         ui: {
           register(slot, render) {
             if (slot === 'sidebar') {
@@ -158,6 +196,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
       window.mount();
     });
     assert.equal(await page.locator('#host button').count(), 0);
+    assert.equal(await page.evaluate(() => window.ideUrls?.length), 1);
     await page.getByText('notes', { exact: true }).click();
     assert.equal(await page.locator('.scratch-tab-choice').count(), 0);
     await page.waitForFunction(() =>
@@ -166,6 +205,26 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     if (process.env.SCRATCH_TAB_SCREENSHOTS)
       await page.screenshot({ path: process.env.SCRATCH_TAB_SCREENSHOTS + '-editor.png' });
     assert.equal(await page.locator('script').count(), 0);
+    const defaultEditorButton = page.getByRole('button', {
+      name: 'Open with default editor',
+      exact: true,
+    });
+    assert.equal(await defaultEditorButton.count(), 0);
+    await page.evaluate(() => {
+      window.defaultEditor = 'https://custom-editor.test/open?file=';
+      window.editorChanged();
+    });
+    await defaultEditorButton.waitFor();
+    await page.evaluate(() => {
+      window.defaultEditor = null;
+      window.editorChanged();
+    });
+    await defaultEditorButton.waitFor({ state: 'detached' });
+    await page.evaluate(() => {
+      window.defaultEditor = 'https://custom-editor.test/open?file=';
+      window.editorChanged();
+    });
+    await defaultEditorButton.waitFor();
     await page.locator('textarea').fill('Edited text');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.waitForFunction(() => window.disk === 'Edited text');
@@ -330,7 +389,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     await page.getByRole('button', { name: 'Open with default editor' }).click();
     assert.match(
       await page.evaluate(() => String(window.opened[0]!)),
-      /code--alpha.*README.md&line=3/,
+      /custom-editor\.test\/open\?file=%2Fworkspace%2FREADME.md&line=3/,
     );
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.getByText('notes', { exact: true }).click();
@@ -338,7 +397,7 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     assert.match(
       await page.evaluate(() => String(window.opened[0]!)),
-      /code--alpha.*README.md&line=3/,
+      /custom-editor\.test\/open\?file=%2Fworkspace%2FREADME.md&line=3/,
     );
     await page.evaluate(() => {
       const pane = document.createElement('aside');
@@ -380,13 +439,14 @@ test('direct file opening, content, controls, modified clicks and disposal', asy
     assert.equal(await page.locator('.scratch-tab-window').getAttribute('aria-label'), 'guide.md');
     assert.equal(await page.evaluate(() => window.lastFilePath), '/workspace/docs/guide.md');
     await page.getByRole('button', { name: 'Open with default editor' }).click();
-    assert.equal(await page.evaluate(() => window.originalOpens), 1);
+    assert.equal(await page.evaluate(() => window.originalOpens), 0);
+    assert.match(await page.evaluate(() => String(window.opened[0])), /custom-editor\.test/);
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
     await page.locator('#manager-file').focus();
     await page.locator('#manager-file').press('Enter');
     await page.getByRole('button', { name: 'Open with default editor' }).click();
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
-    assert.equal(await page.evaluate(() => window.originalOpens), 2);
+    assert.equal(await page.evaluate(() => window.originalOpens), 0);
     await page.locator('#manager-file').focus();
     await page.locator('#manager-file').press('Space');
     await page.getByRole('button', { name: 'Close window', exact: true }).click();

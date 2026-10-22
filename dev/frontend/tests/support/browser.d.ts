@@ -31,6 +31,7 @@ export type SlotMount = (
 export interface RemoteFixture {
   application?: Partial<import('../../src/types.js').Remote['application']>;
   slots?: Partial<import('../../src/types.js').Remote['slots']>;
+  files?: import('../../src/types.js').Remote['files'];
   backend?: {
     call?(path: string, options: BackendFixtureOptions): Promise<unknown>;
     fetch?(path: string, options: BackendFixtureOptions): Promise<Response>;
@@ -50,6 +51,8 @@ declare global {
   interface Window {
     createRemote(fixture: RemoteFixture): import('../../src/types.js').Remote;
     importModule<K extends keyof FixtureModules>(path: K): Promise<FixtureModules[K]>;
+    defaultEditor: string | null;
+    editorChanged: () => void;
     aborted: boolean;
     archiveName: string;
     bad: boolean;

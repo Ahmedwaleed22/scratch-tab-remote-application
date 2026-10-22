@@ -22,6 +22,25 @@ export interface Remote {
     sidebarHeaderActions: string;
     chatHeaderActions: string;
   };
+  files?: {
+    defaultEditorUrl?(request: {
+      projectId?: string;
+      cwd: string;
+      path: string;
+      line?: number;
+      column?: number;
+    }): string | null;
+    onDidChange?(listener: () => void): () => void;
+    registerOpener(
+      open: (request: {
+        projectId?: string;
+        cwd: string;
+        path: string;
+        line?: number;
+        column?: number;
+      }) => string | null,
+    ): () => void;
+  };
   backend: {
     call<T>(path: string, options: BackendOptions): Promise<T>;
     fetch(path: string, options: BackendOptions): Promise<Response>;
@@ -50,6 +69,8 @@ export interface Remote {
   };
 }
 export interface FileTarget {
+  line?: number;
+  column?: number;
   path: string;
   name: string;
   ide: string;
