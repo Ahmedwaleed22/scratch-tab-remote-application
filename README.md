@@ -10,6 +10,8 @@ Download the installable ZIP, upload it through **Settings → Applications**, t
 
 ## Open a file
 
+Code Server is not required. Scratch Tab registers its own file opener on Remote versions that support application file openers.
+
 Click a workspace file link in an agent message, or select a text file in the file manager. Supported files open directly in Scratch Tab. File-manager search results work the same way.
 
 Each window has a **Files** sidebar on the left that browses the workspace like Remote's file manager. Folders load as you expand them, and the folders containing the current file open automatically with that file highlighted. Select a file to open it as a tab in the same window; images, media and archives download instead. The sidebar starts closed: use the panel button at the left of the tab bar to show or hide it, and Scratch Tab remembers that choice in this browser. Tabs show a file-type icon beside the name; the close button appears on the active tab and on hover. On phones the sidebar opens as a drawer over the editor and closes after you pick a file. The tab strip and file tree scroll without visible scrollbars. Selecting a tab expands its parent folders and scrolls the selected file into view. Use the refresh button to pick up files created or deleted elsewhere; it shows progress and a success or failure message.
@@ -20,7 +22,7 @@ Programming files get syntax highlighting based on their extension: JavaScript/J
 
 Files ending in `.md` or `.markdown` open in Preview initially. Use **Source** to edit or **Preview** to read; Scratch Tab remembers your last choice in this browser for newly opened Markdown files, including after a refresh. If browser storage is blocked, the choice lasts for the current page session. Preview shows your current unsaved edits, including headings, emphasis, lists, tables, images, links, code blocks, and Mermaid diagrams. Switching views does not save or rewrite the file. Embedded HTML supports formatting such as centered headings, linked images and expandable details. Scripts, event handlers, embedded pages and arbitrary styles are removed from the preview. HTML and Markdown links and images use the same workspace path rules; use a full `https://` URL for an external image. HTML inside code spans and fenced blocks stays visible as source. Wide diagrams scroll horizontally on phones. Invalid diagrams keep their source visible with an error message.
 
-Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open with default editor** opens the same file using Remote’s configured editor.
+Edit the text, then click **Save** or press **Ctrl/Cmd+S**. A dot beside the filename marks unsaved changes. **Open with default editor** appears only for an existing editor link supplied by Remote. Scratch-generated links and file-manager entries hide the button because the current extension API cannot determine whether another editor is available. Scratch does not require changes to Remote core.
 
 ![Edit a file in a movable Scratch Tab window](docs/images/editor-window.png)
 

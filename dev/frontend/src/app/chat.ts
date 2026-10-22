@@ -34,12 +34,14 @@ export function mountChat({
   files,
   directories = createDirectories(),
   launchIde,
+  canLaunchIde,
 }: {
   context: ChatContext;
   drafts: Drafts;
   files: Files;
   directories?: Directories;
   launchIde(target: FileTarget): void;
+  canLaunchIde?(target: FileTarget): boolean;
 }): ChatSession {
   // One tree per project session, shared by every window's sidebar.
   const fileTree = createFileTree({
@@ -123,6 +125,7 @@ export function mountChat({
       target,
       documentModel,
       launchIde,
+      canLaunchIde,
       onClosed: () => {
         windows.delete(target.path);
         // A tab may have moved since it was opened.
@@ -147,7 +150,7 @@ export function mountChat({
       fileTree,
       onOpenFile(entry) {
         const opened = fileTarget(
-          `/api/chats/${encodeURIComponent(context.chatId)}/ide-open?path=${encodeURIComponent('/workspace/' + entry.path)}`,
+          `/api/chats/${encodeURIComponent(context.chatId)}/ide-open?scratch=1&path=${encodeURIComponent('/workspace/' + entry.path)}`,
           location.origin,
           context.chatId,
           context.cwd,
@@ -179,8 +182,6 @@ export function mountChat({
           ide.pathname = `/api/chats/${encodeURIComponent(next.chatId)}/ide-open`;
           item.target.ide = ide.href;
         }
-        // File-manager row callbacks belong to the old chat's DOM.
-        delete item.target.openIde;
         item.window.refreshLinks();
       }
     }

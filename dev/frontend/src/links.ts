@@ -41,6 +41,9 @@ export function fileTarget(
         raw = decodeURIComponent(uri.pathname);
       }
     } else return null;
+    const reference = /:(\d+)(?::(\d+))?$/.exec(raw);
+    const line = Number(reference?.[1] ?? url.searchParams.get('line'));
+    const column = Number(reference?.[2] ?? url.searchParams.get('column'));
     let path = raw.replace(/(:\d+){1,2}$/, '');
     // Older links can contain host paths; translate only this project's workspace.
     if (project) {
@@ -55,6 +58,9 @@ export function fileTarget(
     )
       return null;
     return {
+      hasDefaultEditor: url.searchParams.get('scratch') !== '1',
+      ...(Number.isSafeInteger(line) && line > 0 ? { line } : {}),
+      ...(Number.isSafeInteger(column) && column > 0 ? { column } : {}),
       path,
       name: path.slice(path.lastIndexOf('/') + 1),
       ide: url.href,

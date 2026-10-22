@@ -24,6 +24,7 @@ export interface EditorWindowBinding extends EditorBinding {
   controllerRef: Ref<EditorWindowView>;
   nextLayer(): number;
   launchIde(target: FileTarget): void;
+  canLaunchIde?(target: FileTarget): boolean;
   onClose?(): void;
   onActivate?(): void;
   onSeparate?(): void;
@@ -165,7 +166,10 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
       onClose: binding.onClose ?? (() => editor.close()),
       onSave: editor.save,
       onEdit: editor.edit,
-      onOpenIde: () => binding.launchIde(binding.target),
+      onOpenIde:
+        (binding.canLaunchIde?.(binding.target) ?? true)
+          ? () => binding.launchIde(binding.target)
+          : undefined,
       onSeparate: binding.onSeparate,
       onCloseFile: () => editor.close(),
       onRetry: () => binding.session.retry(),

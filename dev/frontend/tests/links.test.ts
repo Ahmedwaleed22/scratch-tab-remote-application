@@ -12,6 +12,8 @@ test('matches current chat workspace links and preserves IDE line reference', ()
   assert.ok(target);
   assert.equal(target.path, '/workspace/note.txt');
   assert.match(target.ide, /%3A3/);
+  assert.equal(target.line, 3);
+  assert.equal(target.hasDefaultEditor, true);
   assert.equal(target.download, '/api/chats/a/files/download?path=note.txt');
 });
 
@@ -23,6 +25,7 @@ test('recognizes Code Server app links in the active project', () => {
   const target = fileTarget(href, origin, 'a', cwd);
   assert.equal(target?.path, '/workspace/README.md');
   assert.equal(target?.ide, href);
+  assert.equal(target?.line, 3);
 });
 
 test('supports legacy Code Server payloads and current-project host paths', () => {
@@ -34,6 +37,8 @@ test('supports legacy Code Server payloads and current-project host paths', () =
     JSON.stringify([['openFile', 'vscode-remote://code.remote.test/workspace/a%20b.txt:4:2']]),
   );
   assert.equal(fileTarget(url.href, origin, 'a', cwd)?.path, '/workspace/a b.txt');
+  assert.equal(fileTarget(url.href, origin, 'a', cwd)?.line, 4);
+  assert.equal(fileTarget(url.href, origin, 'a', cwd)?.column, 2);
   assert.equal(
     fileTarget(
       '/api/chats/a/ide-open?path=/var/lib/remote/projects/alpha/workspace/README.md',
@@ -75,4 +80,14 @@ test('ignores external, other chat, media, traversal and host links', () => {
     '/api/chats/a/ide-open?path=/etc/passwd',
   ])
     assert.equal(fileTarget(href, 'https://remote.test', 'a'), null);
+});
+
+test('Scratch-generated links do not imply another default editor exists', () => {
+  const target = fileTarget(
+    '/api/chats/a/ide-open?scratch=1&path=%2Fworkspace%2Fnote.txt',
+    'https://remote.test',
+    'a',
+  );
+  assert.equal(target?.path, '/workspace/note.txt');
+  assert.equal(target?.hasDefaultEditor, false);
 });

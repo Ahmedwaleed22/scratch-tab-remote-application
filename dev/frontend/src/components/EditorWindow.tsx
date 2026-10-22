@@ -23,7 +23,7 @@ export interface EditorWindowProps {
   actions: {
     onClose(): void;
     onSave(): void;
-    onOpenIde(): void;
+    onOpenIde?(): void;
     onEdit(text: string): void;
     onSeparate?(): void;
     onCloseFile(): void;
@@ -119,7 +119,7 @@ export default function EditorWindow({
               {state.preview ? 'Source' : 'Preview'}
             </Button>
           )}
-          <Button onClick={onOpenIde}>Open with default editor</Button>
+          {onOpenIde && <Button onClick={onOpenIde}>Open with default editor</Button>}
         </div>
       </header>
       <FileTabs
