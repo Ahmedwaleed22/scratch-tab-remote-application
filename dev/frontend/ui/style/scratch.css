@@ -109,7 +109,7 @@
     SFMono-Regular,
     Menlo,
     monospace;
-  tab-size: 4;
+  tab-size: var(--scratch-tab-size, 4);
 }
 .scratch-tab-window textarea:focus-visible {
   outline: 2px solid rgb(var(--accent-blue, 45 100 215) / 0.45);
@@ -421,7 +421,7 @@
     SFMono-Regular,
     Menlo,
     monospace;
-  tab-size: 4;
+  tab-size: var(--scratch-tab-size, 4);
   letter-spacing: normal;
   font-variant-ligatures: none;
   white-space: pre-wrap;
@@ -858,5 +858,267 @@
 @media (prefers-reduced-motion: reduce) {
   .scratch-tab-sidebar-header button[aria-busy='true'] svg {
     animation: none;
+  }
+}
+
+.scratch-tab-main {
+  position: relative;
+}
+.scratch-tab-source {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.scratch-tab-source[hidden],
+.scratch-tab-window footer[hidden] {
+  display: none;
+}
+.scratch-tab-source > textarea,
+.scratch-tab-source > .scratch-tab-codearea {
+  position: relative;
+  z-index: 1;
+}
+.scratch-tab-find-highlights {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  font:
+    13px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  tab-size: var(--scratch-tab-size, 4);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  letter-spacing: normal;
+  font-variant-ligatures: none;
+  color: transparent;
+}
+.scratch-tab-find-highlights mark {
+  color: transparent;
+  background: rgb(var(--accent-blue, 45 100 215) / 0.28);
+}
+.scratch-tab-find-highlights mark[data-current] {
+  background: rgb(var(--accent-blue, 45 100 215));
+  color: rgb(var(--on-accent, 255 255 255));
+}
+.scratch-tab-find {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--line, #bbb);
+  border-radius: var(--radius-card, 8px);
+  background: rgb(var(--bg-raised-rgb, 240 240 242));
+  box-shadow: var(--shadow-pop, 0 8px 24px #0003);
+}
+.scratch-tab-find > svg {
+  flex-shrink: 0;
+  opacity: 0.65;
+}
+.scratch-tab-find input {
+  width: 150px;
+  flex: 1;
+  min-width: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 12.5px system-ui;
+}
+.scratch-tab-find input:focus {
+  outline: none;
+}
+.scratch-tab-find:focus-within {
+  border-color: rgb(var(--accent-blue, 45 100 215));
+}
+.scratch-tab-find > span {
+  flex-shrink: 0;
+  font: 11px system-ui;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+.scratch-tab-find .scratch-tab-find-empty {
+  color: rgb(var(--accent-red, 180 35 35));
+  opacity: 1;
+}
+.scratch-tab-find button {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.scratch-tab-find button:hover,
+.scratch-tab-indentation > button:hover {
+  background: rgb(var(--fg, 32 32 36) / 0.08);
+}
+.scratch-tab-window footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 8px;
+  min-height: 26px;
+}
+.scratch-tab-window footer > span {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+.scratch-tab-indentation {
+  position: relative;
+  flex-shrink: 0;
+  color: rgb(var(--fg, 32 32 36));
+}
+.scratch-tab-indentation button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.scratch-tab-indentation > button {
+  background: transparent;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 4px;
+}
+.scratch-tab-indent-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  width: 320px;
+  max-width: calc(var(--scratch-viewport-width, 100vw) - 40px);
+  padding: 6px;
+  border: 1px solid var(--line, #bbb);
+  border-radius: 8px;
+  background: rgb(var(--bg-raised-rgb, 240 240 242));
+  box-shadow: var(--shadow-pop, 0 8px 24px #0003);
+}
+.scratch-tab-indent-menu input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px;
+  margin-bottom: 6px;
+  border: 1px solid rgb(var(--accent-blue, 45 100 215));
+  border-radius: 4px;
+  background: rgb(var(--bg-surface-rgb, 250 250 250));
+  color: inherit;
+  font: inherit;
+}
+.scratch-tab-indent-menu [role='listbox'] {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.scratch-tab-indent-menu [role='option'] {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  padding: 6px 8px;
+  text-align: left;
+}
+.scratch-tab-indent-menu [role='option'][aria-selected='true'] {
+  background: rgb(var(--accent-blue, 45 100 215) / 0.22);
+}
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
+  .scratch-tab-find-highlights {
+    padding: 12px;
+    font-size: 16px;
+  }
+  .scratch-tab-find {
+    right: 4px;
+    top: 4px;
+    max-width: calc(100% - 8px);
+    gap: 2px;
+    padding: 4px;
+  }
+  .scratch-tab-find input {
+    width: 80px;
+    font-size: 16px;
+  }
+  .scratch-tab-find button {
+    width: 44px;
+    height: 44px;
+  }
+  .scratch-tab-indentation > button {
+    min-height: 44px;
+  }
+  .scratch-tab-indent-menu [role='option'] {
+    min-height: 44px;
+  }
+  .scratch-tab-indent-menu [role='listbox'] {
+    max-height: min(220px, 40dvh);
+  }
+}
+
+.scratch-tab-indent-menu {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.scratch-tab-indent-menu input {
+  flex-shrink: 0;
+}
+.scratch-tab-indent-menu [role='listbox'] {
+  min-height: 0;
+}
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
+  .scratch-tab-find {
+    position: relative;
+    top: 0;
+    right: auto;
+    margin: 4px;
+    flex-shrink: 0;
+    align-self: flex-end;
+  }
+}
+
+.scratch-tab-indent-menu[data-mode='actions'] [role='option']:nth-child(4) {
+  border-top: 1px solid var(--line, #bbb);
+  margin-top: 4px;
+  border-radius: 0;
+}
+@media (forced-colors: active) {
+  .scratch-tab-find-highlights {
+    forced-color-adjust: none;
+  }
+  .scratch-tab-find-highlights mark {
+    background: Mark;
+  }
+  .scratch-tab-find-highlights mark[data-current] {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
+@media (pointer: coarse) {
+  .scratch-tab-find button {
+    width: 44px;
+    height: 44px;
+  }
+  .scratch-tab-indentation > button,
+  .scratch-tab-indent-menu [role='option'] {
+    min-height: 44px;
   }
 }

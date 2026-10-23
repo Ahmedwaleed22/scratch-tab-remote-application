@@ -1,4 +1,6 @@
 export interface FixtureModules {
+  'services/indentation.js': typeof import('../../src/services/indentation.js');
+  'hooks/useEditorTools.js': typeof import('../../src/hooks/useEditorTools.js');
   '/main.js': typeof import('../../src/index.js');
   '/app/chat.js': typeof import('../../src/app/chat.js');
   '/app/editor.js': typeof import('../../src/app/editor.js');

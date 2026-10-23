@@ -470,6 +470,7 @@ test('phone editor stays inside the visible viewport through keyboard and rotati
         launchIde: () => window.openCount++,
         onClosed: () => {},
       });
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     });
     await page.waitForFunction(
       () => document.querySelector<HTMLTextAreaElement>('textarea')!?.readOnly === false,

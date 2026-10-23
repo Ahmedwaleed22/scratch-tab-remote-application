@@ -1,4 +1,7 @@
 import type { JSX, RefObject } from 'preact';
+import EditorFindBar, { EditorFindHighlights } from './EditorFindBar.js';
+import IndentationControl from './IndentationControl.js';
+import type { EditorTools } from '../hooks/useEditorTools.js';
 import Button from './Button.js';
 import FileTabs from './FileTabs.js';
 import SyntaxSurface from './SyntaxSurface.js';
@@ -20,6 +23,9 @@ export interface EditorElements {
 }
 export interface EditorWindowProps {
   target: FileTarget;
+  tools: EditorTools;
+  text: string;
+  onEditorKeyDown(event: KeyboardEvent): void;
   actions: {
     onClose(): void;
     onSave(): void;
@@ -41,6 +47,9 @@ export interface EditorWindowProps {
 
 export default function EditorWindow({
   target,
+  tools,
+  text,
+  onEditorKeyDown,
   actions,
   language,
   markdown,
@@ -70,6 +79,11 @@ export default function EditorWindow({
       aria-label={target.name}
       ref={elements.panel}
       onPointerDown={onRaise}
+      style={{ '--scratch-tab-size': tools.indentation.size }}
+      onKeyDownCapture={event => {
+        if (!(event.target instanceof Element && event.target.closest('.scratch-tab-indent-menu')))
+          onEditorKeyDown(event);
+      }}
       onKeyDown={event => {
         if (event.key === 'Escape') {
           event.stopPropagation();
@@ -104,6 +118,14 @@ export default function EditorWindow({
           >
             {state.missing ? 'Recreate' : 'Save'}
           </Button>
+          <Button
+            onClick={tools.openFind}
+            disabled={!state.editable}
+            aria-label="Find in file"
+            title="Find in file (Ctrl/Cmd+F)"
+          >
+            Find
+          </Button>
           {markdown && !state.unsupported && (
             <Button
               disabled={!state.editable}
@@ -133,6 +155,7 @@ export default function EditorWindow({
       <div class="scratch-tab-body">
         {sidebar && <FileSidebar {...sidebar.props} />}
         <div class="scratch-tab-main">
+          {!settled && <EditorFindBar tools={tools} />}
           {state.missing && (
             <div class="scratch-tab-missing" role="alert">
               <span>
@@ -172,18 +195,21 @@ export default function EditorWindow({
             </div>
           ) : (
             <>
-              {language ? (
-                <SyntaxSurface
-                  language={language}
-                  textarea={elements.textarea}
-                  revision={state.revision}
-                  hidden={state.preview}
-                >
-                  {input}
-                </SyntaxSurface>
-              ) : (
-                input
-              )}
+              <div class="scratch-tab-source" hidden={state.preview}>
+                <EditorFindHighlights tools={tools} text={text} />
+                {language ? (
+                  <SyntaxSurface
+                    language={language}
+                    textarea={elements.textarea}
+                    revision={state.revision}
+                    hidden={state.preview}
+                  >
+                    {input}
+                  </SyntaxSurface>
+                ) : (
+                  input
+                )}
+              </div>
               {markdown && (
                 <MarkdownPreview
                   name={target.name}
@@ -197,6 +223,7 @@ export default function EditorWindow({
         </div>
       </div>
       <footer hidden={settled} class={state.failed ? 'scratch-tab-error' : ''}>
+        <IndentationControl tools={tools} disabled={!state.editable} />
         <span role="status">{state.status}</span>
       </footer>
     </section>
