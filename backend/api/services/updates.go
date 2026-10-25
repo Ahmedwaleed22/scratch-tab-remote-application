@@ -1,5 +1,5 @@
-// Package updates reads only Scratch Tab's public stable GitHub releases.
-package updates
+// Updates verifies and caches Scratch Tab stable releases.
+package services
 
 import (
 	"archive/zip"
@@ -9,13 +9,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"net/http"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"futrx.local/catalog/applications/scratch-tab/backend/api/model"
 )
 
 const releaseURL = "https://api.github.com/repos/Ahmedwaleed22/scratch-tab-remote-application/releases/latest"
@@ -25,61 +25,25 @@ const maxArchiveBytes = 2 * 1024 * 1024
 
 var versionPattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
-type Release struct {
-	Version string `json:"version"`
-	Name    string `json:"name"`
-	URL     string `json:"url"`
-	Digest  string `json:"digest"`
-	Size    int64  `json:"size"`
-}
-type Client struct {
-	http    *http.Client
+type Updates struct {
+	fetch   Fetch
 	mu      sync.Mutex
-	cached  Release
+	cached  model.Release
 	expires time.Time
 }
 
-func New() *Client {
-	return &Client{http: &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		host := req.URL.Hostname()
-		if len(via) > 5 || req.URL.Scheme != "https" || (host != "github.com" && host != "release-assets.githubusercontent.com" && host != "api.github.com") {
-			return errors.New("unexpected GitHub redirect")
-		}
-		return nil
-	}}}
-}
-func (c *Client) get(ctx context.Context, url string, limit int64) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Scratch-Tab-Updater")
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, errors.New("GitHub is unavailable; try again later")
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("GitHub returned HTTP %d; try again later", resp.StatusCode)
-	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > limit {
-		return nil, errors.New("GitHub response exceeds update size limit")
-	}
-	return data, nil
-}
-func (c *Client) Latest(ctx context.Context) (Release, error) {
+type Fetch func(context.Context, string, int64) ([]byte, error)
+
+func NewUpdates(fetch Fetch) *Updates { return &Updates{fetch: fetch} }
+func (c *Updates) Latest(ctx context.Context) (model.Release, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if time.Now().Before(c.expires) {
 		return c.cached, nil
 	}
-	data, err := c.get(ctx, releaseURL, 256*1024)
+	data, err := c.fetch(ctx, releaseURL, 256*1024)
 	if err != nil {
-		return Release{}, err
+		return model.Release{}, err
 	}
 	var r struct {
 		Tag        string `json:"tag_name"`
@@ -93,7 +57,7 @@ func (c *Client) Latest(ctx context.Context) (Release, error) {
 		} `json:"assets"`
 	}
 	if json.Unmarshal(data, &r) != nil || !versionPattern.MatchString(r.Tag) || r.Draft || r.Prerelease {
-		return Release{}, errors.New("GitHub returned an invalid stable release")
+		return model.Release{}, errors.New("GitHub returned an invalid stable release")
 	}
 	version := strings.TrimPrefix(r.Tag, "v")
 	name := "scratch-tab-" + version + ".zip"
@@ -104,15 +68,15 @@ func (c *Client) Latest(ctx context.Context) (Release, error) {
 		}
 		digest, err := hex.DecodeString(strings.TrimPrefix(a.Digest, "sha256:"))
 		if a.URL != expected || !strings.HasPrefix(a.Digest, "sha256:") || err != nil || len(digest) != 32 || a.Size <= 0 || a.Size > maxArchiveBytes {
-			return Release{}, errors.New("Release ZIP has invalid metadata or exceeds the 2 MiB automatic update limit")
+			return model.Release{}, errors.New("Release ZIP has invalid metadata or exceeds the 2 MiB automatic update limit")
 		}
-		c.cached = Release{version, name, expected, a.Digest, a.Size}
+		c.cached = model.Release{Version: version, Name: name, URL: expected, Digest: a.Digest, Size: a.Size}
 		c.expires = time.Now().Add(time.Hour)
 		return c.cached, nil
 	}
-	return Release{}, errors.New("Latest release has no installable Scratch Tab ZIP")
+	return model.Release{}, errors.New("Latest release has no installable Scratch Tab ZIP")
 }
-func (c *Client) Archive(ctx context.Context, version string) ([]byte, error) {
+func (c *Updates) Archive(ctx context.Context, version string) ([]byte, error) {
 	r, err := c.Latest(ctx)
 	if err != nil {
 		return nil, err
@@ -120,7 +84,7 @@ func (c *Client) Archive(ctx context.Context, version string) ([]byte, error) {
 	if version != r.Version {
 		return nil, errors.New("Release changed; check for updates again")
 	}
-	data, err := c.get(ctx, r.URL, maxArchiveBytes)
+	data, err := c.fetch(ctx, r.URL, maxArchiveBytes)
 	if err != nil {
 		return nil, err
 	}
