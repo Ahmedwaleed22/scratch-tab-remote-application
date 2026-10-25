@@ -30,18 +30,31 @@ Draft memory remains module-scoped, as before, so switching chats or stopping th
 
 ### Host backend
 
-`backend/main.go` wires the Remote API adapter to `clients/container.go`. The API owns caller/scope/route checks, request deadlines and response mapping. The client owns LXD lookup, arguments and stdin/stdout. The instance's container name is the only execution target; browser input never chooses a container or shell command. Host request limits and deadlines live in `backend/config/`.
+`backend/main.go` is the host composition root. `backend/api/` runs on the Remote host and has its own layers:
+
+- `transport/controller.go`: caller/scope/route checks, input decoding and response mapping.
+- `services/files.go`: bounded container command execution.
+- `services/updates.go`: stable-release selection, caching, archive integrity and manifest verification.
+- `clients/container.go`: LXD lookup, command arguments and stdin/stdout.
+- `clients/github.go`: bounded HTTP requests and redirect policy.
+- `model/`: host-owned release data.
+- `config/`: host request limits and deadlines.
+
+The instance's container name is the only execution target; browser input never chooses a container or shell command. The host does not own workspace persistence and therefore has no file repository.
 
 ### Container command
 
-The files remain in one root Go package, which Remote installs as `/usr/local/bin/scratch-tab`:
+`backend/container/` is a separate Go deployment unit, installed as `/usr/local/bin/scratch-tab`:
 
-- `main.go`: process composition.
-- `command.go`: command lock and JSON stdin/stdout transport.
-- `protocol.go`: existing request/response DTOs.
-- `workspace.go`: path/content validation and revision policy. `results.go` maps replacement and creation outcomes to the existing public statuses and messages. A missing path returns 404 with the exact message the browser matches in `MISSING_FILE_MESSAGE`; any other non-regular path keeps the 400 response.
-- `storage.go`: rooted reads, file metadata, temporary writes, revision recheck, and directory-relative rename. `Create` recreates a deleted file: it writes a temporary file in the existing parent, owned like that folder, then `linkat`s it into place so a file that appeared meanwhile is never replaced. `link_linux.go` isolates the raw `linkat` syscall because package `syscall` lacks a wrapper.
-- `config.go`: container limits and fixed runtime paths.
+- `main.go`: dependency construction and process entrypoint.
+- `transport/command.go`: JSON stdin/stdout and command lock lifetime, including acquisition before decoding.
+- `services/files.go`: path/content validation, revision policy and file workflows, through injected persistence contracts in `services/repository.go`.
+- `repositories/storage.go`: rooted reads, file metadata, temporary writes, revision recheck and directory-relative rename.
+- `repositories/lock.go`: filesystem lock acquisition; the lock remains held through output encoding.
+- `model/`: container-owned request/result data and persistence outcomes.
+- `config/`: container limits and fixed runtime paths.
+
+The host and container do not import each other's packages or share in-process models. They communicate through the existing JSON command protocol. Remote synthesizes a separate Go module for each deployment unit; local container checks reproduce that module identity in a temporary directory without adding runtime dependencies.
 
 The container command supports Go 1.24.7 and later. Keep its Linux `renameat` operation: `os.Root.Rename` is unavailable in Remote's Go 1.24.7 installer.
 
@@ -54,13 +67,12 @@ npm run typecheck
 npm run build
 npx playwright install chromium
 npm run test:frontend
-GO111MODULE=off go test ./backend/container
-GO111MODULE=off go vet ./backend/container
+bash backend/tests/run.sh
 npm run test:infra
-python3 -B backend/tests/test_host_backend.py --remote-root /path/to/remote.futrx
+bash backend/tests/host.sh --remote-root /path/to/remote.futrx
 ```
 
-Tests follow their deployment unit: `dev/frontend/tests/*.test.ts` groups frontend scenarios by feature (links, API, editor, Markdown, tabs and windows, updater), `backend/` contains Go tests and `backend/tests/test_host_backend.py`, and root `tests/test_package.py` contains the packaging checks. Run `npm test` at the app root for type checking and all local suites, or `npm test` inside `dev/frontend` for frontend tests with Vitest. In `dev/frontend`, use `npm run test:watch` for watch mode or `npm test -- tests/api.test.ts` to run a single file. Vitest global setup builds the production bundle and shared fixture modules, rebuilds them on watch reruns, and removes temporary modules on exit. Browser scenarios continue to use Playwright Chromium. Frontend tests, fixtures, and `vitest.config.ts` are checked strictly by `dev/frontend/tsconfig.tests.json`; run `npm run typecheck` inside the frontend or at the app root. The frontend package reuses dependencies installed by root `npm ci`. Use `npm run test:backend` and `npm run test:infra` for the other local suites. The host integration harness separately requires a Remote checkout. Historical v0.6.0/v0.6.1 publishing workflows pin their legacy harness because those tags predate this test layout.
+Tests follow their deployment unit: `dev/frontend/tests/*.test.ts` groups frontend scenarios by feature (links, API, editor, Markdown, tabs and windows, updater), `backend/` contains Go tests and `backend/tests/host.sh`, and `infra/package/archive_test.go` contains the packaging checks. Run `npm test` at the app root for type checking and all local suites, or `npm test` inside `dev/frontend` for frontend tests with Vitest. In `dev/frontend`, use `npm run test:watch` for watch mode or `npm test -- tests/api.test.ts` to run a single file. Vitest global setup builds the production bundle and shared fixture modules, rebuilds them on watch reruns, and removes temporary modules on exit. Browser scenarios continue to use Playwright Chromium. Frontend tests, fixtures, and `vitest.config.ts` are checked strictly by `dev/frontend/tsconfig.tests.json`; run `npm run typecheck` inside the frontend or at the app root. The frontend package reuses dependencies installed by root `npm ci`. Use `npm run test:backend` and `npm run test:infra` for the other local suites. The host integration harness separately requires a Remote checkout. Bash scripts orchestrate temporary Go modules, tests and builds. `infra/package/` owns ZIP creation and archive tests using the Go standard library; `infra/host-validation/main.go` checks the packaged source through Remote's builder. Current build and test commands require Bash, Go and Node.js, with no Python or system ZIP tools. Historical release workflows retain Python commands against their pinned old tags and harnesses.
 
 Run `npm ci` after cloning to install the shared Git hooks, then `npx playwright install chromium` for browser tests. The pre-commit hook formats staged TypeScript, CSS and test files, then runs `npm test` (type checking, production build, frontend tests, container tests and packaging tests). This keeps formatting inside the original signed commit, including when staging only part of a file.
 
@@ -84,7 +96,7 @@ Only the owner manages versions and publishes packages. Set `application.json` t
 
 ```sh
 npm run build
-python3 -B infra/package.py --tag v0.6.4 --output-dir /tmp/scratch-tab-package
+bash infra/package.sh --tag v0.7.1 --output-dir /tmp/scratch-tab-package
 ```
 
 The packager maps `dist/main.js` to `ui/scripts/main.js` (the manifest entry), `dist/chunks/` to `ui/scripts/chunks/` and includes runtime Go, minified CSS, README and licenses. It rejects packaging without a built JavaScript bundle and excludes TypeScript sources. It excludes `docs/` (including README screenshots), tests, Git metadata, local artifacts and credentials. Package tests check that module imports exist inside the ZIP and that nothing from `docs/` is packaged. Source archives and this maintainer guide remain available in the repository.
@@ -105,7 +117,7 @@ The packager maps `dist/main.js` to `ui/scripts/main.js` (the manifest entry), `
 | --- | --- | --- |
 | `ui/scripts/main.js:57` mixed DOM rendering, drafts and RPC saves | One owner per responsibility; presentation depends on intent callbacks | `views/editorWindow.js`, `presenters/editor.js`, `services/editorDocument.js`, and `api/files.js` |
 | `ui/scripts/main.js:150` combined event capture and chooser construction | Separate host adaptation from rendering | `adapters/fileOpenings.js` and `views/chooser.js` |
-| `backend/api/api.go:23` launched LXD inside the inbound API package | Keep infrastructure behind the existing injected runner contract | `backend/clients/container.go`, composed in `backend/main.go` |
+| `backend/api/api.go:23` launched LXD inside the inbound API package | Keep infrastructure behind the existing injected runner contract | `backend/api/clients/container.go`, composed in `backend/main.go` |
 | `backend/container/main.go:31` mixed JSON transport, validation and disk replacement | Separate delivery mapping, command policy and persistence mechanics | `command.go`, `workspace.go`, and `storage.go` |
 | The package script listed individual runtime source files | Packaging follows the deployment unit, not its current internal layout | Runtime source discovery plus checks for missing module imports |
 
