@@ -1,8 +1,9 @@
-package main
+package repositories
 
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -11,6 +12,10 @@ import (
 	"path/filepath"
 	"syscall"
 	"unicode/utf8"
+
+	"futrx.local/catalog/applications/scratch-tab/backend/container/config"
+	"futrx.local/catalog/applications/scratch-tab/backend/container/model"
+	"futrx.local/catalog/applications/scratch-tab/backend/container/services"
 )
 
 // A rooted workspace owns filesystem access; callers never build absolute disk paths.
@@ -21,7 +26,7 @@ type workspaceFile struct {
 	info os.FileInfo
 }
 
-func openWorkspace(path string) (*workspaceFiles, error) {
+func OpenWorkspace(path string) (services.Workspace, error) {
 	root, err := os.OpenRoot(path)
 	if err != nil {
 		return nil, err
@@ -30,16 +35,13 @@ func openWorkspace(path string) (*workspaceFiles, error) {
 }
 func (w *workspaceFiles) Close() { w.root.Close() }
 
-var errMissing = errors.New("file not found")
-var errIrregular = errors.New("not a regular file")
-
-func (w *workspaceFiles) Open(name string) (*workspaceFile, error) {
+func (w *workspaceFiles) Open(name string) (services.File, error) {
 	info, err := w.root.Lstat(name)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, errMissing
+		return nil, model.ErrMissing
 	}
 	if err != nil || !info.Mode().IsRegular() {
-		return nil, errIrregular
+		return nil, model.ErrIrregular
 	}
 	return &workspaceFile{root: w.root, name: name, info: info}, nil
 }
@@ -49,40 +51,26 @@ func (f *workspaceFile) Read() ([]byte, error) {
 		return nil, err
 	}
 	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	data, err := io.ReadAll(io.LimitReader(file, config.Limit+1))
 	if err != nil {
 		return nil, err
 	}
-	if len(data) > limit || !utf8.Valid(data) || bytes.ContainsRune(data, 0) {
+	if len(data) > config.Limit || !utf8.Valid(data) || bytes.ContainsRune(data, 0) {
 		return nil, errors.New("unsupported file")
 	}
 	return data, nil
 }
 
-type saveFailure uint8
-
-const (
-	saveSucceeded saveFailure = iota
-	savePreparationFailed
-	saveCreationFailed
-	saveWriteFailed
-	saveRevisionChanged
-	saveDirectoryFailed
-	saveReplacementFailed
-	saveFolderMissing
-	saveAlreadyExists
-)
-
 // Replace keeps the existing temporary-write, revision-check and rename ordering.
-func (f *workspaceFile) Replace(content, revision string) saveFailure {
+func (f *workspaceFile) Replace(content, revision string) model.SaveFailure {
 	var random [16]byte
 	if _, err := rand.Read(random[:]); err != nil {
-		return savePreparationFailed
+		return model.SavePreparationFailed
 	}
 	temporary := filepath.Join(filepath.Dir(f.name), ".scratch-tab-"+hex.EncodeToString(random[:]))
 	file, err := f.root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
-		return saveCreationFailed
+		return model.SaveCreationFailed
 	}
 	defer f.root.Remove(temporary)
 	_, err = file.WriteString(content)
@@ -99,40 +87,40 @@ func (f *workspaceFile) Replace(content, revision string) saveFailure {
 	}
 	closeErr := file.Close()
 	if err != nil || closeErr != nil {
-		return saveWriteFailed
+		return model.SaveWriteFailed
 	}
 	current, err := f.Read()
 	if err != nil || digest(current) != revision {
-		return saveRevisionChanged
+		return model.SaveRevisionChanged
 	}
 	// Pin the validated parent and rename only basenames (compatible with Go 1.24).
 	directory, err := f.root.Open(filepath.Dir(f.name))
 	if err != nil {
-		return saveDirectoryFailed
+		return model.SaveDirectoryFailed
 	}
 	defer directory.Close()
 	if err = syscall.Renameat(int(directory.Fd()), filepath.Base(temporary), int(directory.Fd()), filepath.Base(f.name)); err != nil {
-		return saveReplacementFailed
+		return model.SaveReplacementFailed
 	}
-	return saveSucceeded
+	return model.SaveSucceeded
 }
 
 // Create writes a new file next to its existing parent and links it into place,
 // so a file that appears meanwhile is never overwritten.
-func (w *workspaceFiles) Create(name, content string) saveFailure {
+func (w *workspaceFiles) Create(name, content string) model.SaveFailure {
 	parent := filepath.Dir(name)
 	info, err := w.root.Lstat(parent)
 	if err != nil || !info.IsDir() {
-		return saveFolderMissing
+		return model.SaveFolderMissing
 	}
 	var random [16]byte
 	if _, err = rand.Read(random[:]); err != nil {
-		return savePreparationFailed
+		return model.SavePreparationFailed
 	}
 	temporary := filepath.Join(parent, ".scratch-tab-"+hex.EncodeToString(random[:]))
 	file, err := w.root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
-		return saveCreationFailed
+		return model.SaveCreationFailed
 	}
 	defer w.root.Remove(temporary)
 	_, err = file.WriteString(content)
@@ -146,19 +134,21 @@ func (w *workspaceFiles) Create(name, content string) saveFailure {
 	}
 	closeErr := file.Close()
 	if err != nil || closeErr != nil {
-		return saveWriteFailed
+		return model.SaveWriteFailed
 	}
 	directory, err := w.root.Open(parent)
 	if err != nil {
-		return saveDirectoryFailed
+		return model.SaveDirectoryFailed
 	}
 	defer directory.Close()
 	err = linkat(int(directory.Fd()), filepath.Base(temporary), int(directory.Fd()), filepath.Base(name))
 	if errors.Is(err, fs.ErrExist) {
-		return saveAlreadyExists
+		return model.SaveAlreadyExists
 	}
 	if err != nil {
-		return saveReplacementFailed
+		return model.SaveReplacementFailed
 	}
-	return saveSucceeded
+	return model.SaveSucceeded
 }
+
+func digest(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeToString(sum[:]) }

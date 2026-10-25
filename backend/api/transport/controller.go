@@ -1,4 +1,4 @@
-package api
+package transport
 
 import (
 	"context"
@@ -6,20 +6,19 @@ import (
 	"errors"
 	"time"
 
-	"futrx.local/catalog/applications/scratch-tab/backend/config"
-	"futrx.local/catalog/applications/scratch-tab/backend/updates"
+	"futrx.local/catalog/applications/scratch-tab/backend/api/config"
+	"futrx.local/catalog/applications/scratch-tab/backend/api/services"
 	"github.com/futrx-com/remote.futrx.com/pkg/applications"
 )
 
-type Runner func(context.Context, string, []byte) ([]byte, error)
 type backend struct {
 	instance applications.Instance
-	run      Runner
-	updates  *updates.Client
+	files    services.Files
+	updates  *services.Updates
 }
 
-func New(run Runner, updater *updates.Client) applications.Backend {
-	return &backend{run: run, updates: updater}
+func New(files services.Files, updater *services.Updates) applications.Backend {
+	return &backend{files: files, updates: updater}
 }
 func (b *backend) Init(instance applications.Instance) error {
 	if instance.Scope != "project" || instance.ProjectID == "" || instance.ContainerName == "" {
@@ -70,9 +69,7 @@ func (b *backend) Handle(request applications.Request) (applications.Response, e
 	if len(request.Body) > config.MaxBackendRequestBytes {
 		return applications.Errorf(413, "File request is too large."), nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), config.FileCommandTimeout)
-	defer cancel()
-	output, err := b.run(ctx, b.instance.ContainerName, request.Body)
+	output, err := b.files.Execute(context.Background(), b.instance.ContainerName, request.Body)
 	if err != nil {
 		return applications.Errorf(503, "Project file command failed. Check the project container and reinstall Scratch Tab if needed."), nil
 	}

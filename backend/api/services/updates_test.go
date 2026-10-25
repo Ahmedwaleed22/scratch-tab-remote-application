@@ -1,4 +1,4 @@
-package updates
+package services
 
 import (
 	"archive/zip"
@@ -7,15 +7,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"io"
-	"net/http"
+	"errors"
 	"strings"
 	"testing"
 )
 
-type transport func(*http.Request) (*http.Response, error)
-
-func (f transport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func TestVerifiedArchive(t *testing.T) {
 	var buf bytes.Buffer
 	z := zip.NewWriter(&buf)
@@ -27,15 +23,15 @@ func TestVerifiedArchive(t *testing.T) {
 	metadata := map[string]any{"tag_name": "v0.4.0", "assets": []map[string]any{{"name": "scratch-tab-0.4.0.zip", "size": len(archive), "digest": "sha256:" + hex.EncodeToString(sum[:]), "browser_download_url": "https://github.com/Ahmedwaleed22/scratch-tab-remote-application/releases/download/v0.4.0/scratch-tab-0.4.0.zip"}}}
 	raw, _ := json.Marshal(metadata)
 	calls := 0
-	c := New()
-	c.http.Transport = transport(func(r *http.Request) (*http.Response, error) {
+	c := NewUpdates(nil)
+	c.fetch = func(_ context.Context, url string, _ int64) ([]byte, error) {
 		calls++
 		data := archive
-		if r.URL.String() == releaseURL {
+		if url == releaseURL {
 			data = raw
 		}
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(data))}, nil
-	})
+		return data, nil
+	}
 	ctx := context.Background()
 	for i := 0; i < 2; i++ {
 		r, err := c.Latest(ctx)
@@ -59,18 +55,18 @@ func TestVerifiedArchive(t *testing.T) {
 }
 func TestRejectsInvalidRelease(t *testing.T) {
 	for _, body := range []string{`{}`, `{"tag_name":"v0.4.0-beta","assets":[]}`, `{"tag_name":"v0.4.0","prerelease":true}`, strings.Repeat("x", 256*1024+1)} {
-		c := New()
-		c.http.Transport = transport(func(*http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
-		})
+		c := NewUpdates(nil)
+		c.fetch = func(context.Context, string, int64) ([]byte, error) {
+			return []byte(body), nil
+		}
 		if _, err := c.Latest(context.Background()); err == nil {
 			t.Fatal("accepted invalid metadata")
 		}
 	}
-	c := New()
-	c.http.Transport = transport(func(*http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 403, Body: io.NopCloser(strings.NewReader("rate limited"))}, nil
-	})
+	c := NewUpdates(nil)
+	c.fetch = func(context.Context, string, int64) ([]byte, error) {
+		return nil, errors.New("GitHub returned HTTP 403; try again later")
+	}
 	if _, err := c.Latest(context.Background()); err == nil {
 		t.Fatal("ignored rate limit")
 	}
