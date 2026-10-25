@@ -33,11 +33,22 @@ export function useEditorTools(
   const [query, setQueryState] = useState('');
   const [index, setIndex] = useState(0);
   const [focusVersion, setFocusVersion] = useState(0);
+  // Ctrl+Shift+M lets keyboard users leave the editor with Tab until it loses focus.
+  const tabMovesFocus = useRef(false);
   const findInput = useRef<HTMLInputElement>(null);
   const highlights = useRef<HTMLPreElement>(null);
   const matches = findOpen ? findMatches(text, query) : [];
   const currentIndex = matches.length ? index % matches.length : 0;
   const current = matches[currentIndex];
+  useLayoutEffect(() => {
+    const textarea = input.current;
+    const reset = () => {
+      tabMovesFocus.current = false;
+    };
+    reset();
+    textarea?.addEventListener('blur', reset);
+    return () => textarea?.removeEventListener('blur', reset);
+  }, [editable]);
   useLayoutEffect(() => {
     if (editable) setIndentation(detectIndentation(text, indentationPreference()));
   }, [revision, editable]);
@@ -138,6 +149,7 @@ export function useEditorTools(
     keyDown(event: KeyboardEvent) {
       if (event.isComposing || event.altKey) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+        if (!editable) return;
         event.preventDefault();
         event.stopPropagation();
         openFind();
@@ -149,7 +161,20 @@ export function useEditorTools(
         closeFind();
         return;
       }
+      if (
+        event.target === input.current &&
+        editable &&
+        event.ctrlKey &&
+        event.shiftKey &&
+        event.key.toLowerCase() === 'm'
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        tabMovesFocus.current = !tabMovesFocus.current;
+        return;
+      }
       if (event.target !== input.current || !editable || event.ctrlKey || event.metaKey) return;
+      if (event.key === 'Tab' && tabMovesFocus.current) return;
       const textarea = input.current!;
       const edit = indentationEdit(
         textarea.value,
@@ -182,14 +207,17 @@ export function useEditorTools(
             : indentation;
       const replacement =
         action === 'trim' ? text.replace(/[\t ]+$/gm, '') : convertIndentation(text, next);
-      if (replacement !== text)
+      if (replacement !== text) {
+        const selectionStart = input.current?.selectionStart ?? 0;
+        const selectionEnd = input.current?.selectionEnd ?? 0;
         apply({
           start: 0,
           end: text.length,
           text: replacement,
-          selectionStart: 0,
-          selectionEnd: 0,
+          selectionStart: Math.min(selectionStart, replacement.length),
+          selectionEnd: Math.min(selectionEnd, replacement.length),
         });
+      }
       configure(next);
     },
   };

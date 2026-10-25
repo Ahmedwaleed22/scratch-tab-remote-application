@@ -41,11 +41,24 @@ export function detectIndentation(text: string, fallback: Indentation): Indentat
   const tabs = prefixes.filter(prefix => prefix.startsWith('\t')).length;
   const spaces = prefixes.filter(prefix => prefix.startsWith(' '));
   if (tabs > spaces.length) return { ...fallback, spaces: false };
-  const widths = spaces.map(prefix => prefix.length).filter(size => size > 0);
-  if (!widths.length) return { ...fallback };
-  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
-  const size = widths.reduce(gcd);
-  return { spaces: true, size: size >= 1 && size <= 8 ? size : fallback.size };
+  if (!spaces.length) return { ...fallback };
+  const changes = new Map<number, number>();
+  for (let i = 1; i < prefixes.length; i++) {
+    const previous = prefixes[i - 1]!;
+    const current = prefixes[i]!;
+    if (previous.includes('\t') || current.includes('\t')) continue;
+    const change = Math.abs(current.length - previous.length);
+    if (change >= 2 && change <= 8) changes.set(change, (changes.get(change) ?? 0) + 1);
+  }
+  let size = fallback.size;
+  let frequency = 0;
+  for (const [change, count] of changes) {
+    if (count > frequency) {
+      size = change;
+      frequency = count;
+    }
+  }
+  return { spaces: true, size };
 }
 export function indentationWidth(text: string, size: number): number {
   return [...text].reduce(

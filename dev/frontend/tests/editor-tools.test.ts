@@ -27,6 +27,19 @@ test('indentation keeps whitespace, uses tab stops and excludes the next line fr
   assert.equal(convertIndentation('  x\n    y', { size: 2, spaces: false }), '\tx\n\t\ty');
 });
 
+test('space detection counts consecutive non-blank indentation changes and ignores outliers', () => {
+  const fallback = { size: 3, spaces: true };
+  assert.deepEqual(
+    detectIndentation('root\n    one\n\n        two\n     aligned\n         three', fallback),
+    {
+      size: 4,
+      spaces: true,
+    },
+  );
+  assert.deepEqual(detectIndentation('root\n one\n          ten', fallback), fallback);
+  assert.deepEqual(detectIndentation('root\n   same\n   same', fallback), fallback);
+});
+
 test('find is literal and case insensitive, with empty and missing query cases', () => {
   assert.deepEqual(findMatches('A.b a.b', 'a.b'), [
     { start: 0, end: 3 },
@@ -57,10 +70,12 @@ test('keyboard editing, indentation palette, native undo and Remote-style find w
     });
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.evaluate(async () => {
+    const loadingFindPrevented = await page.evaluate(async () => {
       const { mountEditorWindow } = await window.importModule('/app/editor.js');
       const { EditorDocument } = await window.importModule('/services/editorDocument.js');
       const { windowGeometry } = await window.importModule('/adapters/windowGeometry.js');
+      // Equal-width prefixes have no indentation changes, so use the saved preference.
+      localStorage.setItem('scratch-tab:indentation', JSON.stringify({ size: 2, spaces: true }));
       window.disk = '  const value = 1;\n  const other = 2;';
       const documentModel = new EditorDocument('/workspace/main.js', 'test', new Map(), {
         async read() {
@@ -80,8 +95,19 @@ test('keyboard editing, indentation palette, native undo and Remote-style find w
         launchIde: () => {},
         onClosed: () => {},
       });
+      const shortcut = new KeyboardEvent('keydown', {
+        key: 'f',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      document.querySelector('textarea')!.dispatchEvent(shortcut);
+      const prevented = shortcut.defaultPrevented;
       await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      return prevented;
     });
+    assert.equal(loadingFindPrevented, false);
+    assert.equal(await page.getByRole('search').count(), 0);
     const input = page.locator('textarea');
     await page.waitForFunction(() => !document.querySelector('textarea')?.readOnly);
     const indent = page.getByRole('button', { name: 'Indentation settings', exact: true });
@@ -96,6 +122,26 @@ test('keyboard editing, indentation palette, native undo and Remote-style find w
     assert.ok((await input.inputValue()).endsWith('\n  '));
     await input.press('Shift+Tab');
     assert.ok((await input.inputValue()).endsWith('\n'));
+    const beforeFocusNavigation = await input.inputValue();
+    for (const key of ['Tab', 'Shift+Tab']) {
+      await input.focus();
+      await input.press('Control+Shift+M');
+      await input.press(key);
+      assert.equal(
+        await input.evaluate((node: HTMLTextAreaElement) => document.activeElement === node),
+        false,
+      );
+      assert.equal(await input.inputValue(), beforeFocusNavigation);
+    }
+    await input.focus();
+    await input.press('Tab');
+    assert.notEqual(await input.inputValue(), beforeFocusNavigation);
+    await input.press('Control+z');
+    await input.press('Control+Shift+M');
+    await input.press('Control+Shift+M');
+    await input.press('Tab');
+    assert.notEqual(await input.inputValue(), beforeFocusNavigation);
+    await input.press('Control+z');
     const beforeModeChange = await input.inputValue();
     await indent.click();
     await page.getByRole('option', { name: 'Indent Using Tabs', exact: true }).click();
@@ -106,22 +152,55 @@ test('keyboard editing, indentation palette, native undo and Remote-style find w
       await page.evaluate(() => JSON.parse(localStorage.getItem('scratch-tab:indentation')!)),
       { size: 4, spaces: false },
     );
-    assert.equal(await input.evaluate(node => getComputedStyle(node).tabSize), '4');
+    assert.equal(
+      await input.evaluate((node: HTMLTextAreaElement) => getComputedStyle(node).tabSize),
+      '4',
+    );
     await input.focus();
     await input.press('Control+End');
     await input.press('Tab');
     assert.ok((await input.inputValue()).endsWith('\n\t'));
+    await input.evaluate((node: HTMLTextAreaElement) => node.setSelectionRange(3, 9));
     await indent.click();
     await page.getByRole('option', { name: 'Convert Indentation to Spaces', exact: true }).click();
     assert.equal(await indent.textContent(), 'Spaces: 4');
+    assert.deepEqual(
+      await input.evaluate((node: HTMLTextAreaElement) => [node.selectionStart, node.selectionEnd]),
+      [3, 9],
+    );
     await input.focus();
-    await input.press('Control+f');
+    assert.equal(
+      await input.evaluate((node: HTMLTextAreaElement) => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'f',
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        });
+        node.dispatchEvent(event);
+        return event.defaultPrevented;
+      }),
+      true,
+    );
     const query = page.getByRole('textbox', { name: 'Find in file', exact: true });
     await query.fill('CoNsT');
     await query.press('Control+f');
     assert.equal(await query.inputValue(), 'CoNsT');
     await page.getByText('1 of 2', { exact: true }).waitFor();
     assert.equal(await page.locator('.scratch-tab-find-highlights mark').count(), 2);
+    await page.emulateMedia({ forcedColors: 'active' });
+    assert.equal(
+      await page.locator('.scratch-tab-find-highlights mark:not([data-current])').evaluate(node => {
+        const reference = document.createElement('span');
+        reference.style.cssText = 'color: MarkText; forced-color-adjust: none';
+        document.body.append(reference);
+        const expected = getComputedStyle(reference).color;
+        reference.remove();
+        return getComputedStyle(node).color === expected;
+      }),
+      true,
+    );
+    await page.emulateMedia({ forcedColors: 'none' });
     await query.press('Enter');
     await page.getByText('2 of 2', { exact: true }).waitFor();
     await query.press('Enter');
@@ -293,6 +372,9 @@ test('plain text and Markdown support find without changing the draft or leaking
         await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(),
         true,
       );
+      await input.evaluate((node: HTMLTextAreaElement) =>
+        node.setSelectionRange(4, node.value.length),
+      );
       await page.getByRole('button', { name: 'Indentation settings', exact: true }).click();
       const actions = page.getByRole('combobox', { name: 'Select Action' });
       await actions.fill('Trim Trailing');
@@ -305,6 +387,13 @@ test('plain text and Markdown support find without changing the draft or leaking
         false,
       );
       assert.equal(await input.inputValue(), '  first needle\n  second NEEDLE');
+      assert.deepEqual(
+        await input.evaluate((node: HTMLTextAreaElement) => [
+          node.selectionStart,
+          node.selectionEnd,
+        ]),
+        [4, '  first needle\n  second NEEDLE'.length],
+      );
     }
   } finally {
     await browser.close();
