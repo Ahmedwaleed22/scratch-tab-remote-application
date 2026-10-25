@@ -67,12 +67,12 @@ npm run typecheck
 npm run build
 npx playwright install chromium
 npm run test:frontend
-python3 -B backend/tests/run.py
+bash backend/tests/run.sh
 npm run test:infra
-python3 -B backend/tests/test_host_backend.py --remote-root /path/to/remote.futrx
+bash backend/tests/host.sh --remote-root /path/to/remote.futrx
 ```
 
-Tests follow their deployment unit: `dev/frontend/tests/*.test.ts` groups frontend scenarios by feature (links, API, editor, Markdown, tabs and windows, updater), `backend/` contains Go tests and `backend/tests/test_host_backend.py`, and root `tests/test_package.py` contains the packaging checks. Run `npm test` at the app root for type checking and all local suites, or `npm test` inside `dev/frontend` for frontend tests with Vitest. In `dev/frontend`, use `npm run test:watch` for watch mode or `npm test -- tests/api.test.ts` to run a single file. Vitest global setup builds the production bundle and shared fixture modules, rebuilds them on watch reruns, and removes temporary modules on exit. Browser scenarios continue to use Playwright Chromium. Frontend tests, fixtures, and `vitest.config.ts` are checked strictly by `dev/frontend/tsconfig.tests.json`; run `npm run typecheck` inside the frontend or at the app root. The frontend package reuses dependencies installed by root `npm ci`. Use `npm run test:backend` and `npm run test:infra` for the other local suites. The host integration harness separately requires a Remote checkout. Historical v0.6.0/v0.6.1 publishing workflows pin their legacy harness because those tags predate this test layout.
+Tests follow their deployment unit: `dev/frontend/tests/*.test.ts` groups frontend scenarios by feature (links, API, editor, Markdown, tabs and windows, updater), `backend/` contains Go tests and `backend/tests/host.sh`, and `infra/package/archive_test.go` contains the packaging checks. Run `npm test` at the app root for type checking and all local suites, or `npm test` inside `dev/frontend` for frontend tests with Vitest. In `dev/frontend`, use `npm run test:watch` for watch mode or `npm test -- tests/api.test.ts` to run a single file. Vitest global setup builds the production bundle and shared fixture modules, rebuilds them on watch reruns, and removes temporary modules on exit. Browser scenarios continue to use Playwright Chromium. Frontend tests, fixtures, and `vitest.config.ts` are checked strictly by `dev/frontend/tsconfig.tests.json`; run `npm run typecheck` inside the frontend or at the app root. The frontend package reuses dependencies installed by root `npm ci`. Use `npm run test:backend` and `npm run test:infra` for the other local suites. The host integration harness separately requires a Remote checkout. Bash scripts orchestrate temporary Go modules, tests and builds. `infra/package/` owns ZIP creation and archive tests using the Go standard library; `infra/host-validation/main.go` checks the packaged source through Remote's builder. Current build and test commands require Bash, Go and Node.js, with no Python or system ZIP tools. Historical release workflows retain Python commands against their pinned old tags and harnesses.
 
 Run `npm ci` after cloning to install the shared Git hooks, then `npx playwright install chromium` for browser tests. The pre-commit hook formats staged TypeScript, CSS and test files, then runs `npm test` (type checking, production build, frontend tests, container tests and packaging tests). This keeps formatting inside the original signed commit, including when staging only part of a file.
 
@@ -96,7 +96,7 @@ Only the owner manages versions and publishes packages. Set `application.json` t
 
 ```sh
 npm run build
-python3 -B infra/package.py --tag v0.6.4 --output-dir /tmp/scratch-tab-package
+bash infra/package.sh --tag v0.7.1 --output-dir /tmp/scratch-tab-package
 ```
 
 The packager maps `dist/main.js` to `ui/scripts/main.js` (the manifest entry), `dist/chunks/` to `ui/scripts/chunks/` and includes runtime Go, minified CSS, README and licenses. It rejects packaging without a built JavaScript bundle and excludes TypeScript sources. It excludes `docs/` (including README screenshots), tests, Git metadata, local artifacts and credentials. Package tests check that module imports exist inside the ZIP and that nothing from `docs/` is packaged. Source archives and this maintainer guide remain available in the repository.

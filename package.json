@@ -10,8 +10,10 @@
     "format:check": "prettier --check \"dev/frontend/src/**/*.{ts,tsx}\" \"dev/frontend/ui/style/**/*.css\" \"infra/*.{ts,mjs}\" \"dev/frontend/tests/**/*.ts\" \"dev/frontend/vitest.config.ts\"",
     "prepare": "husky",
     "test:frontend": "npm --prefix dev/frontend test",
-    "test:backend": "python3 -B backend/tests/run.py",
-    "test:infra": "python3 -B -m unittest discover -s tests -p 'test_*.py'"
+    "test:backend": "bash backend/tests/run.sh",
+    "test:infra": "bash infra/test.sh",
+    "test:host": "bash backend/tests/host.sh",
+    "package": "bash infra/package.sh"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
