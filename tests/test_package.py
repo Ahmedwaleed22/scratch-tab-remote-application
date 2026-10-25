@@ -34,7 +34,7 @@ class PackageTests(unittest.TestCase):
                 self.assertLess(archive.stat().st_size, 2 * 1024 * 1024)
                 self.assertIn(b'mermaid', package.read('ui/licenses/THIRD-PARTY.txt'))
                 self.assertIn('backend/container/main.go', names)
-                self.assertIn('backend/container/storage.go', names)
+                self.assertIn('backend/container/repositories/storage.go', names)
                 self.assertFalse([name for name in names if name.startswith('docs/')])
                 for name in names:
                     if name.endswith('.js'):

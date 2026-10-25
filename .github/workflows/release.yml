@@ -38,13 +38,10 @@ jobs:
           cache: false
       - name: Build and test with the container toolchain
         env:
-          GO111MODULE: 'off'
           CGO_ENABLED: '0'
         run: |
           go version
-          go test ./backend/container
-          go vet ./backend/container
-          go build -trimpath -ldflags '-s -w -X main.version=ci' -o "$RUNNER_TEMP/scratch-tab" ./backend/container
+          python3 -B backend/tests/run.py
   host-backend:
     runs-on: ubuntu-24.04
     steps:
@@ -95,8 +92,7 @@ jobs:
           npm run build
       - name: Test file command and package
         run: |
-          GO111MODULE=off go test ./backend/container
-          GO111MODULE=off go vet ./backend/container
+          python3 -B backend/tests/run.py
           npm run test:infra
       - name: Test editor in Chromium
         run: |

@@ -30,18 +30,31 @@ Draft memory remains module-scoped, as before, so switching chats or stopping th
 
 ### Host backend
 
-`backend/main.go` wires the Remote API adapter to `clients/container.go`. The API owns caller/scope/route checks, request deadlines and response mapping. The client owns LXD lookup, arguments and stdin/stdout. The instance's container name is the only execution target; browser input never chooses a container or shell command. Host request limits and deadlines live in `backend/config/`.
+`backend/main.go` is the host composition root. `backend/api/` runs on the Remote host and has its own layers:
+
+- `transport/controller.go`: caller/scope/route checks, input decoding and response mapping.
+- `services/files.go`: bounded container command execution.
+- `services/updates.go`: stable-release selection, caching, archive integrity and manifest verification.
+- `clients/container.go`: LXD lookup, command arguments and stdin/stdout.
+- `clients/github.go`: bounded HTTP requests and redirect policy.
+- `model/`: host-owned release data.
+- `config/`: host request limits and deadlines.
+
+The instance's container name is the only execution target; browser input never chooses a container or shell command. The host does not own workspace persistence and therefore has no file repository.
 
 ### Container command
 
-The files remain in one root Go package, which Remote installs as `/usr/local/bin/scratch-tab`:
+`backend/container/` is a separate Go deployment unit, installed as `/usr/local/bin/scratch-tab`:
 
-- `main.go`: process composition.
-- `command.go`: command lock and JSON stdin/stdout transport.
-- `protocol.go`: existing request/response DTOs.
-- `workspace.go`: path/content validation and revision policy. `results.go` maps replacement and creation outcomes to the existing public statuses and messages. A missing path returns 404 with the exact message the browser matches in `MISSING_FILE_MESSAGE`; any other non-regular path keeps the 400 response.
-- `storage.go`: rooted reads, file metadata, temporary writes, revision recheck, and directory-relative rename. `Create` recreates a deleted file: it writes a temporary file in the existing parent, owned like that folder, then `linkat`s it into place so a file that appeared meanwhile is never replaced. `link_linux.go` isolates the raw `linkat` syscall because package `syscall` lacks a wrapper.
-- `config.go`: container limits and fixed runtime paths.
+- `main.go`: dependency construction and process entrypoint.
+- `transport/command.go`: JSON stdin/stdout and command lock lifetime, including acquisition before decoding.
+- `services/files.go`: path/content validation, revision policy and file workflows, through injected persistence contracts in `services/repository.go`.
+- `repositories/storage.go`: rooted reads, file metadata, temporary writes, revision recheck and directory-relative rename.
+- `repositories/lock.go`: filesystem lock acquisition; the lock remains held through output encoding.
+- `model/`: container-owned request/result data and persistence outcomes.
+- `config/`: container limits and fixed runtime paths.
+
+The host and container do not import each other's packages or share in-process models. They communicate through the existing JSON command protocol. Remote synthesizes a separate Go module for each deployment unit; local container checks reproduce that module identity in a temporary directory without adding runtime dependencies.
 
 The container command supports Go 1.24.7 and later. Keep its Linux `renameat` operation: `os.Root.Rename` is unavailable in Remote's Go 1.24.7 installer.
 
@@ -54,8 +67,7 @@ npm run typecheck
 npm run build
 npx playwright install chromium
 npm run test:frontend
-GO111MODULE=off go test ./backend/container
-GO111MODULE=off go vet ./backend/container
+python3 -B backend/tests/run.py
 npm run test:infra
 python3 -B backend/tests/test_host_backend.py --remote-root /path/to/remote.futrx
 ```
@@ -105,7 +117,7 @@ The packager maps `dist/main.js` to `ui/scripts/main.js` (the manifest entry), `
 | --- | --- | --- |
 | `ui/scripts/main.js:57` mixed DOM rendering, drafts and RPC saves | One owner per responsibility; presentation depends on intent callbacks | `views/editorWindow.js`, `presenters/editor.js`, `services/editorDocument.js`, and `api/files.js` |
 | `ui/scripts/main.js:150` combined event capture and chooser construction | Separate host adaptation from rendering | `adapters/fileOpenings.js` and `views/chooser.js` |
-| `backend/api/api.go:23` launched LXD inside the inbound API package | Keep infrastructure behind the existing injected runner contract | `backend/clients/container.go`, composed in `backend/main.go` |
+| `backend/api/api.go:23` launched LXD inside the inbound API package | Keep infrastructure behind the existing injected runner contract | `backend/api/clients/container.go`, composed in `backend/main.go` |
 | `backend/container/main.go:31` mixed JSON transport, validation and disk replacement | Separate delivery mapping, command policy and persistence mechanics | `command.go`, `workspace.go`, and `storage.go` |
 | The package script listed individual runtime source files | Packaging follows the deployment unit, not its current internal layout | Runtime source discovery plus checks for missing module imports |
 
