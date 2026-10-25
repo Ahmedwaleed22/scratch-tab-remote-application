@@ -152,17 +152,26 @@ test('keyboard editing, indentation palette, native undo and Remote-style find w
       }, theme);
       await page.getByRole('button', { name: 'Find in file', exact: true }).click();
       await query.fill('const');
-      await page.screenshot({ path: `/workspace/.browser/scratch-editor-tools-${theme}.png` });
+      if (process.env.SCRATCH_TAB_SCREENSHOTS)
+        await page.screenshot({
+          path: process.env.SCRATCH_TAB_SCREENSHOTS + `-editor-tools-${theme}.png`,
+        });
       await page.getByRole('button', { name: 'Close find' }).click();
     }
     await page.setViewportSize({ width: 320, height: 568 });
     await page.getByRole('button', { name: 'Find in file', exact: true }).click();
     const bar = await page.getByRole('search').boundingBox();
     assert.ok(bar && bar.x >= 0 && bar.x + bar.width <= 320);
-    await page.screenshot({ path: '/workspace/.browser/scratch-editor-tools-mobile.png' });
+    if (process.env.SCRATCH_TAB_SCREENSHOTS)
+      await page.screenshot({
+        path: process.env.SCRATCH_TAB_SCREENSHOTS + '-editor-tools-mobile.png',
+      });
     await page.getByRole('button', { name: 'Close find' }).click();
     await indent.click();
-    await page.screenshot({ path: '/workspace/.browser/scratch-editor-indentation-mobile.png' });
+    if (process.env.SCRATCH_TAB_SCREENSHOTS)
+      await page.screenshot({
+        path: process.env.SCRATCH_TAB_SCREENSHOTS + '-editor-indentation-mobile.png',
+      });
     const palette = await page
       .getByRole('dialog', { name: 'Indentation settings', exact: true })
       .boundingBox();
