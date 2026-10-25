@@ -259,7 +259,7 @@ test('deleted files show a clear not-found state and edits can recreate them', a
     await page.waitForFunction(() => window.workspace['readme.txt'] === 'restored and edited');
     assert.deepEqual(await page.evaluate(() => window.creates), ['readme.txt']);
     await alert.waitFor({ state: 'detached' });
-    assert.equal(await visible.locator('footer').innerText(), 'Recreated · UTF-8');
+    assert.equal(await visible.locator('footer [role="status"]').innerText(), 'Recreated · UTF-8');
     assert.equal(
       await visible.getByRole('button', { name: 'Save', exact: true }).isDisabled(),
       true,

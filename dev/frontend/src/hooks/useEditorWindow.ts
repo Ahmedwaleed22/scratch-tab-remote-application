@@ -2,6 +2,7 @@ import type { DirectoryEntry } from '../model/files/application/directory.js';
 import { createRef } from 'preact';
 import type { Ref } from 'preact';
 import { useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from 'preact/hooks';
+import { useEditorTools } from './useEditorTools.js';
 import { useEditor } from './useEditor.js';
 import { useFileSidebar } from './useFileSidebar.js';
 import type { FileTree } from '../port/files/inbound/tree.js';
@@ -94,6 +95,18 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
       elements.textarea.current.value = binding.session.text;
     if (editor.state.notFound) focus();
   }, [editor.state.notFound]);
+  const tools = useEditorTools(
+    elements.textarea,
+    binding.session.text,
+    editor.state.revision,
+    editor.state.editable,
+    () => {
+      if (windowState.current.preview) {
+        windowState.current.preview = false;
+        refresh(0);
+      }
+    },
+  );
   const sidebar = useFileSidebar(binding.fileTree, binding.target.path, binding.onOpenFile);
   useLayoutEffect(() => {
     if (!focusPreview.current) return;
@@ -148,6 +161,9 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
   );
   return {
     target: binding.target,
+    tools,
+    text: binding.session.text,
+    onEditorKeyDown: tools.keyDown,
     elements,
     state: { ...editor.state, ...windowState.current },
     language: languageFor(binding.target.name),
