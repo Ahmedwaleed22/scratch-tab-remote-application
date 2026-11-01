@@ -742,3 +742,107 @@ test('unsupported Word and binary files offer a download instead of an empty edi
     await browser.close();
   }
 });
+
+test('line numbers track edits, wrapping, scrolling and mobile sizing', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    await installBrowserImports(page);
+    await page.route('https://remote.test/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('.js'))
+        return route.fulfill({ contentType: 'text/javascript', body: await runtimeModule(path) });
+      return route.fulfill({
+        contentType: 'text/html',
+        body: '<a href="/api/chats/a/ide-open?path=/workspace/notes.txt">Text</a><a href="/api/chats/a/ide-open?path=/workspace/main.ts">Code</a>',
+      });
+    });
+    await page.goto('https://remote.test/');
+    await page.addStyleTag({
+      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+    });
+    await page.evaluate(async () => {
+      const { mountChat } = await window.importModule('/app/chat.js');
+      window.chatCleanup = mountChat({
+        context: { projectId: 'p1', chatId: 'a' },
+        drafts: new Map(),
+        launchIde() {},
+        files: {
+          async read() {
+            return { content: 'first\r\n\r\nlast\r\n', revision: '1' };
+          },
+          async save() {
+            return { revision: '2' };
+          },
+        },
+      });
+    });
+    for (const name of ['Text', 'Code']) {
+      await page.getByRole('link', { name, exact: true }).evaluate(node => {
+        if (node instanceof HTMLElement) node.click();
+      });
+      const panel = page.locator('.scratch-tab-window:visible');
+      const input = panel.locator('textarea');
+      await panel
+        .getByRole('tab', { name: name === 'Text' ? 'notes.txt' : 'main.ts', selected: true })
+        .waitFor();
+      await page.waitForFunction(
+        () =>
+          document.querySelector<HTMLTextAreaElement>(
+            '.scratch-tab-window:not([style*="display: none"]) textarea',
+          )?.readOnly === false,
+      );
+      const rows = panel.locator('.scratch-tab-line-mirror > div');
+      assert.deepEqual(
+        await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-line'))),
+        ['1', '2', '3', '4'],
+      );
+      await input.fill('');
+      assert.equal(await rows.count(), 1);
+      const long = 'a long wrapped line with tabs\t'.repeat(12);
+      await input.fill(
+        long + '\nsecond\n' + Array.from({ length: 120 }, (_, i) => `line ${i}`).join('\n'),
+      );
+      assert.equal(await rows.count(), 122);
+      for (const width of [1280, 375]) {
+        await page.setViewportSize({ width, height: 720 });
+        await input.evaluate(node => {
+          node.scrollTop = 0;
+          node.dispatchEvent(new Event('scroll'));
+        });
+        await page.waitForTimeout(100);
+        const dimensions = await panel.evaluate(node => {
+          const input = node.querySelector('textarea')!;
+          const mirror = node.querySelector<HTMLElement>('.scratch-tab-line-mirror')!;
+          const rows = mirror.children;
+          return {
+            lineHeight: parseFloat(getComputedStyle(input).lineHeight),
+            secondTop: rows[1]!.getBoundingClientRect().top - rows[0]!.getBoundingClientRect().top,
+            mirrorHeight: mirror.getBoundingClientRect().height,
+            scrollHeight: input.scrollHeight,
+            width: mirror.clientWidth,
+            inputWidth: input.clientWidth,
+          };
+        });
+        assert.equal(dimensions.width, dimensions.inputWidth);
+        assert.ok(dimensions.secondTop > dimensions.lineHeight * 2);
+        assert.ok(
+          Math.abs(dimensions.mirrorHeight - dimensions.scrollHeight) <= 2,
+          JSON.stringify(dimensions),
+        );
+        await input.evaluate(node => {
+          node.scrollTop = 200;
+          node.dispatchEvent(new Event('scroll'));
+        });
+        assert.equal(
+          await panel.locator('.scratch-tab-line-mirror').evaluate(node => node.style.transform),
+          'translateY(-200px)',
+        );
+      }
+      if (name === 'Code')
+        await page.screenshot({ path: '/workspace/artifacts/scratch-tab-line-numbers-mobile.png' });
+    }
+  } finally {
+    await browser.close();
+  }
+});
