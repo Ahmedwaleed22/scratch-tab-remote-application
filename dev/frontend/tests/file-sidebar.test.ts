@@ -411,6 +411,110 @@ test('tabs reveal nested files without scrollbars and refresh reports progress a
   }
 });
 
+test('folder toggles preserve the viewport without jumping back to the active file', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const workspace: Record<string, string> = {
+      'active.txt': 'active',
+      'zz-last/nested/file.txt': 'last',
+    };
+    for (let i = 0; i < 60; i++) workspace[`folder-${i}/child.txt`] = 'child';
+    await mountWorkspace(page, ['active.txt'], workspace);
+    await page.getByRole('link', { name: 'Open active.txt' }).click();
+    const panel = page.locator('.scratch-tab-window:visible');
+    await panel.getByRole('button', { name: 'Show files' }).click();
+    const files = panel.getByRole('navigation', { name: 'Workspace files' });
+    await files.getByRole('button', { name: 'active.txt', exact: true }).waitFor();
+    const tree = files.locator('.scratch-tab-tree');
+    let before = 0;
+    const prepare = async (name: string): Promise<void> => {
+      await files.getByRole('button', { name, exact: true }).scrollIntoViewIfNeeded();
+      before = await tree.evaluate(node => node.scrollTop);
+    };
+    const unchanged = async (): Promise<void> => {
+      assert.equal(await tree.evaluate(node => node.scrollTop), before);
+    };
+    const folder = files.getByRole('button', { name: 'folder-20', exact: true });
+    await prepare('folder-20');
+    await folder.click();
+    await files.getByRole('button', { name: 'child.txt', exact: true }).waitFor();
+    await unchanged();
+    await folder.click();
+    await unchanged();
+    await folder.press('Enter');
+    await unchanged();
+    await folder.press('Enter');
+    await unchanged();
+    const last = files.getByRole('button', { name: 'zz-last', exact: true });
+    await prepare('zz-last');
+    await last.click();
+    await files.getByRole('button', { name: 'nested', exact: true }).waitFor();
+    await unchanged();
+    await last.click();
+    await unchanged();
+    // An error from a folder listing must preserve the clicked row too.
+    await page.evaluate(() => {
+      delete window.workspace['folder-30/child.txt'];
+    });
+    await prepare('folder-30');
+    await files.getByRole('button', { name: 'folder-30', exact: true }).click();
+    await files.getByText('folder not found', { exact: true }).waitFor();
+    await unchanged();
+    await page.evaluate(() => {
+      window.workspace['folder-30/child.txt'] = 'restored';
+    });
+    await files.getByRole('button', { name: 'Refresh files' }).click();
+    await files.getByRole('status').getByText('Files refreshed.', { exact: true }).waitFor();
+    await page.setViewportSize({ width: 360, height: 640 });
+    await panel.getByRole('button', { name: 'Show files' }).click();
+    await prepare('folder-20');
+    await folder.click();
+    await unchanged();
+  } finally {
+    await browser.close();
+  }
+});
+
+test('opening new and existing files preserves the sidebar viewport', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const workspace: Record<string, string> = { 'active.txt': 'active' };
+    for (let i = 0; i < 80; i++) workspace[`file-${i}.txt`] = 'content';
+    await mountWorkspace(page, ['active.txt'], workspace);
+    await page.getByRole('link', { name: 'Open active.txt' }).click();
+    const panel = page.locator('.scratch-tab-window:visible');
+    await panel.getByRole('button', { name: 'Show files' }).click();
+    const tree = panel.locator('.scratch-tab-tree');
+    await tree.getByRole('button', { name: 'file-40.txt', exact: true }).waitFor();
+    for (const name of ['file-40.txt', 'file-45.txt', 'file-40.txt', 'file-40.txt']) {
+      const file = tree.getByRole('button', { name, exact: true });
+      await file.evaluate(node => node.scrollIntoView({ block: 'center' }));
+      await tree.evaluate(node => {
+        node.scrollTop += 37;
+      });
+      const before = await tree.evaluate(node => node.scrollTop);
+      await file.click();
+      await panel.getByRole('tab', { name, exact: true, selected: true }).waitFor();
+      await page.waitForTimeout(150);
+      assert.equal(await tree.evaluate(node => node.scrollTop), before, name);
+    }
+    // A file deleted after listing still preserves the viewport when its error appears.
+    await page.evaluate(() => {
+      delete window.workspace['file-42.txt'];
+    });
+    const missing = tree.getByRole('button', { name: 'file-42.txt', exact: true });
+    await missing.scrollIntoViewIfNeeded();
+    const before = await tree.evaluate(node => node.scrollTop);
+    await missing.click();
+    await panel.getByRole('heading', { name: 'File not found' }).waitFor();
+    assert.equal(await tree.evaluate(node => node.scrollTop), before);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('chat changes discard stale listings and errors and reload the visible tree', async () => {
   const { createFileTree } = await importFixtureModule('services/fileTree.js');
   const { FileTreeState } = await importFixtureModule('state/fileTree.js');

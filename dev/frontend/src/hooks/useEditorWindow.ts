@@ -119,6 +119,13 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
     binding.controllerRef,
     () => ({
       close: editor.close,
+      get sidebarScrollTop() {
+        return sidebar?.props.treeRef.current?.scrollTop ?? 0;
+      },
+      set sidebarScrollTop(top: number) {
+        const tree = sidebar?.props.treeRef.current;
+        if (tree) tree.scrollTop = top;
+      },
       restore() {
         raise();
         const tree = binding.fileTree;
