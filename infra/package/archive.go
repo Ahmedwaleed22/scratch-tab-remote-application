@@ -24,14 +24,26 @@ func buildPackage(root, output, tag string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var app struct {
-		Version string `json:"version"`
-	}
+	var app map[string]json.RawMessage
 	if err := json.Unmarshal(manifest, &app); err != nil {
 		return "", err
 	}
-	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(app.Version) || tag != "v"+app.Version {
-		return "", fmt.Errorf("tag must match application.json version vX.Y.Z")
+	if !regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(tag) {
+		return "", fmt.Errorf("tag must use vX.Y.Z format")
+	}
+	if app == nil {
+		return "", fmt.Errorf("application.json must be an object")
+	}
+	version := strings.TrimPrefix(tag, "v")
+	var currentVersion string
+	json.Unmarshal(app["version"], &currentVersion)
+	if currentVersion != version {
+		app["version"], _ = json.Marshal(version)
+		manifest, err = json.MarshalIndent(app, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		manifest = append(manifest, '\n')
 	}
 	files := []packageFile{}
 	for _, name := range []string{"README.md", "LICENSE", "application.json", "dev/frontend/ui/licenses/THIRD-PARTY.txt"} {
@@ -98,7 +110,12 @@ func buildPackage(root, output, tag string) (string, error) {
 	if err := os.MkdirAll(output, 0755); err != nil {
 		return "", err
 	}
-	archive := filepath.Join(output, "scratch-tab-"+app.Version+".zip")
+	if currentVersion != version {
+		if err := os.WriteFile(filepath.Join(root, "application.json"), manifest, 0644); err != nil {
+			return "", err
+		}
+	}
+	archive := filepath.Join(output, "scratch-tab-"+version+".zip")
 	if err := writeArchive(root, archive, files); err != nil {
 		return "", err
 	}
