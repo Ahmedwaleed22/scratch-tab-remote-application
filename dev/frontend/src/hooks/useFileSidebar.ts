@@ -18,6 +18,7 @@ export function useFileSidebar(
   onOpenFile: ((entry: DirectoryEntry) => void) | undefined,
 ): FileSidebarController | null {
   const treeRef = useRef<HTMLDivElement>(null);
+  const manualExpansion = useRef<ReadonlySet<string> | null>(null);
   const [refreshRequested, setRefreshRequested] = useState(false);
   const [, refresh] = useReducer((value: number) => value + 1, 0);
   const [compact, setCompact] = useState(() => matchMedia(WINDOW_LAYOUT.compactQuery).matches);
@@ -44,11 +45,17 @@ export function useFileSidebar(
     return () => window.clearTimeout(timer);
   }, [busy, refreshRequested]);
   useLayoutEffect(() => {
-    if (!visible) return;
-    treeRef.current
-      ?.querySelector<HTMLElement>('[aria-current="page"]')
+    manualExpansion.current = null;
+  }, [visible, activePath]);
+  useLayoutEffect(() => {
+    const container = treeRef.current;
+    if (!visible || !container) return;
+    // Manual folder toggles and their asynchronous listings preserve the viewport.
+    if (manualExpansion.current === snapshot?.expanded) return;
+    container
+      .querySelector<HTMLElement>('[aria-current="page"]')
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [visible, activePath, snapshot?.children, snapshot?.expanded]);
+  }, [visible, activePath, snapshot?.children, snapshot?.expanded, snapshot?.loading]);
   useLayoutEffect(() => {
     if (visible) tree?.reveal(activePath);
   }, [tree, visible, activePath]);
@@ -64,7 +71,10 @@ export function useFileSidebar(
       busy,
       refreshStatus,
       downloadUrl: entry => tree.downloadUrl(entry.path),
-      onToggleFolder: entry => tree.toggleFolder(entry.path),
+      onToggleFolder(entry) {
+        tree.toggleFolder(entry.path);
+        manualExpansion.current = tree.snapshot.expanded;
+      },
       onRefresh() {
         setRefreshRequested(true);
         tree.refresh();

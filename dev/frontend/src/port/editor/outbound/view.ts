@@ -3,6 +3,7 @@ import type { EditorWindowGeometry } from '../../../model/editor/application/win
 
 export interface EditorWindowView {
   readonly geometry: EditorWindowGeometry;
+  sidebarScrollTop: number;
   close(force?: boolean, confirmed?: boolean): void;
   restore(): void;
   focus(): void;

@@ -42,7 +42,12 @@ export default function FileSidebar(props: FileSidebarProps): JSX.Element {
           {icon(FILE_TREE_ICONS.refresh)}
         </Button>
       </div>
-      <div class="scratch-tab-tree" ref={treeRef} aria-busy={busy}>
+      <div
+        class="scratch-tab-tree"
+        ref={treeRef}
+        aria-busy={busy}
+        style={{ overflowAnchor: 'none' }}
+      >
         <Folder {...props} path="" depth={0} />
       </div>
       <p class="scratch-tab-refresh-status" role="status">
