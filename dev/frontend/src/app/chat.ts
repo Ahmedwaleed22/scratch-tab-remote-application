@@ -156,7 +156,12 @@ export function mountChat({
           context.cwd,
         );
         // Sidebar files join the window they were picked from.
-        if (opened) open(opened, item.group);
+        if (opened) {
+          const scrollTop = item.window.sidebarScrollTop;
+          open(opened, item.group);
+          // Each tab owns a sidebar; picking a file keeps the browsing viewport.
+          windows.get(opened.path)!.window.sidebarScrollTop = scrollTop;
+        }
       },
     });
     group.items.set(target.path, item);
