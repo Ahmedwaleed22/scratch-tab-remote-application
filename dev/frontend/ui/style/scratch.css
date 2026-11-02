@@ -647,7 +647,8 @@
   flex-direction: column;
   flex-shrink: 0;
   box-sizing: border-box;
-  width: 200px;
+  width: var(--scratch-files-width, 200px);
+  max-width: calc(100% - 240px);
   min-height: 0;
   border-right: 1px solid var(--line, #bbb);
   background: rgb(var(--bg-raised-rgb, 240 240 242));
@@ -816,6 +817,7 @@
     inset: 0 auto 0 0;
     z-index: 2;
     width: min(300px, 88%);
+    max-width: none;
     box-shadow: 8px 0 30px #0003;
   }
   .scratch-tab-tree-row {
@@ -1222,3 +1224,49 @@
   }
 }
 
+.scratch-tab-splitter {
+  position: relative;
+  z-index: 3;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  touch-action: none;
+  transition: background-color 0.1s 0.15s;
+}
+.scratch-tab-splitter[data-orientation='vertical'] {
+  width: 5px;
+  margin: 0 -3px 0 -2px;
+  cursor: col-resize;
+}
+.scratch-tab-splitter[data-orientation='horizontal'] {
+  height: 5px;
+  margin: -2px 0 -3px;
+  cursor: row-resize;
+}
+.scratch-tab-splitter:hover,
+.scratch-tab-splitter:active,
+.scratch-tab-splitter:focus-visible {
+  outline: 0;
+  background: rgb(var(--accent-blue, 45 100 215));
+}
+@media (pointer: coarse) {
+  /* A wider invisible grip for fingers; the visible line stays thin. */
+  .scratch-tab-splitter::before {
+    content: '';
+    position: absolute;
+    inset: -8px 0;
+  }
+  .scratch-tab-splitter[data-orientation='vertical']::before {
+    inset: 0 -8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scratch-tab-splitter {
+    transition: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .scratch-tab-sidebar-splitter {
+    display: none;
+  }
+}

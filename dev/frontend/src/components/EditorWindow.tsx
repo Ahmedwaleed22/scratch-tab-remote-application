@@ -1,3 +1,5 @@
+import type { PanelSize } from '../hooks/usePanelSize.js';
+import Splitter from './Splitter.js';
 import LineNumbers from './LineNumbers.js';
 import type { JSX, RefObject } from 'preact';
 import EditorFindBar, { EditorFindHighlights } from './EditorFindBar.js';
@@ -23,6 +25,7 @@ export interface EditorElements {
   tabs: RefObject<HTMLDivElement>;
 }
 export interface EditorWindowProps {
+  panels: { files: PanelSize };
   target: FileTarget;
   tools: EditorTools;
   text: string;
@@ -47,6 +50,7 @@ export interface EditorWindowProps {
 }
 
 export default function EditorWindow({
+  panels,
   target,
   tools,
   text,
@@ -82,7 +86,9 @@ export default function EditorWindow({
       onPointerDown={onRaise}
       style={{ '--scratch-tab-size': tools.indentation.size }}
       onKeyDownCapture={event => {
-        if (!(event.target instanceof Element && event.target.closest('.scratch-tab-quick-pick-menu')))
+        if (!(
+          event.target instanceof Element && event.target.closest('.scratch-tab-quick-pick-menu')
+        ))
           onEditorKeyDown(event);
       }}
       onKeyDown={event => {
@@ -153,8 +159,24 @@ export default function EditorWindow({
         sidebarOpen={sidebar?.visible}
         onToggleSidebar={sidebar?.toggle}
       />
-      <div class="scratch-tab-body">
+      <div
+        class="scratch-tab-body"
+        style={{
+          '--scratch-files-width':
+            panels.files.size === null ? undefined : `${panels.files.size}px`,
+        }}
+      >
         {sidebar && <FileSidebar {...sidebar.props} />}
+        {sidebar?.visible && (
+          <Splitter
+            class="scratch-tab-sidebar-splitter"
+            orientation="vertical"
+            label="Resize files sidebar"
+            size={handle => handle.previousElementSibling!.getBoundingClientRect().width}
+            bounds={handle => [160, handle.parentElement!.clientWidth - 240]}
+            onResize={panels.files.resize}
+          />
+        )}
         <div class="scratch-tab-main">
           {!settled && <EditorFindBar tools={tools} />}
           {state.missing && (

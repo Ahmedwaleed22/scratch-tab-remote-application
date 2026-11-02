@@ -116,6 +116,23 @@ test('file sidebar browses the workspace, opens files as tabs and remembers its 
     assert.deepEqual(await page.evaluate(() => window.listings), []);
     await visible.getByRole('button', { name: 'Show files' }).click();
     await files.getByRole('button', { name: 'src', exact: true }).waitFor();
+    // The sidebar width is draggable and keyboard-adjustable, and remembered per view.
+    const resize = visible.getByRole('separator', { name: 'Resize files sidebar' });
+    assert.equal(Math.round((await files.boundingBox())!.width), 200);
+    const grip = (await resize.boundingBox())!;
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2 + 60, grip.y + 20);
+    await page.mouse.up();
+    assert.equal(Math.round((await files.boundingBox())!.width), 260);
+    await resize.press('ArrowLeft');
+    assert.equal(Math.round((await files.boundingBox())!.width), 250);
+    assert.equal(
+      await page.evaluate(() => localStorage.getItem('scratch-tab:panel-size:files')),
+      '250',
+    );
+    await resize.press('Enter');
+    assert.equal(Math.round((await files.boundingBox())!.width), 200);
     // The opened file's folders are revealed and the file is highlighted.
     assert.equal(
       await files.getByRole('button', { name: 'src', exact: true }).getAttribute('aria-expanded'),
