@@ -152,3 +152,34 @@ func (w *workspaceFiles) Create(name, content string) model.SaveFailure {
 }
 
 func digest(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeToString(sum[:]) }
+
+// Rooted opens prevent directory symlinks from escaping the project workspace.
+func (w *workspaceFiles) List(name string) ([]model.DirectoryEntry, error) {
+	directory, err := w.root.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer directory.Close()
+	entries := make([]model.DirectoryEntry, 0)
+	for {
+		batch, err := directory.ReadDir(256)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		for _, entry := range batch {
+			if entry.Type()&os.ModeSymlink != 0 {
+				continue
+			}
+			if !entry.IsDir() && !entry.Type().IsRegular() {
+				continue
+			}
+			if len(entries) >= 10000 {
+				return nil, errors.New("folder entry limit exceeded")
+			}
+			entries = append(entries, model.DirectoryEntry{Name: entry.Name(), Path: filepath.ToSlash(filepath.Join(name, entry.Name())), IsDir: entry.IsDir()})
+		}
+		if err == io.EOF {
+			return entries, nil
+		}
+	}
+}

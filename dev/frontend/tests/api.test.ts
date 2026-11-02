@@ -55,38 +55,51 @@ test('file API validates read and save responses and preserves request shapes', 
   }
 });
 
-test('directory API lists Remote workspace folders and reports its errors', async () => {
+test('directory API uses the project backend after Remote removes chat listings', async () => {
   const { createDirectories } = await importFixtureModule('api/directories.js');
+  const requests: unknown[] = [];
+  const signal = new AbortController().signal;
+  let result: unknown = { entries: [{ name: 'app.ts', path: 'src/app.ts', isDir: false }] };
+  const directories = createDirectories(
+    backendFixture({
+      async call(path, options) {
+        requests.push({ path, ...options });
+        return result;
+      },
+    }),
+    'project',
+  );
   const originalFetch = globalThis.fetch;
-  const requests: string[] = [];
-  let response = (): Response =>
-    Response.json({
-      path: 'src',
-      entries: [
-        { name: 'app.ts', path: 'src/app.ts', isDir: false, size: 3 },
-        { name: 'lib', path: 'src/lib', isDir: true },
-        { name: 42, path: 'src/bad', isDir: false },
-      ],
-      truncated: false,
-    });
-  globalThis.fetch = async input => {
-    requests.push(String(input));
-    return response();
-  };
+  globalThis.fetch = async () => Response.json({ error: 'not found' }, { status: 404 });
   try {
-    const directories = createDirectories();
-    assert.deepEqual(await directories.list('chat 1', 'src'), [
+    assert.deepEqual(await directories.list('chat', 'src', signal), [
       { name: 'app.ts', path: 'src/app.ts', isDir: false },
-      { name: 'lib', path: 'src/lib', isDir: true },
     ]);
-    await directories.list('chat 1', '');
-    assert.deepEqual(requests, ['/api/chats/chat%201/files?path=src', '/api/chats/chat%201/files']);
-    response = () => Response.json({ error: 'folder not found' }, { status: 404 });
-    await assert.rejects(directories.list('chat', 'gone'), /^Error: folder not found$/);
-    response = () => new Response('<html>', { status: 502 });
-    await assert.rejects(directories.list('chat', ''), /Cannot list folder \(502\)/);
-    response = () => Response.json({ entries: null });
-    await assert.rejects(directories.list('chat', ''), /Unexpected folder response/);
+    await directories.list('other-chat', '', signal);
+    assert.deepEqual(requests, [
+      {
+        path: 'file',
+        projectId: 'project',
+        method: 'POST',
+        body: { list: true, path: '/workspace/src' },
+        signal,
+      },
+      {
+        path: 'file',
+        projectId: 'project',
+        method: 'POST',
+        body: { list: true, path: '/workspace/' },
+        signal,
+      },
+    ]);
+    assert.equal(
+      directories.downloadUrl('chat 1', 'src/app.ts'),
+      '/api/chats/chat%201/files/download?path=src%2Fapp.ts',
+    );
+    result = { entries: [{ name: 42, path: 'bad', isDir: false }] };
+    assert.deepEqual(await directories.list('chat', '', signal), []);
+    result = { entries: null };
+    await assert.rejects(directories.list('chat', '', signal), /Unexpected folder response/);
   } finally {
     globalThis.fetch = originalFetch;
   }

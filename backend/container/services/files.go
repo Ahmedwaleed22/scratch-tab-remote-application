@@ -25,6 +25,9 @@ func (s Files) Operate(workspace string, request model.Request) model.Result {
 		return fail(400, "Choose a workspace file.")
 	}
 	name := strings.TrimPrefix(request.Path, "/workspace/")
+	if request.List && name == "" {
+		name = "."
+	}
 	if name == "" || filepath.Clean(name) != name || strings.HasPrefix(name, "../") || strings.ContainsRune(name, 0) {
 		return fail(400, "Invalid workspace path.")
 	}
@@ -33,6 +36,16 @@ func (s Files) Operate(workspace string, request model.Request) model.Result {
 		return fail(503, "Workspace is unavailable.")
 	}
 	defer files.Close()
+	if request.List {
+		if request.Save || request.Create {
+			return fail(400, "A folder listing cannot save files.")
+		}
+		entries, err := files.List(name)
+		if err != nil {
+			return fail(400, "Cannot list folder. It may be missing or outside the workspace.")
+		}
+		return model.Result{Status: 200, Entries: &entries}
+	}
 	file, err := files.Open(name)
 	if err == model.ErrMissing && request.Save && request.Create {
 		return create(files, name, request.Content)

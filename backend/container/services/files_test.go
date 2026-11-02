@@ -146,3 +146,40 @@ func operate(root string, request model.Request) model.Result {
 	return (services.Files{Open: repositories.OpenWorkspace}).Operate(root, request)
 }
 func digest(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeToString(sum[:]) }
+
+func TestDirectoryListings(t *testing.T) {
+	root := t.TempDir()
+	os.Mkdir(filepath.Join(root, "src"), 0755)
+	os.WriteFile(filepath.Join(root, "src", "app.ts"), []byte("text"), 0644)
+	os.Mkdir(filepath.Join(root, "empty"), 0755)
+	outside := t.TempDir()
+	os.WriteFile(filepath.Join(outside, "secret"), []byte("private"), 0600)
+	os.Symlink(outside, filepath.Join(root, "escape"))
+	os.Symlink(filepath.Join(outside, "secret"), filepath.Join(root, "link"))
+	result := operate(root, model.Request{Path: "/workspace/", List: true})
+	if result.Status != 200 || result.Entries == nil || len(*result.Entries) != 2 {
+		t.Fatal(result)
+	}
+	for _, entry := range *result.Entries {
+		if !entry.IsDir || entry.Path != entry.Name {
+			t.Fatal(entry)
+		}
+	}
+	result = operate(root, model.Request{Path: "/workspace/src", List: true})
+	if result.Status != 200 || result.Entries == nil || len(*result.Entries) != 1 || (*result.Entries)[0] != (model.DirectoryEntry{Name: "app.ts", Path: "src/app.ts", IsDir: false}) {
+		t.Fatal(result)
+	}
+	result = operate(root, model.Request{Path: "/workspace/empty", List: true})
+	if result.Status != 200 || result.Entries == nil || len(*result.Entries) != 0 {
+		t.Fatal(result)
+	}
+	for _, path := range []string{"/workspace/missing", "/workspace/src/app.ts", "/workspace/escape", "/workspace/../", "/etc", "/workspace/a/../../"} {
+		if result := operate(root, model.Request{Path: path, List: true}); result.Status == 200 {
+			t.Fatal(path, result)
+		}
+	}
+	result = operate(root, model.Request{Path: "/workspace/src", List: true, Save: true})
+	if result.Status != 400 {
+		t.Fatal(result)
+	}
+}

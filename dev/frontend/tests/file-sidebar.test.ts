@@ -29,6 +29,7 @@ async function mountWorkspace(page: Page, links: string[], workspace: Record<str
   await page.evaluate(
     async ({ workspace, missing }) => {
       const { mountChat } = await window.importModule('/app/chat.js');
+      const { createDirectories } = await window.importModule('/api/directories.js');
       window.workspace = workspace;
       window.listings = [];
       window.creates = [];
@@ -37,23 +38,41 @@ async function mountWorkspace(page: Page, links: string[], workspace: Record<str
         context: { chatId: 'a', projectId: 'p1' },
         drafts: window.drafts,
         launchIde: () => {},
-        directories: {
-          downloadUrl: (chatId, relative) =>
-            `/api/chats/${encodeURIComponent(chatId)}/files/download?path=${encodeURIComponent(relative)}`,
-          async list(chatId, relative) {
-            window.listings.push(`${chatId}:${relative}`);
-            await new Promise(resolve => setTimeout(resolve, 80));
-            const prefix = relative ? relative + '/' : '';
-            const entries = new Map<string, boolean>();
-            for (const file of Object.keys(window.workspace)) {
-              if (!file.startsWith(prefix)) continue;
-              const [name, ...rest] = file.slice(prefix.length).split('/');
-              entries.set(name!, rest.length > 0 || entries.get(name!) === true);
-            }
-            if (relative && !entries.size) throw new Error('folder not found');
-            return [...entries].map(([name, isDir]) => ({ name, path: prefix + name, isDir }));
-          },
-        },
+        directories: createDirectories(
+          window.createRemote({
+            backend: {
+              async call(route, { body, projectId, method }) {
+                if (
+                  route !== 'file' ||
+                  projectId !== 'p1' ||
+                  method !== 'POST' ||
+                  !('list' in body) ||
+                  body.list !== true
+                )
+                  throw new Error('Expected project directory command');
+                const relative = body.path.slice('/workspace/'.length);
+                window.listings.push(`a:${relative}`);
+                await new Promise(resolve => setTimeout(resolve, 80));
+                const prefix = relative ? relative + '/' : '';
+                const entries = new Map<string, boolean>();
+                for (const file of Object.keys(window.workspace)) {
+                  if (!file.startsWith(prefix)) continue;
+                  const [name, ...rest] = file.slice(prefix.length).split('/');
+                  entries.set(name!, rest.length > 0 || entries.get(name!) === true);
+                }
+                if (relative && !entries.size) throw new Error('folder not found');
+                return {
+                  entries: [...entries].map(([name, isDir]) => ({
+                    name,
+                    path: prefix + name,
+                    isDir,
+                  })),
+                };
+              },
+            },
+          }).backend,
+          'p1',
+        ),
         files: {
           async read(path) {
             const content = window.workspace[path.slice('/workspace/'.length)];
@@ -372,7 +391,7 @@ test('tabs reveal nested files without scrollbars and refresh reports progress a
     await page.waitForFunction(() => document.querySelector('.scratch-tab-tree')?.scrollTop === 0);
     const refresh = files.getByRole('button', { name: 'Refresh files' });
     // Hold the 80 ms listing delay until progress has been observed.
-    await page.clock.pauseAt(await page.evaluate(() => Date.now()));
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
     await refresh.click();
     await files.getByRole('status').getByText('Refreshing…', { exact: true }).waitFor();
     assert.equal(await refresh.isDisabled(), true);
