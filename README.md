@@ -4,6 +4,8 @@ A lightweight text editor app for [Remote](https://github.com/futrx-com/remote.f
 
 [Download Scratch Tab](https://github.com/Ahmedwaleed22/scratch-tab-remote-application/releases/latest) · [License](LICENSE)
 
+For the complete changes since v0.8.0, see the [v0.9.0 release notes](docs/releases/0.9.0.md).
+
 ## Install
 
 Download the installable ZIP, upload it through **Settings → Applications**, then install and start Scratch Tab in your project. The first installation of a version with the updater still requires uploading its ZIP and refreshing Remote. After that, administrators can use **Applications → Scratch Tab card → Updates**. An update icon also appears in the chat toolbar when a newer version is available; click it to open the same updater. Background checks run when opening a chat and hourly while it remains open, with recent results reused between chats. The icon is shown only to administrators. The updater also checks GitHub when opened and every six hours while open. GitHub release results may be cached for up to one hour. Click **Update** to install a newer stable release; updating replaces Scratch Tab across all projects on the server. Save work in other tabs first. Unsaved Scratch Tab drafts in this tab block installation and refresh. Failed project upgrades are reported without refreshing. Manual ZIP uploads remain available.
@@ -29,6 +31,8 @@ Diffs support unified and side-by-side views, line numbers, word-level changes, 
 Git must be installed in the project container. Tracked diff output is limited to 512 KiB and untracked text previews to 128 KiB. Repository scans are bounded; a very large workspace may report an error. An existing installation needs its container command updated (reinstall Scratch Tab if the UI reports an unexpected Git response).
 
 ## Edit and save
+
+The source editor shows line numbers for plain text and highlighted code. Numbers update as you type and remain aligned through blank lines, wrapping, scrolling and mobile resizing. Drag the Files sidebar divider to resize it; its width is remembered in this browser. Arrow keys adjust a focused divider; Enter or double-click restores its default size.
 
 Programming files get syntax highlighting based on their extension: JavaScript/JSX, TypeScript/TSX, Python, Go, JSON, shell, HTML/XML, CSS, Markdown, YAML, SQL, Rust, Java, C/C++, and PHP. Unknown extensions stay plain text. Highlighting updates as you type and does not reformat or change the file. Very large drafts and lines over 8,192 characters display without colors to keep editing responsive.
 
