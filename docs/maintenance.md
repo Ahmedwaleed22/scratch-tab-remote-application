@@ -92,7 +92,7 @@ CI runs container tests, vet and an installer-style build on Go 1.24.7 and 1.25,
 
 ## Release ownership
 
-Only the owner manages versions and publishes packages. Set `application.json` to the intended version, run the checks, commit, and push a matching `vX.Y.Z` tag after its commit reaches main. The workflow builds a runtime-only ZIP and attaches it to a GitHub Release. Main-branch pushes run checks without publishing. A manual workflow dispatch accepts an existing tag for retries.
+Only the owner manages versions and publishes packages. Run the checks, commit, and push a `vX.Y.Z` release tag after its commit reaches main. The tag is the release version: the packager automatically updates `application.json` in its checkout before creating the ZIP, so an older manifest version does not block a release. This checkout change is included in the ZIP but is not committed back to main. Invalid tags (including prerelease tags) are rejected. The workflow builds a runtime-only ZIP and attaches it to a GitHub Release. Main-branch pushes run checks without publishing. A manual workflow dispatch accepts an existing tag for retries.
 
 ```sh
 npm run build

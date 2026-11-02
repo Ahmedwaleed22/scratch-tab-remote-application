@@ -166,9 +166,61 @@ func TestMissingBundleRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func TestWrongTagRejected(t *testing.T) {
-	if _, err := buildPackage(sourceRoot(t), t.TempDir(), "v0.0.0"); err == nil || !strings.Contains(err.Error(), "tag must match") {
+func TestReleaseTagSetsManifestVersion(t *testing.T) {
+	root := fixture(t)
+	write(t, root, "application.json", `{"id":"scratch-tab","version":"1.0.0","ui":{"entry":"scripts/main.js"}}`)
+	write(t, root, "dist/main.js", "main")
+	archive, err := buildPackage(root, t.TempDir(), "v2.3.4")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if filepath.Base(archive) != "scratch-tab-2.3.4.zip" {
+		t.Fatal(archive)
+	}
+	manifest := read(t, filepath.Join(root, "application.json"))
+	var app map[string]json.RawMessage
+	if err := json.Unmarshal(manifest, &app); err != nil {
+		t.Fatal(err)
+	}
+	if string(app["version"]) != `"2.3.4"` || string(app["id"]) != `"scratch-tab"` || !bytes.Contains(app["ui"], []byte("scripts/main.js")) {
+		t.Fatal(string(manifest))
+	}
+	reader, err := zip.OpenReader(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	for _, file := range reader.File {
+		if file.Name == "application.json" {
+			stream, err := file.Open()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer stream.Close()
+			data, err := io.ReadAll(stream)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(data, manifest) {
+				t.Fatal("ZIP manifest differs from updated source")
+			}
+			return
+		}
+	}
+	t.Fatal("missing manifest")
+}
+func TestInvalidTagRejected(t *testing.T) {
+	for _, tag := range []string{"", "2.3.4", "v2.3.4-rc.1", "v../../file"} {
+		t.Run(tag, func(t *testing.T) {
+			root := fixture(t)
+			before := read(t, filepath.Join(root, "application.json"))
+			if _, err := buildPackage(root, t.TempDir(), tag); err == nil || !strings.Contains(err.Error(), "vX.Y.Z") {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(before, read(t, filepath.Join(root, "application.json"))) {
+				t.Fatal("invalid tag changed manifest")
+			}
+		})
 	}
 }
 func TestSymlinkRejected(t *testing.T) {
