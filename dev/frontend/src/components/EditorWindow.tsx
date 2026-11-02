@@ -1,6 +1,10 @@
+import ActivityIcon from './ActivityIcon.js';
+import LineNumbers from './LineNumbers.js';
+import SourceControl from './SourceControl.js';
+import GitDiff from './GitDiff.js';
+import type { GitController } from '../hooks/useGit.js';
 import type { PanelSize } from '../hooks/usePanelSize.js';
 import Splitter from './Splitter.js';
-import LineNumbers from './LineNumbers.js';
 import type { JSX, RefObject } from 'preact';
 import EditorFindBar, { EditorFindHighlights } from './EditorFindBar.js';
 import IndentationControl from './IndentationControl.js';
@@ -25,7 +29,8 @@ export interface EditorElements {
   tabs: RefObject<HTMLDivElement>;
 }
 export interface EditorWindowProps {
-  panels: { files: PanelSize };
+  git: GitController | null;
+  panels: { files: PanelSize; git: PanelSize; graph: PanelSize };
   target: FileTarget;
   tools: EditorTools;
   text: string;
@@ -50,8 +55,9 @@ export interface EditorWindowProps {
 }
 
 export default function EditorWindow({
-  panels,
   target,
+  git,
+  panels,
   tools,
   text,
   onEditorKeyDown,
@@ -87,7 +93,10 @@ export default function EditorWindow({
       style={{ '--scratch-tab-size': tools.indentation.size }}
       onKeyDownCapture={event => {
         if (!(
-          event.target instanceof Element && event.target.closest('.scratch-tab-quick-pick-menu')
+          event.target instanceof Element &&
+          event.target.closest(
+            '.scratch-tab-quick-pick-menu, .scratch-tab-git, .scratch-tab-git-diff',
+          )
         ))
           onEditorKeyDown(event);
       }}
@@ -126,7 +135,10 @@ export default function EditorWindow({
             {state.missing ? 'Recreate' : 'Save'}
           </Button>
           <Button
-            onClick={tools.openFind}
+            onClick={() => {
+              if (git?.open) git.toggle();
+              tools.openFind();
+            }}
             disabled={!state.editable}
             aria-label="Find in file"
             title="Find in file (Ctrl/Cmd+F)"
@@ -151,33 +163,65 @@ export default function EditorWindow({
           {onOpenIde && <Button onClick={onOpenIde}>Open with default editor</Button>}
         </div>
       </header>
+      {git && (
+        <div class="scratch-tab-activity" role="toolbar" aria-label="Editor views">
+          <Button
+            aria-label={!git.open && sidebar?.visible ? 'Hide files' : 'Show files'}
+            title="Explorer"
+            aria-pressed={!git.open && sidebar?.visible}
+            disabled={!sidebar}
+            onClick={() => {
+              if (git.open) {
+                git.toggle();
+                if (!sidebar?.visible) sidebar?.toggle();
+              } else sidebar?.toggle();
+            }}
+          >
+            <ActivityIcon name="files" />
+          </Button>
+          <Button
+            aria-label="Source Control"
+            title="Source Control"
+            aria-pressed={git.open}
+            onClick={git.toggle}
+          >
+            <ActivityIcon name="git" />
+          </Button>
+        </div>
+      )}
       <FileTabs
         entries={state.tabs}
         activePath={state.activePath}
         tabsRef={elements.tabs}
         onSeparate={onSeparate}
         sidebarOpen={sidebar?.visible}
-        onToggleSidebar={sidebar?.toggle}
+        onToggleSidebar={git ? undefined : sidebar?.toggle}
       />
       <div
         class="scratch-tab-body"
         style={{
           '--scratch-files-width':
             panels.files.size === null ? undefined : `${panels.files.size}px`,
+          '--scratch-git-width': panels.git.size === null ? undefined : `${panels.git.size}px`,
         }}
       >
-        {sidebar && <FileSidebar {...sidebar.props} />}
-        {sidebar?.visible && (
+        {git?.open ? (
+          <SourceControl git={git} graph={panels.graph} />
+        ) : (
+          sidebar && <FileSidebar {...sidebar.props} />
+        )}
+        {(git?.open || sidebar?.visible) && (
           <Splitter
             class="scratch-tab-sidebar-splitter"
             orientation="vertical"
-            label="Resize files sidebar"
+            label={git?.open ? 'Resize Source Control' : 'Resize files sidebar'}
             size={handle => handle.previousElementSibling!.getBoundingClientRect().width}
             bounds={handle => [160, handle.parentElement!.clientWidth - 240]}
-            onResize={panels.files.resize}
+            onResize={(git?.open ? panels.git : panels.files).resize}
           />
         )}
         <div class="scratch-tab-main">
+          {git && <GitDiff git={git} />}
           {!settled && <EditorFindBar tools={tools} />}
           {state.missing && (
             <div class="scratch-tab-missing" role="alert">

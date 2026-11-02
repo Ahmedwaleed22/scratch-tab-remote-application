@@ -1,4 +1,8 @@
 export interface FixtureModules {
+  'api/git.js': typeof import('../../src/api/git.js');
+  'model/git/application/diff.js': typeof import('../../src/model/git/application/diff.js');
+  'presenters/diff.js': typeof import('../../src/presenters/diff.js');
+  'model/git/application/graph.js': typeof import('../../src/model/git/application/graph.js');
   'services/indentation.js': typeof import('../../src/services/indentation.js');
   'hooks/useEditorTools.js': typeof import('../../src/hooks/useEditorTools.js');
   '/main.js': typeof import('../../src/index.js');
@@ -124,6 +128,7 @@ declare global {
     intervalIds: Set<number>;
     uploads: number;
     view: import('../../src/port/editor/outbound/view.js').EditorWindowView;
+    gitCalls: import('../../src/model/git/application/git.js').GitRequest[];
     writes: import('../../src/types.js').BackendOptions[];
     workspace: Record<string, string>;
     listings: string[];

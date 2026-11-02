@@ -65,3 +65,29 @@ func TestCommandLockUnavailable(t *testing.T) {
 		t.Fatal(result.String(), diagnostics.String())
 	}
 }
+
+func TestGitReadsDoNotWaitForSaveLock(t *testing.T) {
+	for _, action := range []string{"repository", "repositories", "status", "log", "diff"} {
+		t.Run(action, func(t *testing.T) {
+			command := Command{
+				Lock:    func() (io.Closer, error) { return nil, errors.New("busy save lock") },
+				Operate: func(request model.Request) model.Result { return model.Result{Status: 200} },
+			}
+			var result, diagnostics bytes.Buffer
+			command.Serve(strings.NewReader(`{"git":{"action":"`+action+`"}}`), &result, &diagnostics)
+			if !strings.Contains(result.String(), `"status":200`) {
+				t.Fatal("Git read waited for the global save lock:", result.String())
+			}
+		})
+	}
+}
+func TestGitMutationsKeepSaveLock(t *testing.T) {
+	for _, action := range []string{"stage", "unstage", "commit", "fetch", "pull", "push", "sync", "publish", "unknown"} {
+		command := Command{Lock: func() (io.Closer, error) { return nil, errors.New("busy") }}
+		var result, diagnostics bytes.Buffer
+		command.Serve(strings.NewReader(`{"git":{"action":"`+action+`"}}`), &result, &diagnostics)
+		if !strings.Contains(result.String(), `"status":503`) {
+			t.Fatal(action, result.String())
+		}
+	}
+}

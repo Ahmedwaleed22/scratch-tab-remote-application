@@ -404,6 +404,9 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+.scratch-tab-codearea,
+.scratch-tab-git-diff {
   --syntax-keyword: #6639ba;
   --syntax-string: #17663a;
   --syntax-comment: #626871;
@@ -446,33 +449,33 @@
   -webkit-text-fill-color: transparent;
   caret-color: rgb(var(--fg, 32 32 36));
 }
-.scratch-tab-codearea .hljs-keyword,
-.scratch-tab-codearea .hljs-literal,
-.scratch-tab-codearea .hljs-selector-tag {
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-keyword,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-literal,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-selector-tag {
   color: var(--syntax-keyword);
 }
-.scratch-tab-codearea .hljs-string,
-.scratch-tab-codearea .hljs-regexp {
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-string,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-regexp {
   color: var(--syntax-string);
 }
-.scratch-tab-codearea .hljs-comment,
-.scratch-tab-codearea .hljs-quote {
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-comment,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-quote {
   color: var(--syntax-comment);
 }
-.scratch-tab-codearea .hljs-number,
-.scratch-tab-codearea .hljs-built_in,
-.scratch-tab-codearea .hljs-meta {
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-number,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-built_in,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-meta {
   color: var(--syntax-number);
 }
-.scratch-tab-codearea .hljs-title,
-.scratch-tab-codearea .hljs-attr,
-.scratch-tab-codearea .hljs-name,
-.scratch-tab-codearea .hljs-type,
-.scratch-tab-codearea .hljs-section {
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-title,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-attr,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-name,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-type,
+:is(.scratch-tab-codearea, .scratch-tab-git-diff) .hljs-section {
   color: var(--syntax-name);
 }
-:root[data-theme='dark'] .scratch-tab-codearea,
-:root.dark .scratch-tab-codearea {
+:root[data-theme='dark'] :is(.scratch-tab-codearea, .scratch-tab-git-diff),
+:root.dark :is(.scratch-tab-codearea, .scratch-tab-git-diff) {
   --syntax-keyword: #c4a7ff;
   --syntax-string: #a6d89b;
   --syntax-comment: #a5aab5;
@@ -1224,6 +1227,825 @@
   }
 }
 
+.scratch-tab-activity {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line, #bbb);
+  background: rgb(var(--bg-raised-rgb, 240 240 242));
+}
+.scratch-tab-activity > button {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  border: 0;
+  border-radius: 7px;
+  color: rgb(var(--fg, 32 32 36) / 0.65);
+  background: transparent;
+  cursor: pointer;
+}
+.scratch-tab-activity > button:hover,
+.scratch-tab-activity > button[aria-pressed='true'] {
+  color: rgb(var(--fg, 32 32 36));
+  background: rgb(var(--fg, 32 32 36) / 0.06);
+}
+.scratch-tab-git button,
+.scratch-tab-git-diff button {
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.scratch-tab-git button:disabled {
+  cursor: default;
+}
+.scratch-tab-git {
+  --git-muted: rgb(var(--fg, 32 32 36) / 0.6);
+  --git-hover: rgb(var(--fg, 32 32 36) / 0.07);
+  --git-on-accent: rgb(var(--bg-surface-rgb, 250 250 250));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: var(--scratch-git-width, 300px);
+  max-width: calc(100% - 240px);
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--line, #bbb);
+  background: rgb(var(--bg-raised-rgb, 240 240 242));
+  font: 13px/1.4 system-ui;
+}
+.scratch-tab-git[hidden] {
+  display: none;
+}
+.scratch-tab-git-icon {
+  flex-shrink: 0;
+}
+.scratch-tab-git-action {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+}
+.scratch-tab-git-action:hover:not(:disabled) {
+  background: var(--git-hover);
+}
+.scratch-tab-git-action:disabled {
+  opacity: 0.4;
+}
+.scratch-tab-git-title,
+.scratch-tab-git-section,
+.scratch-tab-git-repo-row,
+.scratch-tab-git-group-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 22px;
+  padding: 0 8px 0 4px;
+}
+.scratch-tab-git-title {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding-left: 14px;
+}
+.scratch-tab-git-title h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.scratch-tab-git-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  text-align: left;
+}
+.scratch-tab-git-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scratch-tab-git-section .scratch-tab-git-toggle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.scratch-tab-git-changes {
+  flex: 1;
+  min-height: 80px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.scratch-tab-git-repo-row {
+  padding-left: 12px;
+}
+.scratch-tab-git-repo-row .scratch-tab-git-toggle {
+  flex: 0 1 auto;
+  margin-right: auto;
+}
+.scratch-tab-git-branch {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: 40%;
+  padding: 0 4px;
+  color: var(--git-muted);
+  font-size: 12px;
+}
+.scratch-tab-git-branch span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scratch-tab-git-repo-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 4px 8px 6px 28px;
+}
+.scratch-tab-window .scratch-tab-git textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 30px;
+  height: 30px;
+  padding: 5px 7px;
+  border: 1px solid var(--line, #bbb);
+  border-radius: 3px;
+  color: inherit;
+  background: rgb(var(--bg-surface-rgb, 250 250 250));
+  font: inherit;
+  resize: vertical;
+}
+.scratch-tab-window .scratch-tab-git textarea:placeholder-shown {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.scratch-tab-window .scratch-tab-git textarea:focus-visible {
+  outline: 1px solid rgb(var(--accent-blue, 45 100 215));
+  outline-offset: -1px;
+}
+.scratch-tab-git-primary-row {
+  display: flex;
+  border-radius: 3px;
+  color: var(--git-on-accent);
+  background: rgb(var(--accent-blue, 45 100 215));
+}
+.scratch-tab-git-primary-row:has(.scratch-tab-git-primary:disabled) {
+  opacity: 0.5;
+}
+.scratch-tab-git .scratch-tab-git-primary {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 26px;
+  border: 0;
+  color: var(--git-on-accent);
+}
+.scratch-tab-git-primary-menu {
+  border-left: 1px solid rgb(var(--bg-surface-rgb, 250 250 250) / 0.35);
+}
+.scratch-tab-git-primary-menu .scratch-tab-git-action {
+  width: 26px;
+  height: 26px;
+  color: var(--git-on-accent);
+}
+.scratch-tab-git-primary-menu .scratch-tab-git-action:disabled {
+  opacity: 1;
+}
+.scratch-tab-git-menu {
+  position: relative;
+}
+.scratch-tab-git-menu [role='menu'] {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--line, #bbb);
+  border-radius: 5px;
+  color: rgb(var(--fg, 32 32 36));
+  background: rgb(var(--bg-surface-rgb, 250 250 250));
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+}
+.scratch-tab-git-menu [role='menuitem'] {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 3px;
+  text-align: left;
+  white-space: nowrap;
+}
+.scratch-tab-git-menu [role='menuitem']:hover,
+.scratch-tab-git-menu [role='menuitem']:focus-visible {
+  color: var(--git-on-accent);
+  background: rgb(var(--accent-blue, 45 100 215));
+}
+.scratch-tab-git-group {
+  margin: 0 -8px 0 -16px;
+}
+.scratch-tab-git-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 18px;
+  background: rgb(var(--fg, 32 32 36) / 0.15);
+}
+.scratch-tab-git-group-row .scratch-tab-git-action,
+.scratch-tab-git-file .scratch-tab-git-action {
+  opacity: 0;
+}
+.scratch-tab-git-group-row:hover .scratch-tab-git-action,
+.scratch-tab-git-group-row:focus-within .scratch-tab-git-action,
+.scratch-tab-git-file:hover .scratch-tab-git-action,
+.scratch-tab-git-file:focus-within .scratch-tab-git-action {
+  opacity: 1;
+}
+.scratch-tab-git-file {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 22px;
+  padding: 0 8px 0 22px;
+}
+.scratch-tab-git-file:hover,
+.scratch-tab-git-group-row:hover {
+  background: var(--git-hover);
+}
+.scratch-tab-git-file[data-selected] {
+  background: rgb(var(--accent-blue, 45 100 215) / 0.22);
+}
+.scratch-tab-git-file > button:first-child {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+.scratch-tab-git-file-name {
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scratch-tab-git-file-folder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--git-muted);
+  font-size: 12px;
+}
+.scratch-tab-git-letter {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+.scratch-tab-git-letter[data-status='M'],
+.scratch-tab-git-letter[data-status='T'] {
+  color: #c4a000;
+}
+.scratch-tab-git-letter[data-status='A'],
+.scratch-tab-git-letter[data-status='U'],
+.scratch-tab-git-letter[data-status='R'],
+.scratch-tab-git-letter[data-status='C'] {
+  color: #2e9b5a;
+}
+.scratch-tab-git-letter[data-status='D'] {
+  color: #d0473a;
+}
+.scratch-tab-git-graph {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  max-height: 35%;
+  min-height: 0;
+  border-top: 1px solid rgb(var(--accent-blue, 45 100 215) / 0.6);
+}
+.scratch-tab-git-graph,
+.scratch-tab-git-graph .scratch-tab-quick-pick {
+  position: static;
+}
+.scratch-tab-git-graph .scratch-tab-quick-pick {
+  min-width: 0;
+  max-width: 60%;
+}
+.scratch-tab-git-graph[style] {
+  max-height: none;
+  min-height: 60px;
+  flex-shrink: 1;
+}
+.scratch-tab-git-graph-pick > button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--git-muted);
+  font-size: 12px;
+}
+.scratch-tab-git-graph-pick > button:hover:not(:disabled) {
+  color: inherit;
+  background: var(--git-hover);
+}
+.scratch-tab-git-graph-pick > button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scratch-tab-git-graph .scratch-tab-quick-pick-menu {
+  /* Opens at the top of the Source Control panel, like VS Code's quick pick. */
+  top: 34px;
+  right: 6px;
+  bottom: auto;
+  left: 6px;
+  width: auto;
+  max-width: none;
+  max-height: calc(100% - 44px) !important;
+}
+.scratch-tab-git-commits {
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 4px;
+  overflow: auto;
+  list-style: none;
+}
+.scratch-tab-git-commits li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px 0 10px;
+}
+.scratch-tab-git-commits li:hover {
+  background: var(--git-hover);
+}
+.scratch-tab-git-lanes {
+  flex-shrink: 0;
+  overflow: visible;
+}
+.scratch-tab-git-lanes path {
+  fill: none;
+  stroke-width: 1.5;
+}
+.scratch-tab-git-node-ring {
+  fill: rgb(var(--bg-raised-rgb, 240 240 242));
+  stroke-width: 2;
+}
+.scratch-tab-git-subject {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scratch-tab-git-subject small {
+  margin-left: 8px;
+  color: var(--git-muted);
+  font-size: 12px;
+}
+li[data-head] .scratch-tab-git-subject {
+  font-weight: 600;
+}
+.scratch-tab-git-refs {
+  display: flex;
+  flex-shrink: 1;
+  gap: 3px;
+  min-width: 0;
+  max-width: 50%;
+}
+.scratch-tab-git-refs > span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 0 6px 0 4px;
+  border-radius: 9px;
+  color: rgb(var(--bg-surface-rgb, 250 250 250));
+  background: var(--ref-color);
+  font-size: 11px;
+  line-height: 18px;
+}
+.scratch-tab-git-refs > span[data-icon-only] {
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+.scratch-tab-git-refs .scratch-tab-git-icon {
+  width: 13px;
+  height: 13px;
+}
+.scratch-tab-git-refs > span > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scratch-tab-git-context {
+  position: absolute;
+  z-index: 6;
+  display: grid;
+  min-width: 190px;
+  padding: 4px;
+  border: 1px solid var(--line, #bbb);
+  border-radius: 6px;
+  background: rgb(var(--bg-surface-rgb, 250 250 250));
+  box-shadow: var(--shadow-pop, 0 8px 24px #0003);
+}
+.scratch-tab-git-context [role='menuitem'] {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 4px;
+  text-align: left;
+  white-space: nowrap;
+}
+.scratch-tab-git-context [role='menuitem']:disabled {
+  opacity: 0.45;
+}
+.scratch-tab-git-context [role='menuitem']:hover:not(:disabled),
+.scratch-tab-git-context [role='menuitem']:focus-visible {
+  outline: 0;
+  color: var(--git-on-accent);
+  background: rgb(var(--accent-blue, 45 100 215));
+}
+.scratch-tab-git .scratch-tab-git-reopen {
+  margin: 6px 12px;
+  padding: 3px 8px;
+  border: 1px dashed var(--line, #bbb);
+  border-radius: 4px;
+  color: var(--git-muted);
+  font-size: 12px;
+}
+.scratch-tab-git-empty {
+  color: var(--git-muted);
+}
+.scratch-tab-git .scratch-tab-git-status {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 4px 12px;
+  max-height: 6em;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.scratch-tab-git .scratch-tab-git-status:empty {
+  display: none;
+}
+.scratch-tab-git-repo-body p {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.scratch-tab-git-diff {
+  --diff-add: rgb(46 160 67 / 0.15);
+  --diff-add-gutter: rgb(46 160 67 / 0.3);
+  --diff-add-word: rgb(46 160 67 / 0.42);
+  --diff-delete: rgb(248 81 73 / 0.12);
+  --diff-delete-gutter: rgb(248 81 73 / 0.28);
+  --diff-delete-word: rgb(248 81 73 / 0.4);
+  --diff-muted: rgb(var(--fg, 32 32 36) / 0.6);
+  --diff-surface: rgb(var(--bg-surface-rgb, 250 250 250));
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--diff-surface);
+}
+.scratch-tab-diff-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line, #bbb);
+  background: rgb(var(--bg-raised-rgb, 240 240 242));
+  font: 12px/1.4 system-ui;
+}
+.scratch-tab-diff-stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.scratch-tab-diff-count-add {
+  color: #2da44e;
+}
+.scratch-tab-diff-count-delete {
+  color: #e5534b;
+}
+.scratch-tab-diff-blocks {
+  display: flex;
+  gap: 1px;
+}
+.scratch-tab-diff-blocks i {
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  background: rgb(var(--fg, 32 32 36) / 0.18);
+}
+.scratch-tab-diff-blocks i[data-kind='add'] {
+  background: #2da44e;
+}
+.scratch-tab-diff-blocks i[data-kind='delete'] {
+  background: #e5534b;
+}
+.scratch-tab-diff-path {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow: hidden;
+  font-family: ui-monospace, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+.scratch-tab-diff-path > * {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.scratch-tab-diff-path > span {
+  color: var(--diff-muted);
+}
+.scratch-tab-diff-label {
+  padding: 0 7px;
+  border: 1px solid var(--line, #bbb);
+  border-radius: 10px;
+  color: var(--diff-muted);
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.scratch-tab-diff-label[data-status='added'] {
+  border-color: #2da44e;
+  color: #2da44e;
+}
+.scratch-tab-diff-label[data-status='deleted'] {
+  border-color: #e5534b;
+  color: #e5534b;
+}
+.scratch-tab-diff-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.scratch-tab-git-diff .scratch-tab-diff-actions button {
+  min-height: 26px;
+  padding: 2px 10px;
+  border: 1px solid var(--line, #bbb);
+  border-radius: 6px;
+  background: var(--diff-surface);
+}
+.scratch-tab-git-diff .scratch-tab-diff-actions button:hover:not(:disabled) {
+  background: rgb(var(--fg, 32 32 36) / 0.08);
+}
+.scratch-tab-git-diff .scratch-tab-diff-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.scratch-tab-git-diff .scratch-tab-diff-actions button[aria-pressed='true'] {
+  border-color: rgb(var(--accent-blue, 45 100 215));
+  color: rgb(var(--accent-blue, 45 100 215));
+  background: rgb(var(--accent-blue, 45 100 215) / 0.12);
+}
+.scratch-tab-diff-segmented {
+  display: flex;
+}
+.scratch-tab-git-diff .scratch-tab-diff-segmented button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.scratch-tab-git-diff .scratch-tab-diff-segmented button:last-child {
+  margin-left: -1px;
+  border-radius: 0 6px 6px 0;
+}
+.scratch-tab-git-diff .scratch-tab-diff-actions .scratch-tab-diff-stage {
+  border-color: transparent;
+  color: #fff;
+  background: #238636;
+  font-weight: 600;
+}
+.scratch-tab-git-diff .scratch-tab-diff-actions .scratch-tab-diff-stage:hover:not(:disabled) {
+  background: #2ea043;
+}
+.scratch-tab-git-diff .scratch-tab-diff-actions .scratch-tab-diff-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+.scratch-tab-diff-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.scratch-tab-diff-table {
+  --diff-number-width: calc(var(--diff-digits, 2) * 1ch + 20px);
+  min-width: 100%;
+  border-collapse: collapse;
+  font:
+    12px/20px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  tab-size: var(--scratch-tab-size, 4);
+}
+.scratch-tab-diff-table[data-view='split'] {
+  width: 100%;
+  table-layout: fixed;
+}
+.scratch-tab-diff-number-column {
+  width: var(--diff-number-width);
+}
+.scratch-tab-diff-table td {
+  padding: 0;
+  vertical-align: top;
+}
+.scratch-tab-diff-number {
+  box-sizing: border-box;
+  width: var(--diff-number-width);
+  min-width: var(--diff-number-width);
+  padding: 0 10px !important;
+  color: var(--diff-muted);
+  text-align: right;
+  user-select: none;
+}
+.scratch-tab-diff-number::before {
+  content: attr(data-line);
+}
+.scratch-tab-diff-table[data-view='unified'] .scratch-tab-diff-number {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--diff-surface);
+}
+.scratch-tab-diff-table[data-view='unified'] .scratch-tab-diff-number + .scratch-tab-diff-number {
+  left: var(--diff-number-width);
+}
+.scratch-tab-diff-table[data-view='unified'] .scratch-tab-diff-number[data-kind='add'] {
+  background: linear-gradient(var(--diff-add-gutter), var(--diff-add-gutter)), var(--diff-surface);
+}
+.scratch-tab-diff-table[data-view='unified'] .scratch-tab-diff-number[data-kind='delete'] {
+  background:
+    linear-gradient(var(--diff-delete-gutter), var(--diff-delete-gutter)), var(--diff-surface);
+}
+.scratch-tab-diff-table[data-view='split'] .scratch-tab-diff-number[data-kind='add'] {
+  background: var(--diff-add-gutter);
+}
+.scratch-tab-diff-table[data-view='split'] .scratch-tab-diff-number[data-kind='delete'] {
+  background: var(--diff-delete-gutter);
+}
+.scratch-tab-diff-code {
+  width: 100%;
+  padding-right: 16px !important;
+  white-space: pre;
+}
+.scratch-tab-diff-table[data-wrap] .scratch-tab-diff-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.scratch-tab-diff-code::before {
+  content: attr(data-marker);
+  display: inline-block;
+  width: 22px;
+  text-align: center;
+  user-select: none;
+}
+.scratch-tab-diff-table[data-wrap] .scratch-tab-diff-code {
+  padding-left: 22px !important;
+  text-indent: -22px;
+}
+.scratch-tab-diff-code[data-kind='add'] {
+  background: var(--diff-add);
+}
+.scratch-tab-diff-code[data-kind='delete'] {
+  background: var(--diff-delete);
+}
+.scratch-tab-diff-code[data-kind='empty'],
+.scratch-tab-diff-number[data-kind='empty'] {
+  background: rgb(var(--fg, 32 32 36) / 0.04);
+}
+.scratch-tab-diff-code[data-kind='add'] mark {
+  color: inherit;
+  background: var(--diff-add-word);
+  border-radius: 2px;
+}
+.scratch-tab-diff-code[data-kind='delete'] mark {
+  color: inherit;
+  background: var(--diff-delete-word);
+  border-radius: 2px;
+}
+.scratch-tab-diff-eof {
+  margin-left: 6px;
+  color: #e5534b;
+  user-select: none;
+}
+.scratch-tab-diff-hunk td {
+  padding: 4px 10px !important;
+  color: var(--diff-muted);
+  background: rgb(var(--accent-blue, 45 100 215) / 0.1);
+  white-space: pre;
+}
+.scratch-tab-diff-table[data-view='unified'] .scratch-tab-diff-hunk td {
+  padding-left: calc(var(--diff-number-width) * 2 + 10px) !important;
+}
+.scratch-tab-diff-empty {
+  margin: 0;
+  padding: 32px 16px;
+  color: var(--diff-muted);
+  text-align: center;
+  font: 13px system-ui;
+}
+.scratch-tab-git button:focus-visible,
+.scratch-tab-git select:focus-visible,
+.scratch-tab-git-diff button:focus-visible,
+.scratch-tab-diff-body:focus-visible {
+  outline: 1px solid rgb(var(--accent-blue, 45 100 215));
+  outline-offset: -1px;
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .scratch-tab-activity > button {
+    width: 44px;
+    height: 44px;
+  }
+  .scratch-tab-git-diff .scratch-tab-diff-actions button {
+    min-height: 40px;
+  }
+  .scratch-tab-git-diff .scratch-tab-diff-actions .scratch-tab-diff-close {
+    width: 40px;
+  }
+  .scratch-tab-git-action,
+  .scratch-tab-git-primary-menu .scratch-tab-git-action {
+    width: 36px;
+    height: 36px;
+  }
+  .scratch-tab-git-toggle,
+  .scratch-tab-git-file,
+  .scratch-tab-git-file > button:first-child,
+  .scratch-tab-git .scratch-tab-git-primary {
+    min-height: 36px;
+  }
+  .scratch-tab-git-group-row .scratch-tab-git-action,
+  .scratch-tab-git-file .scratch-tab-git-action {
+    opacity: 1;
+  }
+}
+@media (max-width: 600px) {
+  .scratch-tab-git {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    max-width: none;
+  }
+  /* Sidebars are full-width drawers on phones, so only the graph stays resizable. */
+  .scratch-tab-sidebar-splitter {
+    display: none;
+  }
+  .scratch-tab-git-diff {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    border: 1px solid var(--line, #bbb);
+    border-radius: 6px;
+  }
+}
+
 .scratch-tab-splitter {
   position: relative;
   z-index: 3;
@@ -1262,11 +2084,5 @@
 @media (prefers-reduced-motion: reduce) {
   .scratch-tab-splitter {
     transition: none;
-  }
-}
-
-@media (max-width: 600px) {
-  .scratch-tab-sidebar-splitter {
-    display: none;
   }
 }

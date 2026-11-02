@@ -17,6 +17,6 @@
   },
   "backend": {
     "access": "registered",
-    "timeoutMs": 12000
+    "timeoutMs": 120000
   }
 }

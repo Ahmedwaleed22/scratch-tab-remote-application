@@ -1,3 +1,5 @@
+import type { GitApi } from '../model/git/application/git.js';
+import { useGit } from './useGit.js';
 import { usePanelSize } from './usePanelSize.js';
 import type { DirectoryEntry } from '../model/files/application/directory.js';
 import { createRef } from 'preact';
@@ -32,6 +34,7 @@ export interface EditorWindowBinding extends EditorBinding {
   onSeparate?(): void;
   /** Windows mounted outside a chat session have no sidebar. */
   fileTree?: FileTree;
+  git?: GitApi;
   onOpenFile?(entry: DirectoryEntry): void;
 }
 
@@ -108,7 +111,12 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
       }
     },
   );
-  const panels = { files: usePanelSize('files') };
+  const git = useGit(binding.git, binding.target.path, editor.state.status);
+  const panels = {
+    files: usePanelSize('files'),
+    git: usePanelSize('source-control'),
+    graph: usePanelSize('graph'),
+  };
   const sidebar = useFileSidebar(binding.fileTree, binding.target.path, binding.onOpenFile);
   useLayoutEffect(() => {
     if (!focusPreview.current) return;
@@ -169,6 +177,7 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
     [],
   );
   return {
+    git,
     panels,
     target: binding.target,
     tools,

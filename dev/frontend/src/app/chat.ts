@@ -1,3 +1,4 @@
+import type { GitApi } from '../model/git/application/git.js';
 import type { Directories } from '../port/files/outbound/directories.js';
 import type { ChatContext, Drafts, Files, FileTarget } from '../types.js';
 import type { EditorWindowView } from '../port/editor/outbound/view.js';
@@ -31,6 +32,7 @@ export function mountChat({
   context,
   drafts,
   files,
+  git,
   directories,
   launchIde,
   canLaunchIde,
@@ -38,6 +40,7 @@ export function mountChat({
   context: ChatContext;
   drafts: Drafts;
   files: Files;
+  git?: GitApi;
   directories?: Directories;
   launchIde(target: FileTarget): void;
   canLaunchIde?(target: FileTarget): boolean;
@@ -124,6 +127,7 @@ export function mountChat({
     };
     const windowView = mountEditorWindow({
       target,
+      git,
       documentModel,
       launchIde,
       canLaunchIde,

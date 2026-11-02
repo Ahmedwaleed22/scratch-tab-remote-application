@@ -13,9 +13,15 @@ import (
 
 func main() {
 	files := services.Files{Open: repositories.OpenWorkspace}
+	git := services.Git{Run: repositories.RunGit, Discover: repositories.DiscoverGit}
 	command := transport.Command{
-		Operate: func(request model.Request) model.Result { return files.Operate(config.WorkspaceRoot, request) },
-		Lock:    func() (io.Closer, error) { return repositories.Lock(config.CommandLockPath) },
+		Operate: func(request model.Request) model.Result {
+			if request.Git != nil {
+				return git.Operate(config.WorkspaceRoot, *request.Git)
+			}
+			return files.Operate(config.WorkspaceRoot, request)
+		},
+		Lock: func() (io.Closer, error) { return repositories.Lock(config.CommandLockPath) },
 	}
 	command.Serve(os.Stdin, os.Stdout, os.Stderr)
 }
