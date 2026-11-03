@@ -112,8 +112,7 @@
   tab-size: var(--scratch-tab-size, 4);
 }
 .scratch-tab-window textarea:focus-visible {
-  outline: 2px solid rgb(var(--accent-blue, 45 100 215) / 0.45);
-  outline-offset: -2px;
+  outline: none;
 }
 .scratch-tab-window footer {
   padding: 8px 12px;
