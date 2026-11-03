@@ -188,6 +188,11 @@ export function useEditorTools(
         event.preventDefault();
         event.stopPropagation();
         apply(edit);
+        if (event.key === 'Enter' && edit.selectionEnd === textarea.value.length) {
+          // Programmatic indentation insertion does not reveal the new trailing line.
+          textarea.scrollTop = textarea.scrollHeight;
+          textarea.dispatchEvent(new Event('scroll'));
+        }
       }
     },
     command(action: string) {

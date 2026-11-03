@@ -839,8 +839,10 @@ test('line numbers track edits, wrapping, scrolling and mobile sizing', async ()
           'translateY(-200px)',
         );
       }
-      if (name === 'Code')
-        await page.screenshot({ path: '/workspace/artifacts/scratch-tab-line-numbers-mobile.png' });
+      if (name === 'Code' && process.env.SCRATCH_TAB_SCREENSHOTS)
+        await page.screenshot({
+          path: process.env.SCRATCH_TAB_SCREENSHOTS + '-line-numbers-mobile.png',
+        });
     }
   } finally {
     await browser.close();
