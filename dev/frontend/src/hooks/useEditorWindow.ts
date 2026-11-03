@@ -1,3 +1,4 @@
+import { usePanelSize } from './usePanelSize.js';
 import type { DirectoryEntry } from '../model/files/application/directory.js';
 import { createRef } from 'preact';
 import type { Ref } from 'preact';
@@ -107,6 +108,7 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
       }
     },
   );
+  const panels = { files: usePanelSize('files') };
   const sidebar = useFileSidebar(binding.fileTree, binding.target.path, binding.onOpenFile);
   useLayoutEffect(() => {
     if (!focusPreview.current) return;
@@ -167,6 +169,7 @@ export function useEditorWindow(binding: EditorWindowBinding): EditorWindowProps
     [],
   );
   return {
+    panels,
     target: binding.target,
     tools,
     text: binding.session.text,
