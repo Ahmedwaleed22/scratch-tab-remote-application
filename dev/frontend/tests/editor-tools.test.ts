@@ -144,6 +144,32 @@ test('keyboard editing, indentation palette, native undo and Remote-style find w
     await input.press('Control+z');
     const beforeModeChange = await input.inputValue();
     await indent.click();
+    const actions = page.getByRole('combobox', { name: 'Select Action' });
+    await actions.press('Tab');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await actions.evaluate(node => document.activeElement === node), true);
+    assert.equal(
+      await page.getByRole('option', { selected: true }).textContent(),
+      'Indent Using Tabs',
+    );
+    await page.keyboard.press('ArrowUp');
+    assert.equal(
+      await page.getByRole('option', { selected: true }).textContent(),
+      'Indent Using Spaces',
+    );
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.getByRole('combobox', { name: 'Select Tab Size' }).press('Escape');
+    await indent.click();
+    await actions.fill('no matching action');
+    await actions.press('ArrowDown');
+    await actions.press('ArrowUp');
+    await actions.press('Enter');
+    assert.equal(await page.getByRole('option').count(), 0);
+    assert.equal(await actions.isVisible(), true);
+    assert.equal(await input.inputValue(), beforeModeChange);
+    await actions.press('Escape');
+    await indent.click();
     await page.getByRole('option', { name: 'Indent Using Tabs', exact: true }).click();
     await page.getByRole('option', { name: '4', exact: true }).click();
     assert.equal(await indent.textContent(), 'Tab Size: 4');

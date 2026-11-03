@@ -122,6 +122,7 @@ export default function QuickPick({
             }
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
               event.preventDefault();
+              input.current?.focus();
               setSelected(
                 (selected + (event.key === 'ArrowDown' ? 1 : filtered.length - 1)) %
                   Math.max(1, filtered.length),

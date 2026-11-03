@@ -82,7 +82,9 @@ export default function EditorWindow({
       onPointerDown={onRaise}
       style={{ '--scratch-tab-size': tools.indentation.size }}
       onKeyDownCapture={event => {
-        if (!(event.target instanceof Element && event.target.closest('.scratch-tab-quick-pick-menu')))
+        if (!(
+          event.target instanceof Element && event.target.closest('.scratch-tab-quick-pick-menu')
+        ))
           onEditorKeyDown(event);
       }}
       onKeyDown={event => {
