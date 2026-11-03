@@ -19,7 +19,6 @@ import { EditorDocument } from '../services/editorDocument.js';
 import { createFileTree } from '../services/fileTree.js';
 import { FileTreeState } from '../state/fileTree.js';
 import { sidebarPreference } from '../adapters/sidebarPreference.js';
-import { createDirectories } from '../api/directories.js';
 import { fileTarget } from '../links.js';
 
 export interface ChatSession {
@@ -32,7 +31,7 @@ export function mountChat({
   context,
   drafts,
   files,
-  directories = createDirectories(),
+  directories,
   launchIde,
   canLaunchIde,
 }: {
@@ -44,12 +43,14 @@ export function mountChat({
   canLaunchIde?(target: FileTarget): boolean;
 }): ChatSession {
   // One tree per project session, shared by every window's sidebar.
-  const fileTree = createFileTree({
-    directories,
-    chatId: context.chatId,
-    preference: sidebarPreference,
-    state: new FileTreeState(sidebarPreference.read()),
-  });
+  const fileTree = directories
+    ? createFileTree({
+        directories,
+        chatId: context.chatId,
+        preference: sidebarPreference,
+        state: new FileTreeState(sidebarPreference.read()),
+      })
+    : undefined;
   const windows = new Map<string, Item>();
   let layer = FIRST_WINDOW_LAYER;
   const nextLayer = () => ++layer;
@@ -191,7 +192,7 @@ export function mountChat({
       }
     }
     context = next;
-    fileTree.setChat(next.chatId);
+    fileTree?.setChat(next.chatId);
     for (const item of windows.values())
       item.window.setVisible(item.group.active === item.target.path);
     capture = new AbortController();
@@ -201,7 +202,7 @@ export function mountChat({
   const dispose = () => {
     suspend();
     for (const item of [...windows.values()]) item.window.close(true);
-    fileTree.dispose();
+    fileTree?.dispose();
   };
   dispose.setContext = setContext;
   dispose.suspend = suspend;

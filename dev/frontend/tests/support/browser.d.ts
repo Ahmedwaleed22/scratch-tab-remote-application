@@ -10,6 +10,7 @@ export interface FixtureModules {
   '/adapters/windowGeometry.js': typeof import('../../src/adapters/windowGeometry.js');
   '/presenters/markdown.js': typeof import('../../src/presenters/markdown.js');
   'api/files.js': typeof import('../../src/api/files.js');
+  '/api/directories.js': typeof import('../../src/api/directories.js');
   'api/directories.js': typeof import('../../src/api/directories.js');
   'services/fileTree.js': typeof import('../../src/services/fileTree.js');
   'state/fileTree.js': typeof import('../../src/state/fileTree.js');

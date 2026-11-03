@@ -3,6 +3,7 @@ import type { ChatSession } from './app/chat.js';
 import { mountUpdates } from './app/updates.js';
 import { mountUpdateNotice } from './app/updateNotice.js';
 import type { UpdateChecks } from './model/updates/application/state.js';
+import { createDirectories } from './api/directories.js';
 import { createFiles } from './api/files.js';
 import { render } from 'preact';
 import Button from './components/Button.js';
@@ -80,6 +81,7 @@ export default function activate(remote: Remote): void {
         context: { ...context, projectId: context.projectId, chatId: context.chatId },
         drafts,
         files: createFiles(remote.backend, context.projectId),
+        directories: createDirectories(remote.backend, context.projectId),
         canLaunchIde: target => target.hasDefaultEditor === true,
         launchIde: target => {
           if (target.hasDefaultEditor) window.open(target.ide, '_blank', 'noopener,noreferrer');
