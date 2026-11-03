@@ -112,8 +112,7 @@
   tab-size: var(--scratch-tab-size, 4);
 }
 .scratch-tab-window textarea:focus-visible {
-  outline: 2px solid rgb(var(--accent-blue, 45 100 215) / 0.45);
-  outline-offset: -2px;
+  outline: none;
 }
 .scratch-tab-window footer {
   padding: 8px 12px;
@@ -874,10 +873,70 @@
 .scratch-tab-window footer[hidden] {
   display: none;
 }
-.scratch-tab-source > textarea,
-.scratch-tab-source > .scratch-tab-codearea {
+.scratch-tab-source-content {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.scratch-tab-source-content > textarea,
+.scratch-tab-source-content > .scratch-tab-codearea {
   position: relative;
   z-index: 1;
+}
+.scratch-tab-line-numbers {
+  --scratch-line-width: calc(var(--scratch-line-digits, 2) * 1ch + 16px);
+  position: relative;
+  flex: 0 0 var(--scratch-line-width);
+  overflow: hidden;
+  border-right: 1px solid var(--line, #bbb);
+  background: rgb(var(--bg-raised-rgb, 240 240 242));
+  font:
+    13px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  pointer-events: none;
+  user-select: none;
+}
+.scratch-tab-line-mirror {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  color: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  tab-size: var(--scratch-tab-size, 4);
+  letter-spacing: normal;
+  font-variant-ligatures: none;
+}
+.scratch-tab-line-mirror > div {
+  position: relative;
+}
+.scratch-tab-line-mirror > div::before {
+  content: attr(data-line);
+  position: absolute;
+  right: calc(100% + 16px);
+  box-sizing: border-box;
+  width: var(--scratch-line-width);
+  padding-right: 8px;
+  color: rgb(var(--fg, 32 32 36) / 0.7);
+  text-align: right;
+  white-space: nowrap;
+}
+@media (max-width: 600px), (pointer: coarse) and (max-height: 500px) {
+  .scratch-tab-line-numbers {
+    font-size: 16px;
+  }
+  .scratch-tab-line-mirror {
+    padding: 12px;
+  }
+  .scratch-tab-line-mirror > div::before {
+    right: calc(100% + 12px);
+  }
 }
 .scratch-tab-find-highlights {
   position: absolute;

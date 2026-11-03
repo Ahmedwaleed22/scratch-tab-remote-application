@@ -1,3 +1,4 @@
+import LineNumbers from './LineNumbers.js';
 import type { JSX, RefObject } from 'preact';
 import EditorFindBar, { EditorFindHighlights } from './EditorFindBar.js';
 import IndentationControl from './IndentationControl.js';
@@ -196,19 +197,22 @@ export default function EditorWindow({
           ) : (
             <>
               <div class="scratch-tab-source" hidden={state.preview}>
-                <EditorFindHighlights tools={tools} text={text} />
-                {language ? (
-                  <SyntaxSurface
-                    language={language}
-                    textarea={elements.textarea}
-                    revision={state.revision}
-                    hidden={state.preview}
-                  >
-                    {input}
-                  </SyntaxSurface>
-                ) : (
-                  input
-                )}
+                <LineNumbers text={text} textarea={elements.textarea} />
+                <div class="scratch-tab-source-content">
+                  <EditorFindHighlights tools={tools} text={text} />
+                  {language ? (
+                    <SyntaxSurface
+                      language={language}
+                      textarea={elements.textarea}
+                      revision={state.revision}
+                      hidden={state.preview}
+                    >
+                      {input}
+                    </SyntaxSurface>
+                  ) : (
+                    input
+                  )}
+                </div>
               </div>
               {markdown && (
                 <MarkdownPreview

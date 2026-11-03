@@ -399,3 +399,103 @@ test('plain text and Markdown support find without changing the draft or leaking
     await browser.close();
   }
 });
+
+test('Enter at the end of a long file keeps each new line visible', async () => {
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await installBrowserImports(page);
+    await page.route('https://remote.test/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      return route.fulfill(
+        path.endsWith('.js')
+          ? { contentType: 'text/javascript', body: await runtimeModule(path) }
+          : { contentType: 'text/html', body: 'Editor fixture' },
+      );
+    });
+    await page.goto('https://remote.test/');
+    await page.addStyleTag({
+      content: await readFile(new URL('../ui/style/scratch.css', import.meta.url), 'utf8'),
+    });
+    for (const name of ['notes.txt', 'main.ts']) {
+      await page.evaluate(async name => {
+        window.view?.close(true);
+        const { mountEditorWindow } = await window.importModule('/app/editor.js');
+        const { EditorDocument } = await window.importModule('/services/editorDocument.js');
+        const { windowGeometry } = await window.importModule('/adapters/windowGeometry.js');
+        window.view = mountEditorWindow({
+          target: { name, path: '/workspace/' + name, ide: '', download: '' },
+          documentModel: new EditorDocument('/workspace/' + name, name, new Map(), {
+            async read() {
+              return { content: 'ready', revision: 'original' };
+            },
+            async save() {
+              return { revision: 'saved' };
+            },
+          }),
+          index: 0,
+          layoutPersistence: windowGeometry('enter-scroll'),
+          nextLayer: () => 101,
+          launchIde() {},
+          onClosed() {},
+        });
+      }, name);
+      const input = page.locator('textarea');
+      await page.waitForFunction(() => !document.querySelector('textarea')?.readOnly);
+      for (const width of [1280, 375]) {
+        await page.setViewportSize({ width, height: 800 });
+        const text = Array.from({ length: 80 }, (_, i) => `  line ${i}`).join('\n');
+        await input.fill(text);
+        await input.press('Control+End');
+        for (let i = 0; i < 4; i++) {
+          const before = await input.evaluate((node: HTMLTextAreaElement) => node.scrollTop);
+          await input.press('Enter');
+          await page.evaluate(
+            () => new Promise<void>(resolve => requestAnimationFrame(() => resolve())),
+          );
+          const position = await input.evaluate((node: HTMLTextAreaElement) => ({
+            top: node.scrollTop,
+            gap: node.scrollHeight - node.clientHeight - node.scrollTop,
+            selection: node.selectionEnd,
+            length: node.value.length,
+          }));
+          assert.ok(
+            position.top > before,
+            `New line must scroll into view: ${JSON.stringify(position)}`,
+          );
+          assert.ok(position.gap <= 1, `Last line must be visible: ${JSON.stringify(position)}`);
+          assert.equal(position.selection, position.length);
+          const lastNumber = await page
+            .locator('.scratch-tab-line-mirror > div')
+            .last()
+            .boundingBox();
+          const viewport = await input.boundingBox();
+          assert.ok(
+            lastNumber &&
+              viewport &&
+              lastNumber.y >= viewport.y &&
+              lastNumber.y + lastNumber.height <= viewport.y + viewport.height,
+          );
+          assert.ok((await input.inputValue()).endsWith('\n  '));
+        }
+        // Editing near the start must not jump to the end of the document.
+        await input.press('Control+Home');
+        await input.press('Enter');
+        assert.ok(
+          await input.evaluate((node: HTMLTextAreaElement) => node.scrollTop < node.clientHeight),
+        );
+      }
+    }
+    // Engines without insertText use setRangeText and must also reveal the new line.
+    await page.evaluate(() => {
+      document.execCommand = () => false;
+    });
+    const input = page.locator('textarea');
+    await input.press('Control+End');
+    const before = await input.evaluate((node: HTMLTextAreaElement) => node.scrollTop);
+    await input.press('Enter');
+    assert.ok((await input.evaluate((node: HTMLTextAreaElement) => node.scrollTop)) > before);
+  } finally {
+    await browser.close();
+  }
+});
